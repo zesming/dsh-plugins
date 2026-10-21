@@ -613,6 +613,7 @@ function stylesheet() {
 .dsu-empty{padding:44px 24px;text-align:center;font-size:13px;line-height:20px;color:var(--dsw-alias-label-tertiary)}
 .dsu-empty strong{display:block;margin-bottom:4px;font-size:14px;color:var(--dsw-alias-label-secondary)}
 .dsu-empty button,.dsu-retry{margin-top:12px;padding:6px 14px;border:1px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1);font:inherit;font-size:12.5px;color:var(--dsw-alias-label-primary);cursor:pointer}
+.dsu-error-code{display:block;margin:10px auto 0;max-width:520px;padding:6px 10px;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-markdown-code-block);color:var(--dsw-alias-label-secondary);font-family:var(--ds-font-family-code, ui-monospace, monospace);font-size:11px;line-height:16px;overflow-wrap:anywhere;text-align:left}
 .dsu-skeleton{display:flex;flex-direction:column;gap:10px;padding:24px 0}
 .dsu-skeleton i{display:block;height:12px;border-radius:6px;background:var(--dsw-alias-bg-skeleton)}
 .dsu-skeleton i:first-child{width:40%;height:26px}
@@ -771,7 +772,7 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
     return h2("div", { className: `dsu dsu-view`, "data-container": container }, h2("div", { className: "dsu-skeleton" }, h2("i"), h2("i"), h2("i")));
   }
   if (status.phase === "failed") {
-    return h2("div", { className: `dsu dsu-view`, "data-container": container }, h2("div", { className: "dsu-empty" }, h2("strong", null, t("loadFailedTitle")), h2("div", null, t("loadFailedBody")), h2("button", { type: "button", onClick: () => {
+    return h2("div", { className: `dsu dsu-view`, "data-container": container }, h2("div", { className: "dsu-empty" }, h2("strong", null, t("loadFailedTitle")), h2("div", null, t("loadFailedBody")), h2("code", { className: "dsu-error-code" }, status.error), h2("button", { type: "button", onClick: () => {
       setRefreshToken((value) => value + 1);
     } }, t("retry"))));
   }

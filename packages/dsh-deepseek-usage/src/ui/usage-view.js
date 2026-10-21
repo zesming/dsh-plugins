@@ -274,6 +274,10 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
       h('div', { className: 'dsu-empty' },
         h('strong', null, t('loadFailedTitle')),
         h('div', null, t('loadFailedBody')),
+        // The reason is shown rather than swallowed: a failed read is usually a
+        // wiring or configuration problem the reader can act on, and a generic
+        // sentence leaves them with nothing to report.
+        h('code', { className: 'dsu-error-code' }, status.error),
         h('button', { type: 'button', onClick: () => { setRefreshToken(value => value + 1) } }, t('retry')),
       ),
     )

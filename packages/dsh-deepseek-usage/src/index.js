@@ -179,7 +179,10 @@ export function apply(ctx, config = {}) {
     register({
       path: BALANCE_PATH,
       methods: ['GET'],
-      requestBody: 'none',
+      // Only `buffered` and `streaming` exist. Anything else falls into the
+      // streaming branch, which builds a half-duplex Request from the raw
+      // socket — wrong for a bodyless GET and enough to hang the response.
+      requestBody: 'buffered',
       fetch: async request => {
         const url = new URL(request.url)
         const force = url.searchParams.get('force') === '1'
@@ -204,7 +207,7 @@ export function apply(ctx, config = {}) {
     register({
       path: SERIES_PATH,
       methods: ['GET'],
-      requestBody: 'none',
+      requestBody: 'buffered',
       fetch: async request => {
         const url = new URL(request.url)
         const windowDays = intParam(url, 'windowDays', 365, MAX_WINDOW_DAYS)

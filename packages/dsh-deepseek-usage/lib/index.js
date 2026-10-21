@@ -451,7 +451,7 @@ function apply(ctx, config = {}) {
     register({
       path: BALANCE_PATH,
       methods: ["GET"],
-      requestBody: "none",
+      requestBody: "buffered",
       fetch: async (request) => {
         const url = new URL(request.url);
         const force = url.searchParams.get("force") === "1";
@@ -474,7 +474,7 @@ function apply(ctx, config = {}) {
     register({
       path: SERIES_PATH,
       methods: ["GET"],
-      requestBody: "none",
+      requestBody: "buffered",
       fetch: async (request) => {
         const url = new URL(request.url);
         const windowDays = intParam(url, "windowDays", 365, MAX_WINDOW_DAYS);

@@ -48,6 +48,15 @@ function account({ state = { status: 'credential-stored' }, balance, bonuses } =
   }
 }
 
+test('every route declares a body mode the carrier understands', async () => {
+  // The carrier recognizes exactly `buffered` and `streaming`; anything else is
+  // treated as streaming and hands the handler a half-duplex Request.
+  const { routes } = harness({ sessionQuery: undefined })
+  for (const route of routes.values()) {
+    assert.ok(['buffered', 'streaming'].includes(route.requestBody), `${route.path}: ${String(route.requestBody)}`)
+  }
+})
+
 test('both routes register and answer JSON without store caching', async () => {
   const { routes } = harness({ sessionQuery: { listSessions: async () => [], readSession: async () => ({ events: [] }) } })
   assert.deepEqual([...routes.keys()].sort(), [BALANCE_PATH, SERIES_PATH])
