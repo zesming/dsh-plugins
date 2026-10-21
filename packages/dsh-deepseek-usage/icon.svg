@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DeepSeek Balance and Usage">
+  <rect width="64" height="64" rx="14" fill="#4176e6"/>
+  <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 40V26M22 40V18M30 40V30M38 40V22M46 40V32"/>
+  </g>
+  <path d="M13 47h38" stroke="#fff" stroke-opacity=".55" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="46" cy="20" r="5" fill="#fff"/>
+</svg>

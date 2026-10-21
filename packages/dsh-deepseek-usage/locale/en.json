@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DeepSeek Balance & Usage",
+    "description": "Shows your DeepSeek account balance and expiring credit in the sidebar, plus a token-usage heatmap by day, week, or cumulative total."
+  }
+}

@@ -1,0 +1,157 @@
+/**
+ * The plugin's own dictionaries.
+ *
+ * DeepSeek Harness ships English and Simplified Chinese; these mirror that
+ * pair, with Chinese as the key-set source of truth so a missing translation
+ * fails a test rather than rendering a raw key.
+ */
+
+/** Simplified Chinese dictionary. */
+const zh = {
+  balance: '余额',
+  officialAccount: 'DeepSeek 官方账户',
+  balanceNote: '余额由 DeepSeek 平台实时返回',
+  balanceNoteUnavailable: '暂时无法读取余额，可稍后重试',
+  balanceUnavailable: '暂时无法读取',
+  expiresIn: '{amount} 将在 {when}过期',
+  usage: '用量',
+  topUp: '充值',
+  refreshNow: '立即刷新',
+  refreshing: '正在刷新…',
+  nav: '用量',
+  title: '用量',
+  subtitle: '来自本机会话日志',
+  cumulativeTokens: '累计 tokens',
+  calls: '{count} 次调用 · 含缓存读取',
+  last7: '近 7 天',
+  dailyAverage: '日均 {value}',
+  cacheRead: '缓存读取',
+  cacheShare: '占 {percent}%',
+  output: '输出',
+  input: '输入 {value}',
+  viewDay: '按天',
+  viewWeek: '按周',
+  viewTotal: '累计',
+  channelOfficial: '官方账号',
+  channelApiKey: 'API Key',
+  channelRelay: '第三方',
+  channelUnknown: '未知通道',
+  excludeSubagents: '排除子代理',
+  dayHint: '近 12 个月 · 每格一天',
+  weekHint: '近 26 周 · 每格一周',
+  totalHint: '每周堆叠 · 每个颜色一个模型',
+  totalHintWeekly: '悬停查看该周合计',
+  colorHint: '颜色越浓 tokens 越多',
+  less: '少',
+  more: '多',
+  byModel: '按模型',
+  model: '模型',
+  modelCalls: '调用',
+  modelInput: '输入',
+  modelOutput: '输出',
+  modelCache: '缓存读取',
+  modelTotal: '合计',
+  modelShare: '占比',
+  noUsageTitle: '还没有用量记录',
+  noUsageBody: '选中的通道下没有任何模型的调用记录。',
+  noData: '没有数据',
+  loadFailedTitle: '用量读取失败',
+  loadFailedBody: '本机日志暂时无法读取，请稍后重试。',
+  retry: '重试',
+  refresh: '刷新',
+  close: '关闭',
+  truncated: '会话过多，仅统计了最近 {count} 个会话。',
+  failedSessions: '{count} 个会话读取失败，未计入。',
+  footnote: '统计来源：本机会话日志中每次模型调用的 usage 记录，按本地时区归日。总量含缓存读取，缓存单独展示。',
+  channelNote: '会话日志不记录 DeepSeek 账号 ID，因此这里按接入通道区分，而不是按账号。',
+  subagentTotal: '其中子代理 {value}',
+}
+
+/** English dictionary, checked complete against the Chinese key set. */
+const en = {
+  balance: 'Balance',
+  officialAccount: 'DeepSeek account',
+  balanceNote: 'Returned live by the DeepSeek platform',
+  balanceNoteUnavailable: 'Balance is temporarily unavailable; try again shortly',
+  balanceUnavailable: 'Temporarily unavailable',
+  expiresIn: '{amount} expires {when}',
+  usage: 'Usage',
+  topUp: 'Top up',
+  refreshNow: 'Refresh now',
+  refreshing: 'Refreshing…',
+  nav: 'Usage',
+  title: 'Usage',
+  subtitle: 'From this machine\'s Session logs',
+  cumulativeTokens: 'Total tokens',
+  calls: '{count} calls · cache reads included',
+  last7: 'Last 7 days',
+  dailyAverage: '{value} per day',
+  cacheRead: 'Cache reads',
+  cacheShare: '{percent}% of total',
+  output: 'Output',
+  input: '{value} input',
+  viewDay: 'Daily',
+  viewWeek: 'Weekly',
+  viewTotal: 'Cumulative',
+  channelOfficial: 'Account',
+  channelApiKey: 'API key',
+  channelRelay: 'Third party',
+  channelUnknown: 'Unknown',
+  excludeSubagents: 'Exclude subagents',
+  dayHint: 'Last 12 months · one cell per day',
+  weekHint: 'Last 26 weeks · one cell per week',
+  totalHint: 'Weekly stacked · one color per model',
+  totalHintWeekly: 'Hover a bar for that week\'s total',
+  colorHint: 'Stronger color means more tokens',
+  less: 'Less',
+  more: 'More',
+  byModel: 'By model',
+  model: 'Model',
+  modelCalls: 'Calls',
+  modelInput: 'Input',
+  modelOutput: 'Output',
+  modelCache: 'Cache',
+  modelTotal: 'Total',
+  modelShare: 'Share',
+  noUsageTitle: 'No usage recorded yet',
+  noUsageBody: 'No model calls were recorded for the selected channels.',
+  noData: 'No data',
+  loadFailedTitle: 'Could not read usage',
+  loadFailedBody: 'The local Session logs are unavailable right now. Try again shortly.',
+  retry: 'Retry',
+  refresh: 'Refresh',
+  close: 'Close',
+  truncated: 'Too many Sessions; only the most recent {count} were counted.',
+  failedSessions: '{count} Sessions could not be read and are excluded.',
+  footnote: 'Source: the usage record of every model call in this machine\'s Session logs, bucketed by local calendar day. Totals include cache reads; cache is also shown separately.',
+  channelNote: 'Session logs do not record a DeepSeek account id, so this axis is the access channel rather than the account.',
+  subagentTotal: '{value} of it from subagents',
+}
+
+/** The dictionary namespaces and their rows. */
+export const dictionaries = { zh, en }
+
+/** Key set used to validate every translation. */
+export const keys = Object.keys(zh)
+
+/**
+ * Interpolate `{name}` placeholders.
+ *
+ * @param template - dictionary row.
+ * @param values - placeholder values.
+ * @returns the filled text.
+ */
+export function interpolate(template, values) {
+  if (values === undefined) return template
+  return template.replace(/\{(\w+)\}/g, (match, name) => (name in values ? String(values[name]) : match))
+}
+
+/**
+ * Pick a dictionary for the active language.
+ *
+ * @param language - active UI language such as `zh-CN`.
+ * @returns dictionary rows.
+ */
+export function dictionaryFor(language) {
+  return String(language ?? '').toLowerCase().startsWith('zh') ? zh : en
+}
