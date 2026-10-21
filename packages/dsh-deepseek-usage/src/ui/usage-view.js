@@ -157,6 +157,10 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
   const [touched, setTouched] = React.useState(false)
   const [refreshToken, setRefreshToken] = React.useState(0)
   const [hover, setHover] = React.useState(undefined)
+  /** Accept either the next readout or an updater, so a map can move one. */
+  const reportHover = React.useCallback(next => {
+    setHover(current => (typeof next === 'function' ? next(current) : next))
+  }, [])
 
   // Only the explicit refresh bypasses the Host cache; a later mount or a
   // re-render must still be able to reuse a recent scan.
@@ -289,10 +293,10 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
         h('div', null, t('noUsageBody')),
       )
     : view === 'day'
-      ? h(DayHeatmap, { series, today, t, onHover: setHover })
+      ? h(DayHeatmap, { series, today, t, onHover: reportHover })
       : view === 'week'
-        ? h(WeekHeatmap, { series, today, t, onHover: setHover })
-        : h(CumulativeChart, { series, today, t })
+        ? h(WeekHeatmap, { series, today, t, onHover: reportHover })
+        : h(CumulativeChart, { series, today, t, onHover: reportHover })
 
   const notices = []
   if (status.payload.truncated) notices.push(t('truncated', { count: groupCount(status.payload.scannedSessions) }))
@@ -301,7 +305,6 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
   return h('div', {
     className: 'dsu dsu-view',
     'data-container': container,
-    onMouseLeave: () => { setHover(undefined) },
   },
     header,
     controls,
@@ -376,6 +379,8 @@ export function DayHeatmap({ series, today, t, onHover }) {
                 preserveAspectRatio: 'xMidYMid meet',
                 role: 'img',
                 'aria-label': `${row.model} daily token usage`,
+                onMouseLeave: () => { onHover(undefined) },
+                onMouseMove: event => { onHover(current => (current === undefined ? current : { ...current, x: event.clientX, y: event.clientY })) },
               },
                 columns.flatMap((column, weekIndex) => column.map((date, dayIndex) => {
                   const key = keyOf(date)
@@ -450,6 +455,8 @@ export function WeekHeatmap({ series, today, t, onHover }) {
             preserveAspectRatio: 'none',
             role: 'img',
             'aria-label': `${row.model} weekly token usage`,
+            onMouseLeave: () => { onHover(undefined) },
+            onMouseMove: event => { onHover(current => (current === undefined ? current : { ...current, x: event.clientX, y: event.clientY })) },
           },
             sums.map((value, index) => h('rect', {
               key: index,
@@ -531,6 +538,7 @@ export function CumulativeChart({ series, today, t, onHover }) {
       preserveAspectRatio: 'none',
       role: 'img',
       'aria-label': t('viewTotal'),
+      onMouseLeave: () => { onHover(undefined) },
     },
       [0, 0.5, 1].map(fraction => {
         const value = max * fraction

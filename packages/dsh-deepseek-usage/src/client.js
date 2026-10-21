@@ -11,7 +11,7 @@
 import React from 'react'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 
-import { BARS } from './ui/icons.js'
+import { USAGE } from './ui/icons.js'
 import { BalanceRow, Glyph } from './ui/balance-row.js'
 import { Styles, UsageView } from './ui/usage-view.js'
 import { dictionaryFor, interpolate } from './ui/locale.js'
@@ -103,7 +103,7 @@ export function apply(ctx) {
     order: 20,
     locale: NS,
     label: () => t()('usage'),
-  }, () => h(Glyph, { description: BARS })))
+  }, () => h(Glyph, { description: USAGE })))
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',

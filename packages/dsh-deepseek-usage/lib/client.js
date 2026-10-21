@@ -88,14 +88,16 @@ var import_react = __toESM(require("react"));
 var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"));
 
 // packages/dsh-deepseek-usage/src/ui/icons.js
-function glyph(children, size) {
+var MEDIUM = 1.45;
+var REGULAR = 1;
+function glyph(children, size, weight = MEDIUM) {
   return {
-    viewBox: "0 0 24 24",
+    viewBox: "0 0 16 16",
     width: size,
     height: size,
     fill: "none",
     stroke: "currentColor",
-    strokeWidth: 1.7,
+    strokeWidth: weight,
     strokeLinecap: "round",
     strokeLinejoin: "round",
     "aria-hidden": true,
@@ -103,27 +105,26 @@ function glyph(children, size) {
     children
   };
 }
+var USAGE = glyph([
+  { d: "M2 2h4.6v4.6H2z" },
+  { d: "M9.4 2h4.6v4.6H9.4z", fill: "currentColor", "fill-opacity": 0.32 },
+  { d: "M2 9.4h4.6v4.6H2z", fill: "currentColor", "fill-opacity": 0.62 },
+  { d: "M9.4 9.4h4.6v4.6H9.4z", fill: "currentColor", stroke: "none" }
+], 16);
 var WALLET = glyph([
-  { d: "M3 8.5A2.5 2.5 0 0 1 5.5 6H18a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5z" },
-  { d: "M3 8.5V7a2 2 0 0 1 2-2h11" },
-  { cx: 16.5, cy: 12.5, r: 1.1, fill: "currentColor", stroke: "none" }
+  { d: "M1.9 5.4a1.7 1.7 0 0 1 1.7-1.7h8.5a2 2 0 0 1 2 2v5.4a1.7 1.7 0 0 1-1.7 1.7H3.6a1.7 1.7 0 0 1-1.7-1.7z" },
+  { d: "M1.9 5.4V4.6a1.4 1.4 0 0 1 1.4-1.4h7.4" },
+  { cx: 11.1, cy: 8.6, r: 0.85, fill: "currentColor", stroke: "none" }
 ], 16);
 var CLOCK = glyph([
-  { cx: 12, cy: 12, r: 9 },
-  { d: "M12 7v5l3 2" }
-], 11);
-var GRID = glyph([
-  { d: "M5 19V10M11 19V5M17 19v-6" },
-  { d: "M3 21h18" }
-], 15);
-var PLUS = glyph([{ d: "M12 5v14M5 12h14" }], 15);
+  { cx: 8, cy: 8, r: 5.8 },
+  { d: "M8 4.7v3.5l2.2 1.4" }
+], 11, REGULAR);
+var PLUS = glyph([{ d: "M8 3.2v9.6M3.2 8h9.6" }], 15);
 var REFRESH = glyph([
-  { d: "M20 12a8 8 0 1 1-2.3-5.6" },
-  { d: "M20 4v4h-4" }
+  { d: "M13.2 8a5.2 5.2 0 1 1-1.5-3.7" },
+  { d: "M13.2 2.6v3.1h-3.1" }
 ], 15);
-var BARS = glyph([
-  { d: "M4 19V9M10 19V5M16 19v-7M22 19H2" }
-], 18);
 
 // packages/dsh-deepseek-usage/src/ui/api.js
 var BALANCE_ROUTE = "api/deepseek-usage.balance";
@@ -340,7 +341,7 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
       {
         id: "usage",
         label: t("usage"),
-        icon: h(Glyph, { description: GRID })
+        icon: h(Glyph, { description: USAGE })
       },
       {
         id: "topup",
@@ -703,6 +704,9 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
   const [touched, setTouched] = React.useState(false);
   const [refreshToken, setRefreshToken] = React.useState(0);
   const [hover, setHover] = React.useState(undefined);
+  const reportHover = React.useCallback((next) => {
+    setHover((current) => typeof next === "function" ? next(current) : next);
+  }, []);
   const forceNext = React.useRef(false);
   React.useEffect(() => {
     if (initialRefreshToken === undefined || initialRefreshToken === 0)
@@ -776,7 +780,7 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
       setRefreshToken((value) => value + 1);
     } }, t("retry"))));
   }
-  const body = models.length === 0 ? h2("div", { className: "dsu-empty" }, h2("strong", null, t("noUsageTitle")), h2("div", null, t("noUsageBody"))) : view === "day" ? h2(DayHeatmap, { series, today, t, onHover: setHover }) : view === "week" ? h2(WeekHeatmap, { series, today, t, onHover: setHover }) : h2(CumulativeChart, { series, today, t });
+  const body = models.length === 0 ? h2("div", { className: "dsu-empty" }, h2("strong", null, t("noUsageTitle")), h2("div", null, t("noUsageBody"))) : view === "day" ? h2(DayHeatmap, { series, today, t, onHover: reportHover }) : view === "week" ? h2(WeekHeatmap, { series, today, t, onHover: reportHover }) : h2(CumulativeChart, { series, today, t, onHover: reportHover });
   const notices = [];
   if (status.payload.truncated)
     notices.push(t("truncated", { count: groupCount(status.payload.scannedSessions) }));
@@ -784,10 +788,7 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
     notices.push(t("failedSessions", { count: groupCount(status.payload.failedSessions) }));
   return h2("div", {
     className: "dsu dsu-view",
-    "data-container": container,
-    onMouseLeave: () => {
-      setHover(undefined);
-    }
+    "data-container": container
   }, header, controls, body, h2(ModelTable, { series, totals, t }), h2("p", { className: "dsu-foot" }, t("footnote"), " ", t("channelNote"), notices.length > 0 ? ` ${notices.join(" ")}` : null), hover !== undefined && h2(Tooltip, { hover, language, t }));
 }
 function h26(value) {
@@ -813,7 +814,13 @@ function DayHeatmap({ series, today, t, onHover }) {
       viewBox: `0 0 ${String(width)} ${String(height)}`,
       preserveAspectRatio: "xMidYMid meet",
       role: "img",
-      "aria-label": `${row.model} daily token usage`
+      "aria-label": `${row.model} daily token usage`,
+      onMouseLeave: () => {
+        onHover(undefined);
+      },
+      onMouseMove: (event) => {
+        onHover((current) => current === undefined ? current : { ...current, x: event.clientX, y: event.clientY });
+      }
     }, columns.flatMap((column, weekIndex) => column.map((date, dayIndex) => {
       const key = keyOf(date);
       if (key > todayKey)
@@ -855,7 +862,13 @@ function WeekHeatmap({ series, today, t, onHover }) {
       viewBox: `0 0 ${String(width)} ${String(height)}`,
       preserveAspectRatio: "none",
       role: "img",
-      "aria-label": `${row.model} weekly token usage`
+      "aria-label": `${row.model} weekly token usage`,
+      onMouseLeave: () => {
+        onHover(undefined);
+      },
+      onMouseMove: (event) => {
+        onHover((current) => current === undefined ? current : { ...current, x: event.clientX, y: event.clientY });
+      }
     }, sums.map((value, index) => h2("rect", {
       key: index,
       x: index * (WEEK_CELL + WEEK_GAP),
@@ -895,7 +908,10 @@ function CumulativeChart({ series, today, t, onHover }) {
     viewBox: `0 0 ${String(W)} ${String(HGT)}`,
     preserveAspectRatio: "none",
     role: "img",
-    "aria-label": t("viewTotal")
+    "aria-label": t("viewTotal"),
+    onMouseLeave: () => {
+      onHover(undefined);
+    }
   }, [0, 0.5, 1].map((fraction) => {
     const value = max * fraction;
     const compact = compactTokens(value);
@@ -1157,7 +1173,7 @@ function apply(ctx) {
     order: 20,
     locale: NS,
     label: () => t()("usage")
-  }, () => h3(Glyph, { description: BARS })));
+  }, () => h3(Glyph, { description: USAGE })));
   ctx.slots.inject("settings.section", () => ctx.slots.register({
     name: "settings.section",
     id: SECTION_ID,

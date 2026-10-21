@@ -10,7 +10,7 @@
 
 import { fetchBalance } from './api.js'
 import { formatMoney, relativeDays } from './format.js'
-import { CLOCK, GRID, PLUS, WALLET } from './icons.js'
+import { CLOCK, PLUS, USAGE, WALLET } from './icons.js'
 
 const h = React.createElement
 
@@ -163,7 +163,7 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives
         {
           id: 'usage',
           label: t('usage'),
-          icon: h(Glyph, { description: GRID }),
+          icon: h(Glyph, { description: USAGE }),
         },
         {
           id: 'topup',

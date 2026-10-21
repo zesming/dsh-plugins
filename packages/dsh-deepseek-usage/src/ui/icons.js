@@ -1,20 +1,35 @@
 /**
  * Inline glyphs owned by this plugin.
  *
- * They are drawn here rather than imported from the host's icon set because a
- * bundle may be installed against a host whose primitives export a different
- * subset; these only need the current color.
+ * They follow the product's icon conventions rather than a private set: a
+ * 16-unit box, `fill: none`, and a stroke that inherits `currentColor`, so a
+ * glyph sits at the same optical weight as the shipped icons next to it. Two
+ * weights exist for the same reason the product has two: `Medium` for an icon
+ * that must hold its own in a menu, `Regular` for a quieter inline mark.
  */
 
-/** Wrap path children in one 20px box that inherits `currentColor`. */
-function glyph(children, size) {
+/** Stroke width of the product's `Medium` icon variant. */
+const MEDIUM = 1.45
+
+/** Stroke width of the product's `Regular` icon variant. */
+const REGULAR = 1
+
+/**
+ * Wrap shape children in the product's 16-unit icon box.
+ *
+ * @param children - SVG child descriptors.
+ * @param size - rendered edge length in pixels.
+ * @param weight - stroke width; defaults to the `Medium` variant.
+ * @returns a descriptor `Glyph` can render.
+ */
+function glyph(children, size, weight = MEDIUM) {
   return {
-    viewBox: '0 0 24 24',
+    viewBox: '0 0 16 16',
     width: size,
     height: size,
     fill: 'none',
     stroke: 'currentColor',
-    strokeWidth: 1.7,
+    strokeWidth: weight,
     strokeLinecap: 'round',
     strokeLinejoin: 'round',
     'aria-hidden': true,
@@ -23,35 +38,40 @@ function glyph(children, size) {
   }
 }
 
+/**
+ * The usage mark: four activity cells at rising intensity.
+ *
+ * A 3×3 lattice disappears into a grey block at 14px, and a bar chart already
+ * means two other things in this product's navigation. Four larger cells carry
+ * the same idea the page draws — an intensity scale — and stay legible small:
+ * one outline, one light fill, one mid, one solid, reading top-left to
+ * bottom-right as the scale the heatmap uses.
+ */
+export const USAGE = glyph([
+  { d: 'M2 2h4.6v4.6H2z' },
+  { d: 'M9.4 2h4.6v4.6H9.4z', fill: 'currentColor', 'fill-opacity': 0.32 },
+  { d: 'M2 9.4h4.6v4.6H2z', fill: 'currentColor', 'fill-opacity': 0.62 },
+  { d: 'M9.4 9.4h4.6v4.6H9.4z', fill: 'currentColor', stroke: 'none' },
+], 16)
+
 /** Wallet glyph for the balance row. */
 export const WALLET = glyph([
-  { d: 'M3 8.5A2.5 2.5 0 0 1 5.5 6H18a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5z' },
-  { d: 'M3 8.5V7a2 2 0 0 1 2-2h11' },
-  { cx: 16.5, cy: 12.5, r: 1.1, fill: 'currentColor', stroke: 'none' },
+  { d: 'M1.9 5.4a1.7 1.7 0 0 1 1.7-1.7h8.5a2 2 0 0 1 2 2v5.4a1.7 1.7 0 0 1-1.7 1.7H3.6a1.7 1.7 0 0 1-1.7-1.7z' },
+  { d: 'M1.9 5.4V4.6a1.4 1.4 0 0 1 1.4-1.4h7.4' },
+  { cx: 11.1, cy: 8.6, r: 0.85, fill: 'currentColor', stroke: 'none' },
 ], 16)
 
 /** Clock glyph for the expiry line. */
 export const CLOCK = glyph([
-  { cx: 12, cy: 12, r: 9 },
-  { d: 'M12 7v5l3 2' },
-], 11)
-
-/** Bar-chart glyph for the usage entry; denser than a grid at 15px. */
-export const GRID = glyph([
-  { d: 'M5 19V10M11 19V5M17 19v-6' },
-  { d: 'M3 21h18' },
-], 15)
+  { cx: 8, cy: 8, r: 5.8 },
+  { d: 'M8 4.7v3.5l2.2 1.4' },
+], 11, REGULAR)
 
 /** Plus glyph for the top-up entry. */
-export const PLUS = glyph([{ d: 'M12 5v14M5 12h14' }], 15)
+export const PLUS = glyph([{ d: 'M8 3.2v9.6M3.2 8h9.6' }], 15)
 
-/** Refresh glyph for the manual refresh entry. */
+/** Refresh glyph, kept for hosts that render their own controls. */
 export const REFRESH = glyph([
-  { d: 'M20 12a8 8 0 1 1-2.3-5.6' },
-  { d: 'M20 4v4h-4' },
+  { d: 'M13.2 8a5.2 5.2 0 1 1-1.5-3.7' },
+  { d: 'M13.2 2.6v3.1h-3.1' },
 ], 15)
-
-/** Bar-chart glyph for the global panel navigation seat. */
-export const BARS = glyph([
-  { d: 'M4 19V9M10 19V5M16 19v-7M22 19H2' },
-], 18)
