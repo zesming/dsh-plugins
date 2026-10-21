@@ -85,6 +85,7 @@ __export(exports_client, {
 });
 module.exports = __toCommonJS(exports_client);
 var import_react = __toESM(require("react"));
+var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"));
 
 // packages/dsh-deepseek-usage/src/ui/icons.js
 function glyph(children, size) {
@@ -134,21 +135,30 @@ function identity(url) {
   url.searchParams.set("tz", String(tz));
   return url;
 }
+function unreachable(error) {
+  return { signedIn: false, available: false, error };
+}
 async function fetchBalance(options = {}) {
   const url = identity(new URL(BALANCE_ROUTE, document.baseURI));
   if (options.force === true)
     url.searchParams.set("force", "1");
+  let response;
   try {
-    const response = await fetch(url, { signal: options.signal, headers: { accept: "application/json" } });
-    if (!response.ok)
-      return { signedIn: true, available: false, error: `http-${String(response.status)}` };
-    const payload = await response.json();
-    return typeof payload === "object" && payload !== null ? payload : { signedIn: true, available: false, error: "malformed" };
+    response = await fetch(url, { signal: options.signal, headers: { accept: "application/json" } });
   } catch (error) {
     if (error?.name === "AbortError")
       throw error;
-    return { signedIn: true, available: false, error: "network" };
+    return unreachable("network");
   }
+  if (!response.ok)
+    return unreachable(`http-${String(response.status)}`);
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    return unreachable("malformed");
+  }
+  return typeof payload === "object" && payload !== null ? payload : unreachable("malformed");
 }
 async function fetchSeries(options = {}) {
   const url = new URL(SERIES_ROUTE, document.baseURI);
@@ -236,10 +246,12 @@ function Glyph({ description }) {
   const { children, ...attributes } = description;
   return h("svg", attributes, children.map((child, index) => h(child.cx === undefined ? "path" : "circle", { key: index, ...child })));
 }
-function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
+function menuOf(primitives) {
+  return typeof primitives?.Menu === "function" ? primitives.Menu : undefined;
+}
+function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
   const [state, setState] = React.useState({ status: "loading" });
   const [open, setOpen] = React.useState(false);
-  const [refreshing, setRefreshing] = React.useState(false);
   const anchor = React.useRef(null);
   const trigger = React.useRef(null);
   const inflight = React.useRef(undefined);
@@ -254,7 +266,7 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
         setState({ status: "ready", payload: payload2 });
     } catch (error) {
       if (error?.name !== "AbortError" && mounted.current && inflight.current === controller) {
-        setState({ status: "ready", payload: { signedIn: true, available: false, error: "network" } });
+        setState({ status: "ready", payload: { signedIn: false, available: false, error: "network" } });
       }
     } finally {
       if (inflight.current === controller)
@@ -265,7 +277,7 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
     mounted.current = true;
     load(false);
     const tick = () => {
-      if (document.visibilityState !== "visible")
+      if (document.visibilityState !== "visible" || open)
         return;
       load(false);
     };
@@ -282,27 +294,15 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [load]);
-  React.useEffect(() => {
-    if (!open)
-      return;
-    const onPointer = (event) => {
-      if (anchor.current !== null && !anchor.current.contains(event.target))
-        setOpen(false);
-    };
-    const onKey = (event) => {
-      if (event.key !== "Escape")
-        return;
-      setOpen(false);
-      trigger.current?.focus();
-    };
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  }, [load, open]);
+  const openMenu = () => {
+    setOpen((value) => {
+      const next = !value;
+      if (next)
+        load(true);
+      return next;
+    });
+  };
   if (state.status === "loading")
     return null;
   const payload = state.payload;
@@ -315,37 +315,8 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
     amount: formatMoney(expiring.amount, expiring.currency ?? payload.currency),
     when: relativeDays(expiring.daysLeft, language)
   }) : ready ? null : t("balanceUnavailable");
-  return h("div", { className: "dsu dsu-anchor", ref: anchor }, open && h("div", { className: "dsu-pop", "data-collapsed": !wide, role: "menu", "aria-label": t("balance") }, h("div", { className: "dsu-pop-head" }, h("span", { className: "dsu-pop-title" }, t("officialAccount")), h("span", { className: "dsu-pop-note" }, ready ? t("balanceNote") : t("balanceNoteUnavailable"))), h("button", {
-    type: "button",
-    role: "menuitem",
-    className: "dsu-pop-item",
-    onClick: () => {
-      setOpen(false);
-      openUsage();
-    }
-  }, h(Glyph, { description: GRID }), t("usage")), h("button", {
-    type: "button",
-    role: "menuitem",
-    className: "dsu-pop-item",
-    onClick: () => {
-      setOpen(false);
-      openTopUp();
-    }
-  }, h(Glyph, { description: PLUS }), t("topUp")), h("div", { className: "dsu-pop-sep" }), h("button", {
-    type: "button",
-    role: "menuitem",
-    className: "dsu-pop-item",
-    disabled: refreshing,
-    onClick: async () => {
-      setRefreshing(true);
-      try {
-        await load(true);
-      } finally {
-        if (mounted.current)
-          setRefreshing(false);
-      }
-    }
-  }, h(Glyph, { description: REFRESH }), refreshing ? t("refreshing") : t("refreshNow"))), h("button", {
+  const Menu = menuOf(primitives);
+  const label = h("button", {
     ref: trigger,
     type: "button",
     className: "dsu-row",
@@ -353,10 +324,41 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
     "aria-haspopup": "menu",
     "aria-expanded": open,
     "aria-label": `${t("balance")}: ${amount}`,
-    onClick: () => {
-      setOpen((value) => !value);
+    onClick: openMenu
+  }, h("span", { className: "dsu-row-glyph", "data-tone": ready ? "accent" : "muted" }, h(Glyph, { description: WALLET })), wide && h("span", { className: "dsu-row-main" }, h("span", { className: "dsu-row-amount" }, amount, ready && payload.currency !== undefined ? h("span", { className: "dsu-row-unit" }, payload.currency) : null), subline !== null && h("span", { className: "dsu-row-sub", "data-tone": expiring === undefined ? "muted" : "warn" }, expiring !== undefined && h(Glyph, { description: CLOCK }), subline)));
+  if (Menu === undefined) {
+    return h("div", { className: "dsu dsu-anchor", ref: anchor }, label);
+  }
+  return h("div", { className: "dsu dsu-anchor", ref: anchor }, h(Menu, {
+    open,
+    side: "top",
+    portal: true,
+    className: "dsu-menu-anchor",
+    align: "start",
+    anchor: label,
+    items: [
+      {
+        id: "usage",
+        label: t("usage"),
+        icon: h(Glyph, { description: GRID })
+      },
+      {
+        id: "topup",
+        label: t("topUp"),
+        icon: h(Glyph, { description: PLUS })
+      }
+    ],
+    onClose: () => {
+      setOpen(false);
+    },
+    onSelect: (id) => {
+      setOpen(false);
+      if (id === "usage")
+        openUsage();
+      else if (id === "topup")
+        openTopUp();
     }
-  }, h("span", { className: "dsu-row-glyph", "data-tone": ready ? "accent" : "muted" }, h(Glyph, { description: WALLET })), wide && h("span", { className: "dsu-row-main" }, h("span", { className: "dsu-row-amount" }, amount, ready && payload.currency !== undefined ? h("span", { className: "dsu-row-unit" }, payload.currency) : null), subline !== null && h("span", { className: "dsu-row-sub", "data-tone": expiring === undefined ? "muted" : "warn" }, expiring !== undefined && h(Glyph, { description: CLOCK }), subline))));
+  }));
 }
 
 // packages/dsh-deepseek-usage/src/usage.js
@@ -537,16 +539,7 @@ function stylesheet() {
 .dsu-row-sub[data-tone=muted]{color:var(--dsw-alias-label-tertiary)}
 
 .dsu-anchor{position:relative;display:block}
-.dsu-pop{position:absolute;left:0;right:0;bottom:calc(100% + 6px);z-index:60;display:flex;flex-direction:column;gap:1px;padding:6px;border-radius:var(--dsw-radius-lg);background:var(--dsw-specific-menu);backdrop-filter:var(--dsw-mask-blur);box-shadow:0 0 0 1px var(--dsw-alias-border-l2),var(--dsw-elevation-prominent)}
-.dsu-pop[data-collapsed=true]{left:0;right:auto;width:200px}
-.dsu-pop-head{display:flex;flex-direction:column;gap:2px;padding:8px 10px 6px}
-.dsu-pop-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary)}
-.dsu-pop-note{font-size:11px;line-height:15px;color:var(--dsw-alias-label-tertiary)}
-.dsu-pop-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border:0;border-radius:var(--dsw-radius-md);background:none;font:inherit;font-size:13.5px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer}
-.dsu-pop-item:hover{background:var(--dsw-alias-interactive-bg-hover)}
-.dsu-pop-item:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-2px}
-.dsu-pop-item svg{color:var(--dsw-alias-menu-icon);flex:none}
-.dsu-pop-sep{height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1)}
+.dsu-menu-anchor{width:100%}
 
 .dsu-view{display:flex;flex-direction:column;gap:0;padding:0 24px 28px;min-height:0;overflow-y:auto;height:100%}
 .dsu-view[data-container=panel]{padding:0 32px 32px}
@@ -558,24 +551,17 @@ function stylesheet() {
 .dsu-kpi-value .u{margin-left:3px;font-size:13px;font-weight:500;letter-spacing:0;color:var(--dsw-alias-label-tertiary)}
 .dsu-kpi-meta{font-size:11.5px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
 
-.dsu-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:16px 0 14px}
-.dsu-seg{display:inline-flex;gap:2px;padding:2px;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform)}
-.dsu-seg button{padding:5px 11px;border:0;border-radius:var(--dsw-radius-sm);background:none;font:inherit;font-size:12.5px;font-weight:500;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:background 120ms ease,color 120ms ease}
-.dsu-seg button[aria-pressed=true]{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);box-shadow:0 1px 2px rgba(0,0,0,.07)}
-.dsu-seg button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}
-.dsu-spacer{flex:1}
-.dsu-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border:1px solid transparent;border-radius:999px;background:var(--dsw-alias-bg-module-platform);font:inherit;font-size:12px;color:var(--dsw-alias-label-secondary);cursor:pointer;user-select:none}
-.dsu-chip[aria-pressed=true]{border-color:var(--dsw-alias-state-business-tertiary);background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-label-primary);font-weight:500}
-.dsu-chip:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
-.dsu-chip i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.75}
-.dsu-switch{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--dsw-alias-label-secondary);cursor:pointer;user-select:none}
-.dsu-switch input{position:absolute;opacity:0;pointer-events:none}
-.dsu-track{position:relative;width:30px;height:18px;flex:none;border-radius:999px;background:var(--dsu-empty);transition:background 150ms ease;pointer-events:none}
-.dsu-track::after{content:"";position:absolute;inset:3px auto 3px 3px;width:12px;height:12px;border-radius:50%;background:var(--dsw-alias-switch-thumb);box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform 160ms cubic-bezier(.23,1,.32,1)}
-.dsu-switch input:checked+.dsu-track{background:var(--dsw-alias-state-business-primary)}
-.dsu-switch input:checked+.dsu-track::after{transform:translateX(12px)}
-.dsu-switch input:focus-visible+.dsu-track{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
-
+.dsu-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:16px 0 14px}
+.dsu-spacer{flex:1;min-width:8px}
+.dsu-chip{display:inline-flex;align-items:center;height:26px;padding:0 10px;border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-md);background:transparent;font:inherit;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:color .12s ease,border-color .12s ease,background-color .12s ease}
+.dsu-chip:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-border-l4)}
+.dsu-chip:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));outline-offset:1px}
+.dsu-chip-on{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-caption);background:var(--dsw-alias-markdown-tag)}
+.dsu-fallback-seg{display:inline-flex;gap:2px;padding:2px;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform)}
+.dsu-fallback-seg button{padding:4px 10px;border:0;border-radius:var(--dsw-radius-sm);background:none;font:inherit;font-size:12.5px;color:var(--dsw-alias-label-secondary);cursor:pointer}
+.dsu-fallback-seg button[aria-pressed=true]{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}
+.dsu-switch-row{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--dsw-alias-label-secondary);cursor:pointer;user-select:none}
+.dsu-fallback-switch{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dsw-alias-label-secondary);cursor:pointer}
 .dsu-hm-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
 .dsu-hm-title{font-size:12.5px;font-weight:600;color:var(--dsw-alias-label-secondary)}
 .dsu-hm-hint{font-size:11px;color:var(--dsw-alias-label-caption)}
@@ -637,9 +623,9 @@ function stylesheet() {
 .dsu-panel-head{display:flex;align-items:center;gap:10px;padding:14px 32px 0;flex:none}
 .dsu-panel-title{margin:0;font-size:16px;font-weight:600;letter-spacing:-.01em}
 .dsu-panel-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
-.dsu-icon-btn{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--dsw-radius-sm);background:none;color:var(--dsw-alias-label-secondary);cursor:pointer}
-.dsu-icon-btn:hover{background:var(--dsw-alias-interactive-bg-hover)}
-.dsu-icon-btn:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}
+.dsu-icon-btn{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:background-color .12s ease,color .12s ease}
+.dsu-icon-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+.dsu-icon-btn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));outline-offset:-2px}
 `;
 }
 
@@ -647,6 +633,49 @@ function stylesheet() {
 var h2 = React.createElement;
 var WEEK_CELL = 20;
 var WEEK_GAP = 4;
+function SubagentSwitch({ primitives, checked, onChange, t }) {
+  const Switch = typeof primitives?.Switch === "function" ? primitives.Switch : undefined;
+  if (Switch === undefined) {
+    return h2("label", { className: "dsu-fallback-switch" }, h2("input", { type: "checkbox", checked, onChange: (event) => {
+      onChange(event.target.checked);
+    } }), t("excludeSubagents"));
+  }
+  return h2("label", { className: "dsu-switch-row" }, h2(Switch, { checked, onChange, "aria-label": t("excludeSubagents") }), h2("span", null, t("excludeSubagents")));
+}
+function RangeSwitch({ primitives, value, onChange, t }) {
+  const options = [
+    { value: "day", label: t("viewDay") },
+    { value: "week", label: t("viewWeek") },
+    { value: "total", label: t("viewTotal") }
+  ];
+  const SegmentedControl = typeof primitives?.SegmentedControl === "function" ? primitives.SegmentedControl : undefined;
+  if (SegmentedControl === undefined) {
+    return h2("div", { className: "dsu-fallback-seg", role: "group" }, options.map((option) => h2("button", {
+      key: option.value,
+      type: "button",
+      "aria-pressed": value === option.value,
+      onClick: () => {
+        onChange(option.value);
+      }
+    }, option.label)));
+  }
+  return h2(SegmentedControl, {
+    id: "deepseek-usage-range",
+    value,
+    options,
+    onChange,
+    label: t("title")
+  });
+}
+function ChannelChip({ primitives, label, selected, onClick }) {
+  const className = `dsu-chip${selected ? " dsu-chip-on" : ""}`;
+  return h2("button", {
+    type: "button",
+    className,
+    "aria-pressed": selected,
+    onClick
+  }, label);
+}
 var CHANNELS = ["official", "apikey", "relay", "unknown"];
 var LEVELS = [1, 2, 3, 4, 5];
 function channelLabel(channel, t) {
@@ -665,7 +694,7 @@ function Tokens({ value }) {
 function Styles() {
   return h2("style", null, stylesheet());
 }
-function UsageView({ t, container, language, initialRefreshToken }) {
+function UsageView({ t, container, language, initialRefreshToken, primitives }) {
   const [status, setStatus] = React.useState({ phase: "loading" });
   const [view, setView] = React.useState("day");
   const [excludeSubagents, setExcludeSubagents] = React.useState(false);
@@ -729,28 +758,15 @@ function UsageView({ t, container, language, initialRefreshToken }) {
   const empty = totals.calls === 0;
   const figure = (value) => empty ? h2("span", null, "—") : h2(Tokens, { value });
   const header = h2("div", { className: "dsu-kpis" }, h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("cumulativeTokens")), h2("span", { className: "dsu-kpi-value" }, figure(totals.total)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("calls", { count: groupCount(totals.calls) }))), h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("last7")), h2("span", { className: "dsu-kpi-value" }, figure(last7)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("dailyAverage", { value: h26(Math.round(last7 / 7)) }))), h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("cacheRead")), h2("span", { className: "dsu-kpi-value" }, figure(totals.cacheRead)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("cacheShare", { percent: (totals.cacheRead / totals.total * 100).toFixed(1) }))), h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("output")), h2("span", { className: "dsu-kpi-value" }, figure(totals.output)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("input", { value: h26(totals.input) }))));
-  const controls = h2("div", { className: "dsu-controls" }, h2("div", { className: "dsu-seg", role: "group", "aria-label": t("title") }, [["day", t("viewDay")], ["week", t("viewWeek")], ["total", t("viewTotal")]].map(([id, label]) => h2("button", {
-    key: id,
-    type: "button",
-    "aria-pressed": view === id,
-    onClick: () => {
-      setView(id);
-    }
-  }, label))), h2("div", { className: "dsu-spacer" }), ...CHANNELS.filter((channel) => status.phase !== "ready" || status.payload.channels.includes(channel)).map((channel) => h2("button", {
+  const controls = h2("div", { className: "dsu-controls" }, h2(RangeSwitch, { primitives, value: view, t, onChange: setView }), h2("div", { className: "dsu-spacer" }), ...CHANNELS.filter((channel) => status.phase !== "ready" || status.payload.channels.includes(channel)).map((channel) => h2(ChannelChip, {
     key: channel,
-    type: "button",
-    className: "dsu-chip",
-    "aria-pressed": channels.has(channel),
+    primitives,
+    label: channelLabel(channel, t),
+    selected: channels.has(channel),
     onClick: () => {
       toggleChannel(channel);
     }
-  }, h2("i"), channelLabel(channel, t))), h2("label", { className: "dsu-switch" }, h2("input", {
-    type: "checkbox",
-    checked: excludeSubagents,
-    onChange: (event) => {
-      setExcludeSubagents(event.target.checked);
-    }
-  }), h2("span", { className: "dsu-track" }), t("excludeSubagents")));
+  })), h2(SubagentSwitch, { primitives, checked: excludeSubagents, t, onChange: setExcludeSubagents }));
   if (status.phase === "loading") {
     return h2("div", { className: `dsu dsu-view`, "data-container": container }, h2("div", { className: "dsu-skeleton" }, h2("i"), h2("i"), h2("i")));
   }
@@ -1124,14 +1140,15 @@ function apply(ctx) {
           window.open(target, "_blank", "noopener");
       },
       t: t(),
-      language: languageOf(ctx)
+      language: languageOf(ctx),
+      primitives
     })
   }, BalanceRow));
   ctx.slots.inject("main", () => ctx.slots.register({
     name: "main",
     key: PANEL_ID,
     locale: NS,
-    inject: () => ({ t: t(), language: languageOf(ctx) })
+    inject: () => ({ t: t(), language: languageOf(ctx), primitives })
   }, UsagePanel));
   ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({
     name: "sidebar.panellist",
@@ -1146,10 +1163,10 @@ function apply(ctx) {
     order: 5,
     label: () => t()("nav"),
     locale: NS,
-    inject: () => ({ t: t(), language: languageOf(ctx) })
+    inject: () => ({ t: t(), language: languageOf(ctx), primitives })
   }, UsageSettingsSection));
 }
-function UsagePanel({ t, language }) {
+function UsagePanel({ t, language, primitives: primitives2 }) {
   const [refreshToken, setRefreshToken] = import_react.default.useState(0);
   return h3("div", { className: "dsu dsu-panel" }, h3(Styles), h3("div", { className: "dsu-panel-head" }, h3("h1", { className: "dsu-panel-title" }, t("title")), h3("div", { className: "dsu-panel-actions" }, h3("button", {
     type: "button",
@@ -1159,11 +1176,11 @@ function UsagePanel({ t, language }) {
     onClick: () => {
       setRefreshToken((value) => value + 1);
     }
-  }, h3("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 1.7, "aria-hidden": true }, h3("path", { d: "M20 12a8 8 0 1 1-2.3-5.6" }), h3("path", { d: "M20 4v4h-4" }))))), h3(UsageView, { t, language, container: "panel", initialRefreshToken: refreshToken }));
+  }, h3("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 1.7, "aria-hidden": true }, h3("path", { d: "M20 12a8 8 0 1 1-2.3-5.6" }), h3("path", { d: "M20 4v4h-4" }))))), h3(UsageView, { t, language, container: "panel", initialRefreshToken: refreshToken, primitives: primitives2 }));
 }
-function UsageSettingsSection({ t, language }) {
+function UsageSettingsSection({ t, language, primitives: primitives2 }) {
   const [refreshToken, setRefreshToken] = import_react.default.useState(0);
-  return h3("div", { className: "dsu" }, h3(Styles), h3(UsageView, { t, language, container: "settings", initialRefreshToken: refreshToken }));
+  return h3("div", { className: "dsu" }, h3(Styles), h3(UsageView, { t, language, container: "settings", initialRefreshToken: refreshToken, primitives: primitives2 }));
 }
 
     })(module, exports, reactRequire);

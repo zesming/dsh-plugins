@@ -9,6 +9,7 @@
  */
 
 import React from 'react'
+import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 
 import { BARS } from './ui/icons.js'
 import { BalanceRow, Glyph } from './ui/balance-row.js'
@@ -85,6 +86,7 @@ export function apply(ctx) {
       },
       t: t(),
       language: languageOf(ctx),
+      primitives,
     }),
   }, BalanceRow))
 
@@ -92,7 +94,7 @@ export function apply(ctx) {
     name: 'main',
     key: PANEL_ID,
     locale: NS,
-    inject: () => ({ t: t(), language: languageOf(ctx) }),
+    inject: () => ({ t: t(), language: languageOf(ctx), primitives }),
   }, UsagePanel))
 
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
@@ -109,7 +111,7 @@ export function apply(ctx) {
     order: 5,
     label: () => t()('nav'),
     locale: NS,
-    inject: () => ({ t: t(), language: languageOf(ctx) }),
+    inject: () => ({ t: t(), language: languageOf(ctx), primitives }),
   }, UsageSettingsSection))
 }
 
@@ -120,7 +122,7 @@ export function apply(ctx) {
  * @param props.language - active UI language.
  * @returns the panel.
  */
-export function UsagePanel({ t, language }) {
+export function UsagePanel({ t, language, primitives }) {
   const [refreshToken, setRefreshToken] = React.useState(0)
   return h('div', { className: 'dsu dsu-panel' },
     h(Styles),
@@ -138,7 +140,7 @@ export function UsagePanel({ t, language }) {
           h('path', { d: 'M20 4v4h-4' }))),
       ),
     ),
-    h(UsageView, { t, language, container: 'panel', initialRefreshToken: refreshToken }),
+    h(UsageView, { t, language, container: 'panel', initialRefreshToken: refreshToken, primitives }),
   )
 }
 
@@ -149,10 +151,10 @@ export function UsagePanel({ t, language }) {
  * @param props.language - active UI language.
  * @returns the section.
  */
-export function UsageSettingsSection({ t, language }) {
+export function UsageSettingsSection({ t, language, primitives }) {
   const [refreshToken, setRefreshToken] = React.useState(0)
   return h('div', { className: 'dsu' },
     h(Styles),
-    h(UsageView, { t, language, container: 'settings', initialRefreshToken: refreshToken }),
+    h(UsageView, { t, language, container: 'settings', initialRefreshToken: refreshToken, primitives }),
   )
 }

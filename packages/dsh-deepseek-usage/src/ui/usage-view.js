@@ -21,6 +21,85 @@ const h = React.createElement
 const WEEK_CELL = 20
 const WEEK_GAP = 4
 
+/**
+ * The subagent toggle, using the host's own `Switch` so its geometry, motion,
+ * and focus ring match every other switch in the product.
+ *
+ * @param props.primitives - the host's primitives module.
+ * @param props.checked - current state.
+ * @param props.onChange - receives the next state.
+ * @param props.t - locale lookup.
+ * @returns the labelled switch, or a plain checkbox on a host without one.
+ */
+function SubagentSwitch({ primitives, checked, onChange, t }) {
+  const Switch = typeof primitives?.Switch === 'function' ? primitives.Switch : undefined
+  if (Switch === undefined) {
+    return h('label', { className: 'dsu-fallback-switch' },
+      h('input', { type: 'checkbox', checked, onChange: event => { onChange(event.target.checked) } }),
+      t('excludeSubagents'),
+    )
+  }
+  return h('label', { className: 'dsu-switch-row' },
+    h(Switch, { checked, onChange, 'aria-label': t('excludeSubagents') }),
+    h('span', null, t('excludeSubagents')),
+  )
+}
+
+/**
+ * The range switch, using the host's `SegmentedControl` so its indicator,
+ * geometry, and keyboard handling match every other segmented control.
+ *
+ * @param props.primitives - the host's primitives module.
+ * @param props.value - current view id.
+ * @param props.onChange - receives the next view id.
+ * @param props.t - locale lookup.
+ * @returns the control, or plain buttons on a host without one.
+ */
+function RangeSwitch({ primitives, value, onChange, t }) {
+  const options = [
+    { value: 'day', label: t('viewDay') },
+    { value: 'week', label: t('viewWeek') },
+    { value: 'total', label: t('viewTotal') },
+  ]
+  const SegmentedControl = typeof primitives?.SegmentedControl === 'function' ? primitives.SegmentedControl : undefined
+  if (SegmentedControl === undefined) {
+    return h('div', { className: 'dsu-fallback-seg', role: 'group' },
+      options.map(option => h('button', {
+        key: option.value,
+        type: 'button',
+        'aria-pressed': value === option.value,
+        onClick: () => { onChange(option.value) },
+      }, option.label)),
+    )
+  }
+  return h(SegmentedControl, {
+    id: 'deepseek-usage-range',
+    value,
+    options,
+    onChange,
+    label: t('title'),
+  })
+}
+
+/**
+ * One channel filter, using the host's `Tag` for its surface and proportions.
+ *
+ * @param props.primitives - the host's primitives module.
+ * @param props.label - channel name.
+ * @param props.selected - whether the channel is included.
+ * @param props.onClick - toggles it.
+ * @returns the filter control.
+ */
+function ChannelChip({ primitives, label, selected, onClick }) {
+  const className = `dsu-chip${selected ? ' dsu-chip-on' : ''}`
+  return h('button', {
+    type: 'button',
+    className,
+    'aria-pressed': selected,
+    onClick,
+  }, label)
+}
+
 /** Channel display order, so chips never reorder as data arrives. */
 const CHANNELS = ['official', 'apikey', 'relay', 'unknown']
 
@@ -67,9 +146,10 @@ export function Styles() {
  * @param props.t - locale lookup.
  * @param props.container - `panel` or `settings`, which only changes padding.
  * @param props.language - active UI language, for relative dates.
+ * @param props.primitives - the host's primitives module, for `Switch`.
  * @returns the view.
  */
-export function UsageView({ t, container, language, initialRefreshToken }) {
+export function UsageView({ t, container, language, initialRefreshToken, primitives }) {
   const [status, setStatus] = React.useState({ phase: 'loading' })
   const [view, setView] = React.useState('day')
   const [excludeSubagents, setExcludeSubagents] = React.useState(false)
@@ -170,34 +250,18 @@ export function UsageView({ t, container, language, initialRefreshToken }) {
   )
 
   const controls = h('div', { className: 'dsu-controls' },
-    h('div', { className: 'dsu-seg', role: 'group', 'aria-label': t('title') },
-      [['day', t('viewDay')], ['week', t('viewWeek')], ['total', t('viewTotal')]].map(([id, label]) =>
-        h('button', {
-          key: id,
-          type: 'button',
-          'aria-pressed': view === id,
-          onClick: () => { setView(id) },
-        }, label)),
-    ),
+    h(RangeSwitch, { primitives, value: view, t, onChange: setView }),
     h('div', { className: 'dsu-spacer' }),
     ...CHANNELS
       .filter(channel => status.phase !== 'ready' || status.payload.channels.includes(channel))
-      .map(channel => h('button', {
+      .map(channel => h(ChannelChip, {
         key: channel,
-        type: 'button',
-        className: 'dsu-chip',
-        'aria-pressed': channels.has(channel),
+        primitives,
+        label: channelLabel(channel, t),
+        selected: channels.has(channel),
         onClick: () => { toggleChannel(channel) },
-      }, h('i'), channelLabel(channel, t))),
-    h('label', { className: 'dsu-switch' },
-      h('input', {
-        type: 'checkbox',
-        checked: excludeSubagents,
-        onChange: event => { setExcludeSubagents(event.target.checked) },
-      }),
-      h('span', { className: 'dsu-track' }),
-      t('excludeSubagents'),
-    ),
+      })),
+    h(SubagentSwitch, { primitives, checked: excludeSubagents, t, onChange: setExcludeSubagents }),
   )
 
   if (status.phase === 'loading') {

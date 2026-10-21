@@ -75,7 +75,12 @@ ${body}
 const bun = await bunBinary()
 await mkdir(path.join(pkg, 'lib'), { recursive: true })
 
-const clientBody = await bundle(bun, path.join(pkg, 'src', 'client.js'), 'cjs', 'browser', ['react'])
+// Primitives come from the host's shared module table, so they stay external:
+// bundling a second copy would break the menu's theme tokens and focus ring.
+const clientBody = await bundle(bun, path.join(pkg, 'src', 'client.js'), 'cjs', 'browser', [
+  'react',
+  '@deepseek-ai/dsh-client-ui-primitives',
+])
 await writeFile(path.join(pkg, 'lib', 'client.js'), wrapFactory('dsh-deepseek-usage', clientBody))
 
 // The Host entry stays a real ES module: the package is `type: module` and the

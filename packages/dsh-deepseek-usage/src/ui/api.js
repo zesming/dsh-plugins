@@ -20,25 +20,39 @@ function identity(url) {
   return url
 }
 
+/** The payload shape used when the read itself failed. */
+function unreachable(error) {
+  // `signedIn: false` on purpose: a failed transport cannot prove an account is
+  // stored, and showing a balance row carrying "--" to someone who never signed
+  // in is worse than showing nothing. The row hides; the usage page still works.
+  return { signedIn: false, available: false, error }
+}
+
 /**
  * Read the sidebar balance payload.
  *
  * @param options.signal - aborts the request when the caller unmounts.
  * @param options.force - bypass the Host cache.
- * @returns the parsed payload; a transport failure becomes an unavailable payload.
+ * @returns the parsed payload; a transport failure reads as "no account".
  */
 export async function fetchBalance(options = {}) {
   const url = identity(new URL(BALANCE_ROUTE, document.baseURI))
   if (options.force === true) url.searchParams.set('force', '1')
+  let response
   try {
-    const response = await fetch(url, { signal: options.signal, headers: { accept: 'application/json' } })
-    if (!response.ok) return { signedIn: true, available: false, error: `http-${String(response.status)}` }
-    const payload = await response.json()
-    return typeof payload === 'object' && payload !== null ? payload : { signedIn: true, available: false, error: 'malformed' }
+    response = await fetch(url, { signal: options.signal, headers: { accept: 'application/json' } })
   } catch (error) {
     if (error?.name === 'AbortError') throw error
-    return { signedIn: true, available: false, error: 'network' }
+    return unreachable('network')
   }
+  if (!response.ok) return unreachable(`http-${String(response.status)}`)
+  let payload
+  try {
+    payload = await response.json()
+  } catch {
+    return unreachable('malformed')
+  }
+  return typeof payload === 'object' && payload !== null ? payload : unreachable('malformed')
 }
 
 /**
