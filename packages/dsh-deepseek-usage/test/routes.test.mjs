@@ -202,3 +202,59 @@ test('disposing the plugin removes both routes', () => {
   disposer()
   assert.equal(routes.size, 0)
 })
+
+test('a transient balance failure is retried on the next read', async () => {
+  let attempts = 0
+  const base = account()
+  const { routes } = harness({
+    deepseekAccount: {
+      ...base,
+      getBalance: async () => {
+        attempts += 1
+        if (attempts === 1) throw new Error('transient')
+        return { status: 'ready', value: [{ currency: 'CNY', balance: '7' }], bonusWallets: [] }
+      },
+    },
+  })
+  const first = await call(routes, BALANCE_PATH)
+  assert.equal(first.body.available, false)
+  const second = await call(routes, BALANCE_PATH)
+  assert.equal(second.body.available, true)
+  assert.equal(second.body.balance, '7')
+  assert.equal(attempts, 2, 'the failure must not be cached for the TTL')
+})
+
+test('a success still short-circuits the next read', async () => {
+  let attempts = 0
+  const base = account()
+  const { routes } = harness({
+    deepseekAccount: {
+      ...base,
+      getBalance: async () => {
+        attempts += 1
+        return { status: 'ready', value: [{ currency: 'CNY', balance: '1' }], bonusWallets: [] }
+      },
+    },
+  })
+  await call(routes, BALANCE_PATH)
+  await call(routes, BALANCE_PATH)
+  assert.equal(attempts, 1)
+})
+
+test('a transient usage failure is retried on the next read', async () => {
+  let attempts = 0
+  const sessionQuery = {
+    listSessions: async () => {
+      attempts += 1
+      if (attempts === 1) throw new Error('backend down')
+      return []
+    },
+    readSession: async () => ({ events: [] }),
+  }
+  const { routes } = harness({ sessionQuery })
+  const first = await call(routes, SERIES_PATH)
+  assert.equal(first.body.available, false)
+  const second = await call(routes, SERIES_PATH)
+  assert.equal(second.body.available, true)
+  assert.equal(attempts, 2)
+})

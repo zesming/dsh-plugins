@@ -9,6 +9,7 @@
 import { fetchSeries } from './api.js'
 import { compactTokens, groupCount, keyOf, shiftDays } from './format.js'
 import { withoutSubagents } from '../usage.js'
+import { sumSeries, sumWindow, weekStacks } from './aggregate.js'
 import {
   CELL, DAY_COLUMNS, GAP, WEEK_COLUMNS, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid, weekSums,
 } from './heatmap.js'
@@ -77,15 +78,22 @@ export function UsageView({ t, container, language, initialRefreshToken }) {
   const [refreshToken, setRefreshToken] = React.useState(0)
   const [hover, setHover] = React.useState(undefined)
 
+  // Only the explicit refresh bypasses the Host cache; a later mount or a
+  // re-render must still be able to reuse a recent scan.
+  const forceNext = React.useRef(false)
+
   React.useEffect(() => {
-    if (initialRefreshToken === undefined) return
+    if (initialRefreshToken === undefined || initialRefreshToken === 0) return
+    forceNext.current = true
     setRefreshToken(value => value + 1)
   }, [initialRefreshToken])
 
   React.useEffect(() => {
     const controller = new AbortController()
+    const force = forceNext.current
+    forceNext.current = false
     setStatus(current => (current.phase === 'ready' ? { ...current, refreshing: true } : { phase: 'loading' }))
-    fetchSeries({ windowDays: 365, includeSubagents: true, force: refreshToken > 0, signal: controller.signal })
+    fetchSeries({ windowDays: 365, includeSubagents: true, force, signal: controller.signal })
       .then(payload => {
         setStatus({ phase: 'ready', payload, refreshing: false })
       })
@@ -109,7 +117,9 @@ export function UsageView({ t, container, language, initialRefreshToken }) {
   })), [models, excludeSubagents])
 
   const totals = React.useMemo(() => sumSeries(series), [series])
-  const today = React.useMemo(() => new Date(), [])
+  // Recomputed each render from the last fetch time, so a page left open across
+  // midnight still measures "last 7 days" against today rather than yesterday.
+  const today = React.useMemo(() => new Date(), [status])
   const last7 = React.useMemo(() => sumWindow(series, today, 7), [series, today])
 
   // Once the payload arrives, narrow the default selection to the channels it
@@ -243,44 +253,6 @@ export function UsageView({ t, container, language, initialRefreshToken }) {
 function h26(value) {
   const compact = compactTokens(value)
   return `${compact.value}${compact.unit}`
-}
-
-/**
- * Sum every model's day map into the four KPI figures.
- *
- * @param series - `{ row, days }` rows.
- * @returns totals.
- */
-export function sumSeries(series) {
-  const totals = { total: 0, input: 0, output: 0, cacheRead: 0, calls: 0 }
-  for (const { days } of series) {
-    for (const tally of Object.values(days)) {
-      totals.total += tally.total
-      totals.input += tally.input
-      totals.output += tally.output
-      totals.cacheRead += tally.cacheRead
-      totals.calls += tally.calls
-    }
-  }
-  return totals
-}
-
-/**
- * Sum the trailing N calendar days, including today.
- *
- * @param series - `{ row, days }` rows.
- * @param today - the reference day.
- * @param days - window length.
- * @returns summed tokens.
- */
-export function sumWindow(series, today, days) {
-  const keys = new Set()
-  for (let offset = 0; offset < days; offset += 1) keys.add(keyOf(shiftDays(today, -offset)))
-  let total = 0
-  for (const row of series) {
-    for (const [key, tally] of Object.entries(row.days)) if (keys.has(key)) total += tally.total
-  }
-  return total
 }
 
 /** Fill for one heat level, referencing the stylesheet's variables. */
@@ -464,14 +436,7 @@ export function CumulativeChart({ series, today, t, onHover }) {
     const grid = weekGrid(today)
     return grid.map(column => ({ key: keyOf(column[0]), days: column.map(keyOf) }))
   }, [today])
-  const stacks = React.useMemo(() => weeks.map(week => {
-    const parts = series.map(({ row, days }) => ({
-      id: row.id,
-      label: row.model.split('/').pop(),
-      value: week.days.reduce((sum, key) => sum + (days[key]?.total ?? 0), 0),
-    }))
-    return { key: week.key, parts, total: parts.reduce((sum, part) => sum + part.value, 0) }
-  }), [series, weeks])
+  const stacks = React.useMemo(() => weekStacks(series, weeks), [series, weeks])
   const max = Math.max(1, ...stacks.map(day => day.total))
   const W = 720
   const HGT = 148

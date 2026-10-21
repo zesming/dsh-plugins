@@ -382,8 +382,15 @@ class TtlCache {
         this.#pending.delete(key);
       }
     })();
+    started.catch(() => {
+      if (this.#pending.get(key) === started)
+        this.#pending.delete(key);
+    });
     this.#pending.set(key, started);
     return started;
+  }
+  drop(key) {
+    this.#entries.delete(key);
   }
   clear() {
     this.#entries.clear();
@@ -455,6 +462,8 @@ function apply(ctx, config = {}) {
             client: clientIdentity(request),
             now: now()
           }), force);
+          if (payload.available !== true && payload.error !== null && payload.error !== undefined)
+            balanceCache.drop("balance");
           return json({ ...payload, readAt: now() });
         } catch (error) {
           ctx.logger?.warn?.("deepseek-usage: balance read failed", error);

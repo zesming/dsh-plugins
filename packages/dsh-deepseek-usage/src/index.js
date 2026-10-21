@@ -46,6 +46,9 @@ class TtlCache {
   /**
    * Read through the cache.
    *
+   * A rejected load is never cached: the failure path has no expiry, so storing
+   * it would make one transient error permanent for the life of the plugin.
+   *
    * @param key - cache key.
    * @param load - producer run on a miss.
    * @param force - ignore a fresh entry but still join an in-flight load.
@@ -66,8 +69,21 @@ class TtlCache {
         this.#pending.delete(key)
       }
     })()
+    // Also drop the in-flight record on failure so the next call retries.
+    started.catch(() => {
+      if (this.#pending.get(key) === started) this.#pending.delete(key)
+    })
     this.#pending.set(key, started)
     return started
+  }
+
+  /**
+   * Drop one entry so the next read observes fresh state.
+   *
+   * @param key - cache key.
+   */
+  drop(key) {
+    this.#entries.delete(key)
   }
 
   /** Drop every cached answer; used when a reload must observe new data. */
@@ -174,6 +190,9 @@ export function apply(ctx, config = {}) {
             client: clientIdentity(request),
             now: now(),
           }), force)
+          // A failure result is a transient observation, not a cacheable value:
+          // keeping it would pin "temporarily unavailable" for the whole TTL.
+          if (payload.available !== true && payload.error !== null && payload.error !== undefined) balanceCache.drop('balance')
           return json({ ...payload, readAt: now() })
         } catch (error) {
           ctx.logger?.warn?.('deepseek-usage: balance read failed', error)

@@ -74,7 +74,7 @@ export function stylesheet() {
 .dsu-chip i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.75}
 .dsu-switch{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--dsw-alias-label-secondary);cursor:pointer;user-select:none}
 .dsu-switch input{position:absolute;opacity:0;pointer-events:none}
-.dsu-track{position:relative;width:30px;height:18px;flex:none;border-radius:999px;background:var(--dsu-empty);transition:background 150ms ease}
+.dsu-track{position:relative;width:30px;height:18px;flex:none;border-radius:999px;background:var(--dsu-empty);transition:background 150ms ease;pointer-events:none}
 .dsu-track::after{content:"";position:absolute;inset:3px auto 3px 3px;width:12px;height:12px;border-radius:50%;background:var(--dsw-alias-switch-thumb);box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform 160ms cubic-bezier(.23,1,.32,1)}
 .dsu-switch input:checked+.dsu-track{background:var(--dsw-alias-state-business-primary)}
 .dsu-switch input:checked+.dsu-track::after{transform:translateX(12px)}

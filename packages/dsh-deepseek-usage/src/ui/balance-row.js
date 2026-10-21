@@ -42,31 +42,43 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
   const anchor = React.useRef(null)
   const trigger = React.useRef(null)
 
+  // One in-flight read at a time: a poll that fires while the previous read is
+  // still running must not leave an un-aborted request behind.
+  const inflight = React.useRef(undefined)
+  const mounted = React.useRef(true)
+
   const load = React.useCallback(async force => {
+    inflight.current?.abort()
     const controller = new AbortController()
+    inflight.current = controller
     try {
       const payload = await fetchBalance({ force, signal: controller.signal })
-      setState({ status: 'ready', payload })
+      if (mounted.current && inflight.current === controller) setState({ status: 'ready', payload })
     } catch (error) {
-      if (error?.name !== 'AbortError') setState({ status: 'ready', payload: { signedIn: true, available: false, error: 'network' } })
+      if (error?.name !== 'AbortError' && mounted.current && inflight.current === controller) {
+        setState({ status: 'ready', payload: { signedIn: true, available: false, error: 'network' } })
+      }
+    } finally {
+      if (inflight.current === controller) inflight.current = undefined
     }
-    return () => { controller.abort() }
   }, [])
 
   React.useEffect(() => {
-    let cancel
-    let live = true
-    load(false).then(dispose => { if (!live) dispose(); else cancel = dispose })
+    mounted.current = true
+    void load(false)
     const tick = () => {
       if (document.visibilityState !== 'visible') return
-      load(false)
+      void load(false)
     }
     const timer = window.setInterval(tick, POLL_MS)
-    const onVisible = () => { if (document.visibilityState === 'visible') tick() }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
-      live = false
-      cancel?.()
+      mounted.current = false
+      inflight.current?.abort()
+      inflight.current = undefined
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
@@ -132,8 +144,11 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
         disabled: refreshing,
         onClick: async () => {
           setRefreshing(true)
-          await load(true)
-          setRefreshing(false)
+          try {
+            await load(true)
+          } finally {
+            if (mounted.current) setRefreshing(false)
+          }
         },
       }, h(Glyph, { description: REFRESH }), refreshing ? t('refreshing') : t('refreshNow')),
     ),

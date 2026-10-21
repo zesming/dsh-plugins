@@ -242,28 +242,28 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
   const [refreshing, setRefreshing] = React.useState(false);
   const anchor = React.useRef(null);
   const trigger = React.useRef(null);
+  const inflight = React.useRef(undefined);
+  const mounted = React.useRef(true);
   const load = React.useCallback(async (force) => {
+    inflight.current?.abort();
     const controller = new AbortController;
+    inflight.current = controller;
     try {
       const payload2 = await fetchBalance({ force, signal: controller.signal });
-      setState({ status: "ready", payload: payload2 });
+      if (mounted.current && inflight.current === controller)
+        setState({ status: "ready", payload: payload2 });
     } catch (error) {
-      if (error?.name !== "AbortError")
+      if (error?.name !== "AbortError" && mounted.current && inflight.current === controller) {
         setState({ status: "ready", payload: { signedIn: true, available: false, error: "network" } });
+      }
+    } finally {
+      if (inflight.current === controller)
+        inflight.current = undefined;
     }
-    return () => {
-      controller.abort();
-    };
   }, []);
   React.useEffect(() => {
-    let cancel;
-    let live = true;
-    load(false).then((dispose) => {
-      if (!live)
-        dispose();
-      else
-        cancel = dispose;
-    });
+    mounted.current = true;
+    load(false);
     const tick = () => {
       if (document.visibilityState !== "visible")
         return;
@@ -276,8 +276,9 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      live = false;
-      cancel?.();
+      mounted.current = false;
+      inflight.current?.abort();
+      inflight.current = undefined;
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
@@ -337,8 +338,12 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language }) {
     disabled: refreshing,
     onClick: async () => {
       setRefreshing(true);
-      await load(true);
-      setRefreshing(false);
+      try {
+        await load(true);
+      } finally {
+        if (mounted.current)
+          setRefreshing(false);
+      }
     }
   }, h(Glyph, { description: REFRESH }), refreshing ? t("refreshing") : t("refreshNow"))), h("button", {
     ref: trigger,
@@ -378,6 +383,44 @@ function withoutSubagents(days, subagentDays) {
     result[day] = remaining;
   }
   return result;
+}
+
+// packages/dsh-deepseek-usage/src/ui/aggregate.js
+function sumSeries(series) {
+  const totals = { total: 0, input: 0, output: 0, cacheRead: 0, calls: 0 };
+  for (const entry of series) {
+    for (const tally of Object.values(entry.days ?? {})) {
+      totals.total += tally.total;
+      totals.input += tally.input;
+      totals.output += tally.output;
+      totals.cacheRead += tally.cacheRead;
+      totals.calls += tally.calls;
+    }
+  }
+  return totals;
+}
+function sumWindow(series, today, days) {
+  const keys = new Set;
+  for (let offset = 0;offset < days; offset += 1)
+    keys.add(keyOf(shiftDays(today, -offset)));
+  let total = 0;
+  for (const entry of series) {
+    for (const [key, tally] of Object.entries(entry.days ?? {})) {
+      if (keys.has(key))
+        total += tally.total;
+    }
+  }
+  return total;
+}
+function weekStacks(series, weeks) {
+  return weeks.map((week) => {
+    const parts = series.map((entry) => ({
+      id: entry.row.id,
+      label: entry.row.model.split("/").pop(),
+      value: week.days.reduce((sum, key) => sum + (entry.days[key]?.total ?? 0), 0)
+    }));
+    return { key: week.key, parts, total: parts.reduce((sum, part) => sum + part.value, 0) };
+  });
 }
 
 // packages/dsh-deepseek-usage/src/ui/heatmap.js
@@ -527,7 +570,7 @@ function stylesheet() {
 .dsu-chip i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.75}
 .dsu-switch{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--dsw-alias-label-secondary);cursor:pointer;user-select:none}
 .dsu-switch input{position:absolute;opacity:0;pointer-events:none}
-.dsu-track{position:relative;width:30px;height:18px;flex:none;border-radius:999px;background:var(--dsu-empty);transition:background 150ms ease}
+.dsu-track{position:relative;width:30px;height:18px;flex:none;border-radius:999px;background:var(--dsu-empty);transition:background 150ms ease;pointer-events:none}
 .dsu-track::after{content:"";position:absolute;inset:3px auto 3px 3px;width:12px;height:12px;border-radius:50%;background:var(--dsw-alias-switch-thumb);box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform 160ms cubic-bezier(.23,1,.32,1)}
 .dsu-switch input:checked+.dsu-track{background:var(--dsw-alias-state-business-primary)}
 .dsu-switch input:checked+.dsu-track::after{transform:translateX(12px)}
@@ -630,15 +673,19 @@ function UsageView({ t, container, language, initialRefreshToken }) {
   const [touched, setTouched] = React.useState(false);
   const [refreshToken, setRefreshToken] = React.useState(0);
   const [hover, setHover] = React.useState(undefined);
+  const forceNext = React.useRef(false);
   React.useEffect(() => {
-    if (initialRefreshToken === undefined)
+    if (initialRefreshToken === undefined || initialRefreshToken === 0)
       return;
+    forceNext.current = true;
     setRefreshToken((value) => value + 1);
   }, [initialRefreshToken]);
   React.useEffect(() => {
     const controller = new AbortController;
+    const force = forceNext.current;
+    forceNext.current = false;
     setStatus((current) => current.phase === "ready" ? { ...current, refreshing: true } : { phase: "loading" });
-    fetchSeries({ windowDays: 365, includeSubagents: true, force: refreshToken > 0, signal: controller.signal }).then((payload) => {
+    fetchSeries({ windowDays: 365, includeSubagents: true, force, signal: controller.signal }).then((payload) => {
       setStatus({ phase: "ready", payload, refreshing: false });
     }).catch((error) => {
       if (error?.name === "AbortError")
@@ -659,7 +706,7 @@ function UsageView({ t, container, language, initialRefreshToken }) {
     days: excludeSubagents ? withoutSubagents(row.days, row.subagent?.days) : row.days
   })), [models, excludeSubagents]);
   const totals = React.useMemo(() => sumSeries(series), [series]);
-  const today = React.useMemo(() => new Date, []);
+  const today = React.useMemo(() => new Date, [status]);
   const last7 = React.useMemo(() => sumWindow(series, today, 7), [series, today]);
   React.useEffect(() => {
     if (status.phase !== "ready" || touched)
@@ -729,31 +776,6 @@ function UsageView({ t, container, language, initialRefreshToken }) {
 function h26(value) {
   const compact = compactTokens(value);
   return `${compact.value}${compact.unit}`;
-}
-function sumSeries(series) {
-  const totals = { total: 0, input: 0, output: 0, cacheRead: 0, calls: 0 };
-  for (const { days } of series) {
-    for (const tally of Object.values(days)) {
-      totals.total += tally.total;
-      totals.input += tally.input;
-      totals.output += tally.output;
-      totals.cacheRead += tally.cacheRead;
-      totals.calls += tally.calls;
-    }
-  }
-  return totals;
-}
-function sumWindow(series, today, days) {
-  const keys = new Set;
-  for (let offset = 0;offset < days; offset += 1)
-    keys.add(keyOf(shiftDays(today, -offset)));
-  let total = 0;
-  for (const row of series) {
-    for (const [key, tally] of Object.entries(row.days))
-      if (keys.has(key))
-        total += tally.total;
-  }
-  return total;
 }
 function fillOf(level) {
   return level === 0 ? "var(--dsu-empty)" : `var(--dsu-heat-${String(level)})`;
@@ -842,14 +864,7 @@ function CumulativeChart({ series, today, t, onHover }) {
     const grid = weekGrid(today);
     return grid.map((column) => ({ key: keyOf(column[0]), days: column.map(keyOf) }));
   }, [today]);
-  const stacks = React.useMemo(() => weeks.map((week) => {
-    const parts = series.map(({ row, days }) => ({
-      id: row.id,
-      label: row.model.split("/").pop(),
-      value: week.days.reduce((sum, key) => sum + (days[key]?.total ?? 0), 0)
-    }));
-    return { key: week.key, parts, total: parts.reduce((sum, part) => sum + part.value, 0) };
-  }), [series, weeks]);
+  const stacks = React.useMemo(() => weekStacks(series, weeks), [series, weeks]);
   const max = Math.max(1, ...stacks.map((day) => day.total));
   const W = 720;
   const HGT = 148;
