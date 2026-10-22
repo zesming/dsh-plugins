@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { decimalOfMicro, microOf, restrictSeries, sumCost, sumSeries, sumWindow, weekStacks } from '../src/ui/aggregate.js'
+import { decimalOfMicro, microOf, restrictSeries, sumCost, sumSeries } from '../src/ui/aggregate.js'
 import { estimateCost, pricingFamilyOf } from '../src/cost.js'
 import { keyOf } from '../src/ui/format.js'
 
@@ -33,39 +33,6 @@ test('sumSeries tolerates empty and missing day maps', () => {
     peak: { input: 0, output: 0, cacheRead: 0 },
   })
   assert.equal(sumSeries([{ row: { id: 'a' } }]).total, 0)
-})
-
-test('sumWindow counts today and the days before it, never tomorrow', () => {
-  const today = new Date()
-  const tomorrow = keyOf(new Date(today.getTime() + 86_400_000))
-  const series = [{ row: { id: 'a' }, days: { ...daysOf(7, 10), [tomorrow]: { total: 999, input: 0, output: 0, cacheRead: 0, calls: 1 } } }]
-  assert.equal(sumWindow(series, today, 7), 70, 'seven days are included and tomorrow is not')
-  assert.equal(sumWindow(series, today, 1), 10)
-})
-
-test('sumWindow over an empty series is zero', () => {
-  assert.equal(sumWindow([], new Date(), 7), 0)
-})
-
-test('weekStacks keeps model order and sums each week', () => {
-  const weeks = [
-    { key: '2026-10-13', days: ['2026-10-13', '2026-10-14'] },
-    { key: '2026-10-20', days: ['2026-10-20', '2026-10-21'] },
-  ]
-  const series = [
-    { row: { id: 'a', model: 'prov/a' }, days: { '2026-10-13': { total: 3 }, '2026-10-21': { total: 5 } } },
-    { row: { id: 'b', model: 'prov/b' }, days: { '2026-10-14': { total: 7 } } },
-  ]
-  const stacks = weekStacks(series, weeks)
-  assert.deepEqual(stacks[0].parts.map(part => part.value), [3, 7])
-  assert.equal(stacks[0].total, 10)
-  assert.equal(stacks[1].total, 5)
-  assert.deepEqual(stacks[1].parts.map(part => part.label), ['a', 'b'])
-})
-
-test('weekStacks reports zero for a week with no usage', () => {
-  const stacks = weekStacks([{ row: { id: 'a', model: 'm' }, days: {} }], [{ key: 'k', days: ['x'] }])
-  assert.deepEqual(stacks[0], { key: 'k', parts: [{ id: 'a', label: 'm', value: 0 }], total: 0 })
 })
 
 test('cost sums per model, never blending two different rates', () => {

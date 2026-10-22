@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  DAY_COLUMNS, WEEK_COLUMNS, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid, weekSums,
+  DAY_COLUMNS, WEEK_COLUMNS, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid,
 } from '../src/ui/heatmap.js'
 
 /** A fixed local reference day. */
@@ -63,18 +63,6 @@ test('sumDays tolerates missing and malformed buckets', () => {
   assert.equal(sumDays({}), 0)
   assert.equal(sumDays(undefined), 0)
 })
-
-test('weekSums buckets every day into exactly one column', () => {
-  const grid = weekGrid(TODAY)
-  const key = date => `${String(date.getFullYear())}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  const days = {}
-  for (const column of grid) for (const date of column) days[key(date)] = { total: 2 }
-  const sums = weekSums(days, grid)
-  assert.equal(sums.length, WEEK_COLUMNS)
-  assert.equal(sums.reduce((a, b) => a + b, 0), WEEK_COLUMNS * 7 * 2)
-})
-
-
 
 test('the day grid is Monday-first, matching its row labels', () => {
   // The gutter labels are 一/三/五/日. A Sunday-first grid under Monday-first

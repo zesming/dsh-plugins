@@ -74,16 +74,6 @@ export const GAP = 3
 export const GRID_ASPECT = (7 * (CELL + GAP)) / (DAY_COLUMNS * (CELL + GAP))
 
 /**
- * Chart height for a given rendered width.
- *
- * @param width - available width in CSS pixels.
- * @returns the matching chart height.
- */
-export function chartHeightFor(width) {
-  return Math.round(Math.max(120, width) * GRID_ASPECT)
-}
-
-/**
  * Build the day grid for a rolling year, Monday-first.
  *
  * Monday-first rather than Sunday-first because the gutter labels the rows and
@@ -170,20 +160,3 @@ export function sumDays(days) {
   return total
 }
 
-/**
- * Aggregate a day map into week buckets keyed by the Monday that starts each week.
- *
- * @param days - `{ 'YYYY-MM-DD': tally }`.
- * @param columns - output of {@link weekGrid}.
- * @returns one summed token count per column.
- */
-export function weekSums(days, columns) {
-  return columns.map(column => {
-    let total = 0
-    for (const date of column) {
-      const key = `${String(date.getFullYear())}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-      total += days?.[key]?.total ?? 0
-    }
-    return total
-  })
-}
