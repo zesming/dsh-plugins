@@ -52,7 +52,8 @@ test('the week grid is 26 whole weeks starting on a Monday', () => {
 
 test('month labels are ordered, unique, and inside the grid', () => {
   const labels = monthLabels(dayGrid(TODAY))
-  assert.ok(labels.length >= 12 && labels.length <= 14)
+  // Half a year of columns carries six or seven month labels, not twelve.
+  assert.ok(labels.length >= 5 && labels.length <= 8, `saw ${labels.length} labels`)
   for (let index = 1; index < labels.length; index += 1) assert.ok(labels[index].column > labels[index - 1].column)
   for (const label of labels) assert.ok(label.column >= 0 && label.column < DAY_COLUMNS)
 })

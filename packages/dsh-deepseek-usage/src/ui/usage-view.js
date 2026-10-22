@@ -14,7 +14,7 @@ import { MAX_BLOCKS, blockColumns, runningTotal } from './blocks.js'
 import { estimateCost, holidayCoverageCovers, pricingFamilyOf } from '../cost.js'
 import { COVERED_YEARS } from '../holidays.js'
 import {
-  CELL, CELL_HEIGHT, CHART_HEIGHT, DAY_COLUMNS, GAP, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid,
+  CELL, DAY_COLUMNS, GAP, GRID_ASPECT, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid,
 } from './heatmap.js'
 import { stylesheet } from './styles.js'
 
@@ -526,25 +526,28 @@ export function DayHeatmap({ series, today, t, onHover }) {
     [byDay],
   )
 
-  // The grid is sized to the shared chart height, so every view has the same
-  // footprint and switching ranges never moves the page.
+  // Square cells, scaled uniformly: the SVG keeps its aspect ratio instead of
+  // being stretched to fill the panel, because a stretched cell is the one thing
+  // that makes a calendar grid look broken. The box is then sized to whatever
+  // that uniform scale produces, so the chart never distorts.
   const width = DAY_COLUMNS * (CELL + GAP)
-  const cellHeight = (CHART_HEIGHT - 6 * GAP) / 7
-  const height = 7 * cellHeight + 6 * GAP
+  const height = 7 * (CELL + GAP)
 
   return h('div', null,
     h('div', { className: 'dsu-hm-head' },
       h('span', { className: 'dsu-hm-title' }, t('dayHint')),
     ),
     h('div', { className: 'dsu-hm-body' },
-      h('div', { className: 'dsu-dow', style: { height: `${String(CHART_HEIGHT)}px` } },
+      // The weekday gutter sizes itself to the same rows, so it stays aligned
+      // with the grid at any scale.
+      h('div', { className: 'dsu-dow' },
         ['mon', 'wed', 'fri', 'sun'].map((_, index) => h('span', { key: index }, WEEKDAY_GLYPHS[index])),
       ),
       h('div', { className: 'dsu-hm-canvas' },
         h('svg', {
           className: 'dsu-svg',
           viewBox: `0 0 ${String(width)} ${String(height)}`,
-          preserveAspectRatio: 'none',
+          preserveAspectRatio: 'xMidYMid meet',
           role: 'img',
           'aria-label': t('dayAria'),
           onMouseLeave: () => { onHover(undefined) },
@@ -557,9 +560,9 @@ export function DayHeatmap({ series, today, t, onHover }) {
             return h('rect', {
               key,
               x: weekIndex * (CELL + GAP),
-              y: dayIndex * (cellHeight + GAP),
+              y: dayIndex * (CELL + GAP),
               width: CELL,
-              height: cellHeight,
+              height: CELL,
               rx: 3,
               fill: fillOf(level(entry?.total ?? 0)),
               stroke: key === todayKey ? 'var(--dsw-alias-state-business-primary)' : 'none',
@@ -594,9 +597,6 @@ export function DayHeatmap({ series, today, t, onHover }) {
   )
 }
 
-/** Vertical distance between two stacked blocks in the chart viewBox. */
-const BLOCK_STEP = CHART_HEIGHT / MAX_BLOCKS
-
 /**
  * Gap between two stacked blocks.
  *
@@ -627,8 +627,14 @@ const WEEKDAY_GLYPHS = ['一', '三', '五', '日']
  * @returns the chart block.
  */
 export function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) {
+  // The viewBox height is derived from the width to match the daily grid's
+  // aspect ratio, so both charts render the same height at the same panel width
+  // and switching ranges never moves the page.
   const width = columns.length * (WEEK_CELL + WEEK_GAP)
-  const height = CHART_HEIGHT
+  const height = Math.round(width * GRID_ASPECT)
+  // Blocks divide whatever height the aspect ratio produced, so a taller panel
+  // yields taller blocks rather than a chart with slack at the top.
+  const step = height / MAX_BLOCKS
   const compact = compactTokens(unit)
 
   return h('div', null,
@@ -672,9 +678,9 @@ export function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHo
           Array.from({ length: column.blocks }, (_, level) => h('rect', {
             key: level,
             x: index * (WEEK_CELL + WEEK_GAP),
-            y: height - (level + 1) * BLOCK_STEP + BLOCK_GAP,
+            y: height - (level + 1) * step + BLOCK_GAP,
             width: WEEK_CELL,
-            height: BLOCK_STEP - BLOCK_GAP,
+            height: step - BLOCK_GAP,
             rx: 2,
             fill: 'var(--dsu-heat-4)',
           })),
@@ -705,7 +711,6 @@ export function BlockLegend({ unit, t }) {
   return h('div', { className: 'dsu-legend dsu-block-legend' },
     h('span', { className: 'dsu-block-sample' }, h('i')),
     h('span', { className: 'dsu-block-legend-text' }, t('blockUnit', { value: `${compact.value}${compact.unit}` })),
-    h('span', { className: 'dsu-block-legend-cap' }, t('blockCap', { count: String(MAX_BLOCKS) })),
   )
 }
 

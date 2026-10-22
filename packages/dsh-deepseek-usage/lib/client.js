@@ -742,15 +742,15 @@ function quantileLevels(values) {
     return 5;
   };
 }
-var DAY_COLUMNS = 53;
+var DAY_COLUMNS = 26;
 var WEEK_COLUMNS = 26;
 var CELL = 13;
 var GAP = 3;
-var CHART_HEIGHT = 168;
+var GRID_ASPECT = 7 * (CELL + GAP) / (DAY_COLUMNS * (CELL + GAP));
 function dayGrid(today) {
   const start = new Date(today.getTime());
-  start.setDate(start.getDate() - 364);
   start.setDate(start.getDate() - (start.getDay() + 6) % 7);
+  start.setDate(start.getDate() - (DAY_COLUMNS - 1) * 7);
   const columns = [];
   for (let week = 0;week < DAY_COLUMNS; week += 1) {
     const column = [];
@@ -875,14 +875,14 @@ function stylesheet() {
 .dsu-hm-canvas{flex:1;min-width:0}
 .dsu-months{position:relative;height:14px;margin-top:8px;font-size:10.5px;color:var(--dsw-alias-label-caption)}
 .dsu-months span{position:absolute;top:0;white-space:nowrap}
-.dsu-svg{display:block;width:100%;height:168px;overflow:visible}
+.dsu-svg{display:block;width:100%;height:auto;overflow:visible}
 .dsu-svg rect{transition:opacity 100ms}
 .dsu-svg rect:hover{opacity:.72}
-.dsu-dow{display:flex;flex-direction:column;justify-content:space-between;width:14px;flex:none;height:168px;font-size:9px;line-height:1.1;color:var(--dsw-alias-label-caption)}
-.dsu-block-axis{display:flex;flex-direction:column;justify-content:space-between;height:168px;padding-right:10px;font-size:10px;line-height:1;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;text-align:right}
+.dsu-dow{display:flex;flex-direction:column;justify-content:space-between;width:14px;flex:none;height:auto;align-self:stretch;font-size:9px;line-height:1.1;color:var(--dsw-alias-label-caption)}
+.dsu-block-axis{display:flex;flex-direction:column;justify-content:space-between;height:auto;align-self:stretch;padding-right:10px;font-size:10px;line-height:1;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;text-align:right}
 .dsu-block-axis-tick{white-space:nowrap}
 .dsu-hm-body{display:flex;align-items:flex-start}
-.dsu-hm-body>.dsu-wk-svg{flex:1;min-width:0;height:168px}
+.dsu-hm-body>.dsu-wk-svg{flex:1;min-width:0;height:auto}
 .dsu-tip-detail{margin-top:2px;opacity:.82;font-size:11px}
 .dsu-block-legend{justify-content:flex-start;gap:8px}
 .dsu-block-sample{display:inline-flex;align-items:center}
@@ -893,7 +893,7 @@ function stylesheet() {
 .dsu-swatch{display:inline-block;width:10px;height:10px;flex:none;border-radius:2.5px}
 .dsu-wk-months{position:relative;height:14px;margin-top:8px;font-size:10px;color:var(--dsw-alias-label-caption)}
 .dsu-wk-months span{position:absolute;top:0}
-.dsu-wk-svg{display:block;width:100%;height:168px}
+.dsu-wk-svg{display:block;width:100%;height:auto}
 .dsu-wk-svg rect{transition:opacity 100ms}
 .dsu-wk-svg rect:hover{opacity:.72}
 
@@ -1201,12 +1201,11 @@ function DayHeatmap({ series, today, t, onHover }) {
   }, [series]);
   const level = React.useMemo(() => quantileLevels([...byDay.values()].map((entry) => entry.total)), [byDay]);
   const width = DAY_COLUMNS * (CELL + GAP);
-  const cellHeight = (CHART_HEIGHT - 6 * GAP) / 7;
-  const height = 7 * cellHeight + 6 * GAP;
-  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("dayHint"))), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-dow", style: { height: `${String(CHART_HEIGHT)}px` } }, ["mon", "wed", "fri", "sun"].map((_, index) => h2("span", { key: index }, WEEKDAY_GLYPHS[index]))), h2("div", { className: "dsu-hm-canvas" }, h2("svg", {
+  const height = 7 * (CELL + GAP);
+  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("dayHint"))), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-dow" }, ["mon", "wed", "fri", "sun"].map((_, index) => h2("span", { key: index }, WEEKDAY_GLYPHS[index]))), h2("div", { className: "dsu-hm-canvas" }, h2("svg", {
     className: "dsu-svg",
     viewBox: `0 0 ${String(width)} ${String(height)}`,
-    preserveAspectRatio: "none",
+    preserveAspectRatio: "xMidYMid meet",
     role: "img",
     "aria-label": t("dayAria"),
     onMouseLeave: () => {
@@ -1223,9 +1222,9 @@ function DayHeatmap({ series, today, t, onHover }) {
     return h2("rect", {
       key,
       x: weekIndex * (CELL + GAP),
-      y: dayIndex * (cellHeight + GAP),
+      y: dayIndex * (CELL + GAP),
       width: CELL,
-      height: cellHeight,
+      height: CELL,
       rx: 3,
       fill: fillOf(level(entry?.total ?? 0)),
       stroke: key === todayKey ? "var(--dsw-alias-state-business-primary)" : "none",
@@ -1245,12 +1244,12 @@ function DayHeatmap({ series, today, t, onHover }) {
     style: { left: `${String(label.column / DAY_COLUMNS * 100)}%` }
   }, String(label.month)))))), h2(Legend, { t }));
 }
-var BLOCK_STEP = CHART_HEIGHT / MAX_BLOCKS;
 var BLOCK_GAP = 7;
 var WEEKDAY_GLYPHS = ["一", "三", "五", "日"];
 function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) {
   const width = columns.length * (WEEK_CELL + WEEK_GAP);
-  const height = CHART_HEIGHT;
+  const height = Math.round(width * GRID_ASPECT);
+  const step = height / MAX_BLOCKS;
   const compact = compactTokens(unit);
   return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, caption), clipped ? h2("span", { className: "dsu-hm-hint" }, t("blockClipped")) : null), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-block-axis" }, Array.from({ length: MAX_BLOCKS }, (_, index) => {
     const level = MAX_BLOCKS - index;
@@ -1281,16 +1280,16 @@ function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) 
   }, Array.from({ length: column.blocks }, (_, level) => h2("rect", {
     key: level,
     x: index * (WEEK_CELL + WEEK_GAP),
-    y: height - (level + 1) * BLOCK_STEP + BLOCK_GAP,
+    y: height - (level + 1) * step + BLOCK_GAP,
     width: WEEK_CELL,
-    height: BLOCK_STEP - BLOCK_GAP,
+    height: step - BLOCK_GAP,
     rx: 2,
     fill: "var(--dsu-heat-4)"
   })))))), h2("div", { className: "dsu-wk-months" }, columns.map((column, index) => index % 4 === 0 ? h2("span", { key: column.key, style: { left: `${String(index / columns.length * 100)}%` } }, column.axis) : null)), h2(BlockLegend, { unit, t }));
 }
 function BlockLegend({ unit, t }) {
   const compact = compactTokens(unit);
-  return h2("div", { className: "dsu-legend dsu-block-legend" }, h2("span", { className: "dsu-block-sample" }, h2("i")), h2("span", { className: "dsu-block-legend-text" }, t("blockUnit", { value: `${compact.value}${compact.unit}` })), h2("span", { className: "dsu-block-legend-cap" }, t("blockCap", { count: String(MAX_BLOCKS) })));
+  return h2("div", { className: "dsu-legend dsu-block-legend" }, h2("span", { className: "dsu-block-sample" }, h2("i")), h2("span", { className: "dsu-block-legend-text" }, t("blockUnit", { value: `${compact.value}${compact.unit}` })));
 }
 function WeekBlocks({ series, today, t, onHover }) {
   const weeks = React.useMemo(() => {
@@ -1414,7 +1413,7 @@ var zh = {
   channelRelay: "第三方",
   channelUnknown: "未知通道",
   excludeSubagents: "排除子代理",
-  dayHint: "近 12 个月",
+  dayHint: "近 26 周",
   dayAria: "每天 tokens 用量热力图",
   weekHint: "近 26 周",
   totalHint: "近 26 周",
@@ -1455,7 +1454,6 @@ var zh = {
   periodAll: "统计以来",
   recordedTotal: "累计记录",
   blockUnit: "每块 {value} tokens",
-  blockCap: "最多 {count} 块",
   blockClipped: "有列超出上限，按 {count} 块截断",
   blocksCount: "{count} 块",
   weekRange: "起一周",
@@ -1484,7 +1482,7 @@ var en = {
   channelRelay: "Third party",
   channelUnknown: "Unknown",
   excludeSubagents: "Exclude subagents",
-  dayHint: "Last 12 months",
+  dayHint: "Last 26 weeks",
   dayAria: "Daily token usage heatmap",
   weekHint: "Last 26 weeks",
   totalHint: "Last 26 weeks",
@@ -1525,7 +1523,6 @@ var en = {
   periodAll: "Since records began",
   recordedTotal: "All recorded",
   blockUnit: "{value} tokens per block",
-  blockCap: "up to {count} blocks",
   blockClipped: "Some columns exceed the ceiling and are clipped at {count} blocks",
   blocksCount: "{count} blocks",
   weekRange: "week",

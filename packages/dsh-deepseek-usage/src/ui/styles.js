@@ -112,14 +112,14 @@ export function stylesheet() {
 .dsu-hm-canvas{flex:1;min-width:0}
 .dsu-months{position:relative;height:14px;margin-top:8px;font-size:10.5px;color:var(--dsw-alias-label-caption)}
 .dsu-months span{position:absolute;top:0;white-space:nowrap}
-.dsu-svg{display:block;width:100%;height:168px;overflow:visible}
+.dsu-svg{display:block;width:100%;height:auto;overflow:visible}
 .dsu-svg rect{transition:opacity 100ms}
 .dsu-svg rect:hover{opacity:.72}
-.dsu-dow{display:flex;flex-direction:column;justify-content:space-between;width:14px;flex:none;height:168px;font-size:9px;line-height:1.1;color:var(--dsw-alias-label-caption)}
-.dsu-block-axis{display:flex;flex-direction:column;justify-content:space-between;height:168px;padding-right:10px;font-size:10px;line-height:1;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;text-align:right}
+.dsu-dow{display:flex;flex-direction:column;justify-content:space-between;width:14px;flex:none;height:auto;align-self:stretch;font-size:9px;line-height:1.1;color:var(--dsw-alias-label-caption)}
+.dsu-block-axis{display:flex;flex-direction:column;justify-content:space-between;height:auto;align-self:stretch;padding-right:10px;font-size:10px;line-height:1;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;text-align:right}
 .dsu-block-axis-tick{white-space:nowrap}
 .dsu-hm-body{display:flex;align-items:flex-start}
-.dsu-hm-body>.dsu-wk-svg{flex:1;min-width:0;height:168px}
+.dsu-hm-body>.dsu-wk-svg{flex:1;min-width:0;height:auto}
 .dsu-tip-detail{margin-top:2px;opacity:.82;font-size:11px}
 .dsu-block-legend{justify-content:flex-start;gap:8px}
 .dsu-block-sample{display:inline-flex;align-items:center}
@@ -130,7 +130,7 @@ export function stylesheet() {
 .dsu-swatch{display:inline-block;width:10px;height:10px;flex:none;border-radius:2.5px}
 .dsu-wk-months{position:relative;height:14px;margin-top:8px;font-size:10px;color:var(--dsw-alias-label-caption)}
 .dsu-wk-months span{position:absolute;top:0}
-.dsu-wk-svg{display:block;width:100%;height:168px}
+.dsu-wk-svg{display:block;width:100%;height:auto}
 .dsu-wk-svg rect{transition:opacity 100ms}
 .dsu-wk-svg rect:hover{opacity:.72}
 

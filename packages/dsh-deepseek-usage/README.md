@@ -63,11 +63,13 @@ period the view is showing — today, this week, or everything on record. They a
 | **Weekly** | One block column per week, each block a fixed amount of tokens | This week, Monday to Sunday |
 | **Cumulative** | One block column per week, each column the running total | Everything on record |
 
-Every view draws its chart at the same height, and the cost card keeps the same rows whether or
-not it has a figure, so switching ranges never moves the page under the cursor.
+Every view draws its chart at the same height — the daily grid's height follows its width, and the
+block charts derive theirs from the same aspect ratio — and the cost card keeps the same rows
+whether or not it has a figure, so switching ranges never moves the page under the cursor.
 
-The daily grid is Monday-first to match its row labels, and its cells are taller than they are wide:
-53 columns of a year share one panel width, so a square cell would be capped small.
+The daily grid covers the same 26 weeks as the weekly view, is Monday-first to match its row labels,
+and keeps square cells: a year of 53 columns squeezed into one panel width turns each day into a
+sliver, which reads as a rendering fault rather than a calendar.
 
 The block columns replace a colour-graded cell on purpose: a single cell has one shade and no
 height, so a week that doubled looks like a week that grew tenfold. A block is countable, so

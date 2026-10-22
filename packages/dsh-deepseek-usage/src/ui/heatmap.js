@@ -37,36 +37,51 @@ export function quantileLevels(values) {
   }
 }
 
-/** Number of columns in the daily view: 53 weeks covers a full year plus edges. */
-export const DAY_COLUMNS = 53
+/**
+ * Number of columns in the daily view: half a year of weeks.
+ *
+ * A year is 53 columns, which in a panel-width chart squeezes each day into a
+ * sliver — the cells stop looking like cells and the map stops being readable at
+ * a glance. Half a year keeps the same history the weekly view covers, and lets
+ * each day stay square.
+ */
+export const DAY_COLUMNS = 26
 
 /** Number of columns in the weekly view. */
 export const WEEK_COLUMNS = 26
 
 /**
- * Cell geometry in the shared viewBox; the SVG scales to its container.
+ * Cell geometry in the shared viewBox.
  *
- * 53 columns of a year share one panel width, so a square cell is capped by
- * that width and ends up small. The cell is therefore taller than it is wide:
- * the extra height costs nothing horizontally and gives each day a target that
- * is easier to hit and easier to read at a glance.
+ * Square, and the SVG scales uniformly rather than per axis: a stretched cell
+ * is the first thing a reader notices, and it makes the grid look broken. With
+ * half a year of columns a square cell is still large enough to hit.
  */
 export const CELL = 13
-
-/** Cell height, deliberately larger than its width. */
-export const CELL_HEIGHT = 20
 
 /** Gap between cells in the shared viewBox. */
 export const GAP = 3
 
 /**
- * Chart height, in the shared viewBox.
+ * The daily grid's height as a fraction of its width.
  *
- * Every view draws its chart at this height so switching between them does not
- * move the page under the cursor: the block charts use it directly, and the
- * daily grid is sized to match.
+ * The grid scales uniformly, so its rendered height follows the panel width:
+ * 26 columns by 7 rows of `CELL + GAP`. The block charts use the same ratio so
+ * that every view occupies the same vertical space and switching ranges never
+ * moves the page — which a fixed pixel height cannot do, because the grid's
+ * height is already a function of the available width.
  */
-export const CHART_HEIGHT = 168
+export const GRID_ASPECT = (7 * (CELL + GAP)) / (DAY_COLUMNS * (CELL + GAP))
+
+/**
+ * Chart height for a given rendered width.
+ *
+ * @param width - available width in CSS pixels.
+ * @returns the matching chart height.
+ */
+export function chartHeightFor(width) {
+  return Math.round(Math.max(120, width) * GRID_ASPECT)
+}
 
 /**
  * Build the day grid for a rolling year, Monday-first.
@@ -77,12 +92,13 @@ export const CHART_HEIGHT = 168
  * chart rather than a cosmetic difference.
  *
  * @param today - the last day the grid should include.
- * @returns 53 columns of 7 local dates, oldest first.
+ * @returns DAY_COLUMNS columns of 7 local dates, oldest first.
  */
 export function dayGrid(today) {
+  // End on the week containing today, so the current week is always drawn.
   const start = new Date(today.getTime())
-  start.setDate(start.getDate() - 364)
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
+  start.setDate(start.getDate() - (DAY_COLUMNS - 1) * 7)
   const columns = []
   for (let week = 0; week < DAY_COLUMNS; week += 1) {
     const column = []
