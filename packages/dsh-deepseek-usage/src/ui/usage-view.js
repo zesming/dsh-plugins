@@ -14,7 +14,7 @@ import { MAX_BLOCKS, blockColumns, runningTotal } from './blocks.js'
 import { estimateCost, holidayCoverageCovers, pricingFamilyOf } from '../cost.js'
 import { COVERED_YEARS } from '../holidays.js'
 import {
-  CELL, DAY_COLUMNS, GAP, WEEK_COLUMNS, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid, weekSums,
+  CELL, CELL_HEIGHT, CHART_HEIGHT, DAY_COLUMNS, GAP, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid,
 } from './heatmap.js'
 import { stylesheet } from './styles.js'
 
@@ -172,53 +172,43 @@ export function installStyles() {
  * @returns the cost block.
  */
 export function CostCard({ cost, pricing, currency, scope, holidaysCovered, t }) {
-  if (pricing.phase === 'loading') {
-    return h('div', { className: 'dsu-cost dsu-cost-loading' },
-      h('span', { className: 'dsu-kpi-label' }, t('cost')),
-      h('span', { className: 'dsu-cost-value' }, '—'),
-    )
-  }
-  // Nothing in scope is a gap, not a zero: the token KPI already says "—" in
-  // that case, and a ¥0.00 next to it would claim a month cost nothing. The two
-  // gaps are worded apart, because one is a problem to fix and the other is not.
-  if (pricing.phase === 'failed' || cost === null || cost.calls === 0 || cost.priced === 0) {
-    // Three different gaps, worded apart because only two of them are worth
-    // acting on. "Nothing was spent" and "spent, but none of it has a published
-    // price" both have to avoid ¥0.00: one number cannot mean both "you owe
-    // nothing" and "I cannot tell you what you owe".
-    const note = pricing.phase === 'failed' || cost === null
-      ? t('costUnavailable')
-      : cost.calls === 0 ? t('costNoData') : t('costUnpricedAll')
-    return h('div', { className: 'dsu-cost' },
-      h('span', { className: 'dsu-kpi-label' }, t('cost')),
-      h('span', { className: 'dsu-cost-value' }, '—'),
-      h('span', { className: 'dsu-cost-note' }, note),
-    )
-  }
+  const loading = pricing.phase === 'loading'
+  // Three different gaps, worded apart because only two of them are worth
+  // acting on. "Nothing was spent" and "spent, but none of it has a published
+  // price" both have to avoid ¥0.00: one number cannot mean both "you owe
+  // nothing" and "I cannot tell you what you owe".
+  const gap = pricing.phase === 'failed' || cost === null
+    ? t('costUnavailable')
+    : cost.calls === 0 ? t('costNoData') : t('costUnpricedAll')
+  const resolved = !loading && pricing.phase !== 'failed' && cost !== null
+    && cost.calls > 0 && cost.priced > 0
   const money = micro => formatMoney(decimalOfMicro(micro), currency)
   const origin = pricing.payload?.origin === 'bundled'
     ? t('costBundled', { date: pricing.payload?.readAt ?? '—' })
     : t('costLive', { date: pricing.payload?.readAt ?? '—' })
+
+  // The card keeps the same rows whether or not it has a figure, because its
+  // height drives the position of everything below it: a card that shrank on a
+  // range with no price would move the chart and the table up the page.
   return h('div', { className: 'dsu-cost' },
     h('div', { className: 'dsu-cost-head' },
       h('span', { className: 'dsu-kpi-label' }, t('cost')),
       h('span', { className: 'dsu-cost-scope' }, scope),
     ),
-    h('div', { className: 'dsu-cost-value' }, money(cost.total)),
+    h('div', { className: 'dsu-cost-value' }, resolved ? money(cost.total) : '—'),
     h('div', { className: 'dsu-cost-split' },
-      h('span', null, t('costPeak'), ' ', h('b', null, money(cost.peak))),
-      h('span', null, t('costOffPeak'), ' ', h('b', null, money(cost.offPeak))),
+      resolved ? h('span', null, t('costPeak'), ' ', h('b', null, money(cost.peak))) : null,
+      resolved ? h('span', null, t('costOffPeak'), ' ', h('b', null, money(cost.offPeak))) : null,
+      resolved ? null : h('span', { className: 'dsu-cost-gap' }, loading ? '' : gap),
     ),
     h('div', { className: 'dsu-cost-note' }, t('costPeakNote')),
     // Separate lines, not one run-on sentence: the peak-window rule explains
     // the split above, while the exclusion notice qualifies the total.
-    cost.unpriced > 0
-      ? h('div', { className: 'dsu-cost-note dsu-cost-warn' }, t('costUnpriced', { count: groupCount(cost.unpriced) }))
-      : null,
-    holidaysCovered === false
-      ? h('div', { className: 'dsu-cost-note dsu-cost-warn' }, t('costHolidayGap'))
-      : null,
-    h('div', { className: 'dsu-cost-note dsu-cost-origin' }, origin),
+    h('div', { className: 'dsu-cost-note dsu-cost-warn' },
+      resolved && cost.unpriced > 0
+        ? t('costUnpriced', { count: groupCount(cost.unpriced) })
+        : resolved && holidaysCovered === false ? t('costHolidayGap') : ''),
+    h('div', { className: 'dsu-cost-note dsu-cost-origin' }, resolved ? origin : ''),
   )
 }
 
@@ -490,7 +480,15 @@ function fillOf(level) {
 }
 
 /**
- * The per-model daily heatmap.
+ * The daily heatmap.
+ *
+ * One grid for every model summed, rather than one lane per model. A year of
+ * cells is 53 columns wide, so a lane-per-model stack made the daily view four
+ * times as tall as the weekly and cumulative views and the page jumped whenever
+ * the range changed. Summing into a single grid keeps every view the same
+ * height, doubles the size of each cell, and leaves the per-model split to the
+ * hover readout and the table below — which is where a reader goes to ask
+ * "which model", while the grid answers "which day".
  *
  * @param props.series - `{ row, days }` rows.
  * @param props.today - the last included day.
@@ -501,84 +499,103 @@ function fillOf(level) {
 export function DayHeatmap({ series, today, t, onHover }) {
   const columns = React.useMemo(() => dayGrid(today), [today])
   const labels = React.useMemo(() => monthLabels(columns), [columns])
-  const width = DAY_COLUMNS * (CELL + GAP)
-  const height = 7 * (CELL + GAP)
   const todayKey = keyOf(today)
+
+  /** Every model's usage per day, summed, plus the per-model split for hover. */
+  const byDay = React.useMemo(() => {
+    const totals = new Map()
+    for (const { row, days } of series) {
+      for (const [key, tally] of Object.entries(days ?? {})) {
+        if (tally.total <= 0) continue
+        let entry = totals.get(key)
+        if (entry === undefined) {
+          entry = { total: 0, calls: 0, models: [] }
+          totals.set(key, entry)
+        }
+        entry.total += tally.total
+        entry.calls += tally.calls
+        entry.models.push({ name: row.model.split('/').pop(), total: tally.total })
+      }
+    }
+    for (const entry of totals.values()) entry.models.sort((a, b) => b.total - a.total)
+    return totals
+  }, [series])
+
+  const level = React.useMemo(
+    () => quantileLevels([...byDay.values()].map(entry => entry.total)),
+    [byDay],
+  )
+
+  // The grid is sized to the shared chart height, so every view has the same
+  // footprint and switching ranges never moves the page.
+  const width = DAY_COLUMNS * (CELL + GAP)
+  const cellHeight = (CHART_HEIGHT - 6 * GAP) / 7
+  const height = 7 * cellHeight + 6 * GAP
 
   return h('div', null,
     h('div', { className: 'dsu-hm-head' },
       h('span', { className: 'dsu-hm-title' }, t('dayHint')),
     ),
-    h('div', { className: 'dsu-lanes' },
-      series.map(({ row, days }, laneIndex) => {
-        const level = quantileLevels(Object.values(days).map(tally => tally.total))
-        return h('div', { className: 'dsu-lane', key: row.id },
-          h('div', { className: 'dsu-lane-head' },
-            h('span', { className: 'dsu-lane-name', title: row.model }, row.model.split('/').pop()),
-            h('span', { className: 'dsu-tag' }, channelLabel(row.channel, t)),
-            h('span', { className: 'dsu-lane-total' }, h(Tokens, { value: sumDays(days) })),
-          ),
-          h('div', { className: 'dsu-hm-body' },
-            h('div', { className: 'dsu-dow' },
-              ['mon', 'wed', 'fri', 'sun'].map((_, index) => h('span', { key: index }, WEEKDAY_GLYPHS[index])),
-            ),
-            h('div', { className: 'dsu-hm-canvas' },
-              laneIndex === 0
-                ? h('div', { className: 'dsu-months' },
-                    labels.map(label => h('span', {
-                      key: label.column,
-                      style: { left: `${String(label.column / DAY_COLUMNS * 100)}%` },
-                    }, String(label.month))))
-                : null,
-              h('svg', {
-                className: 'dsu-svg',
-                viewBox: `0 0 ${String(width)} ${String(height)}`,
-                preserveAspectRatio: 'xMidYMid meet',
-                role: 'img',
-                'aria-label': `${row.model} daily token usage`,
-                onMouseLeave: () => { onHover(undefined) },
-                onMouseMove: event => { onHover(current => (current === undefined ? current : { ...current, x: event.clientX, y: event.clientY })) },
+    h('div', { className: 'dsu-hm-body' },
+      h('div', { className: 'dsu-dow', style: { height: `${String(CHART_HEIGHT)}px` } },
+        ['mon', 'wed', 'fri', 'sun'].map((_, index) => h('span', { key: index }, WEEKDAY_GLYPHS[index])),
+      ),
+      h('div', { className: 'dsu-hm-canvas' },
+        h('svg', {
+          className: 'dsu-svg',
+          viewBox: `0 0 ${String(width)} ${String(height)}`,
+          preserveAspectRatio: 'none',
+          role: 'img',
+          'aria-label': t('dayAria'),
+          onMouseLeave: () => { onHover(undefined) },
+          onMouseMove: event => { onHover(current => (current === undefined ? current : { ...current, x: event.clientX, y: event.clientY })) },
+        },
+          columns.flatMap((column, weekIndex) => column.map((date, dayIndex) => {
+            const key = keyOf(date)
+            if (key > todayKey) return null
+            const entry = byDay.get(key)
+            return h('rect', {
+              key,
+              x: weekIndex * (CELL + GAP),
+              y: dayIndex * (cellHeight + GAP),
+              width: CELL,
+              height: cellHeight,
+              rx: 3,
+              fill: fillOf(level(entry?.total ?? 0)),
+              stroke: key === todayKey ? 'var(--dsw-alias-state-business-primary)' : 'none',
+              strokeWidth: key === todayKey ? 1.6 : 0,
+              onMouseEnter: event => {
+                onHover({
+                  x: event.clientX,
+                  y: event.clientY,
+                  label: key,
+                  value: entry?.total ?? 0,
+                  // The grid is summed, so the split has to be stated here: a
+                  // reader who wants "which model" gets it without leaving.
+                  detail: entry === undefined || entry.models.length <= 1
+                    ? undefined
+                    : entry.models.slice(0, 3).map(model => `${model.name} ${h26(model.total)}`),
+                })
               },
-                columns.flatMap((column, weekIndex) => column.map((date, dayIndex) => {
-                  const key = keyOf(date)
-                  if (key > todayKey) return null
-                  const tally = days[key]
-                  const levelValue = level(tally?.total ?? 0)
-                  return h('rect', {
-                    key,
-                    x: weekIndex * (CELL + GAP),
-                    y: dayIndex * (CELL + GAP),
-                    width: CELL,
-                    height: CELL,
-                    rx: 2.5,
-                    fill: fillOf(levelValue),
-                    stroke: key === todayKey ? 'var(--dsw-alias-state-business-primary)' : 'none',
-                    strokeWidth: key === todayKey ? 1.6 : 0,
-                    onMouseEnter: event => {
-                      onHover({
-                        x: event.clientX,
-                        y: event.clientY,
-                        label: `${key} · ${row.model.split('/').pop()}`,
-                        value: tally?.total ?? 0,
-                      })
-                    },
-                  })
-                })),
-              ),
-            ),
-          ),
-        )
-      }),
+            })
+          })),
+        ),
+        // The month axis sits below the grid, where the block charts put their
+        // axis, so every view's chart starts at the same y and switching ranges
+        // never shifts the page.
+        h('div', { className: 'dsu-months' },
+          labels.map(label => h('span', {
+            key: label.column,
+            style: { left: `${String(label.column / DAY_COLUMNS * 100)}%` },
+          }, String(label.month)))),
+      ),
     ),
     h(Legend, { t }),
   )
 }
 
-/** Monday-first weekday glyphs for the row label column. */
-const WEEKDAY_GLYPHS = ['一', '三', '五', '日']
-
 /** Vertical distance between two stacked blocks in the chart viewBox. */
-const BLOCK_STEP = 20
+const BLOCK_STEP = CHART_HEIGHT / MAX_BLOCKS
 
 /**
  * Gap between two stacked blocks.
@@ -588,6 +605,9 @@ const BLOCK_STEP = 20
  * exactly what the block form was meant to improve on.
  */
 const BLOCK_GAP = 7
+
+/** Monday-first weekday glyphs for the heatmap's row labels. */
+const WEEKDAY_GLYPHS = ['一', '三', '五', '日']
 
 /**
  * The block-column chart shared by the weekly and cumulative views.
@@ -608,7 +628,7 @@ const BLOCK_GAP = 7
  */
 export function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) {
   const width = columns.length * (WEEK_CELL + WEEK_GAP)
-  const height = MAX_BLOCKS * (BLOCK_STEP)
+  const height = CHART_HEIGHT
   const compact = compactTokens(unit)
 
   return h('div', null,
@@ -886,5 +906,14 @@ export function Tooltip({ hover, language, t }) {
       fontVariantNumeric: 'tabular-nums',
       boxShadow: '0 6px 18px -6px rgba(0,0,0,.3)',
     },
-  }, hover.label, h('br'), `${compact.value}${compact.unit}\u00a0tokens`)
+  },
+    hover.label,
+    h('br'),
+    `${compact.value}${compact.unit}\u00a0tokens`,
+    // A summed cell still has to answer "which model" — the split travels with
+    // the readout rather than forcing a trip to the table below.
+    hover.detail === undefined
+      ? null
+      : hover.detail.map((line, index) => h('div', { key: index, className: 'dsu-tip-detail' }, line)),
+  )
 }

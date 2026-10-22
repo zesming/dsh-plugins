@@ -744,12 +744,13 @@ function quantileLevels(values) {
 }
 var DAY_COLUMNS = 53;
 var WEEK_COLUMNS = 26;
-var CELL = 12;
+var CELL = 13;
 var GAP = 3;
+var CHART_HEIGHT = 168;
 function dayGrid(today) {
   const start = new Date(today.getTime());
   start.setDate(start.getDate() - 364);
-  start.setDate(start.getDate() - start.getDay());
+  start.setDate(start.getDate() - (start.getDay() + 6) % 7);
   const columns = [];
   for (let week = 0;week < DAY_COLUMNS; week += 1) {
     const column = [];
@@ -790,12 +791,6 @@ function monthLabels(columns) {
     }
   });
   return labels;
-}
-function sumDays(days) {
-  let total = 0;
-  for (const tally of Object.values(days ?? {}))
-    total += tally?.total ?? 0;
-  return total;
 }
 
 // packages/dsh-deepseek-usage/src/ui/styles.js
@@ -842,14 +837,15 @@ function stylesheet() {
 .dsu-kpi-label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dsw-alias-label-caption)}
 .dsu-kpi-value{font-size:26px;font-weight:600;line-height:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .dsu-kpi-value .u{margin-left:3px;font-size:13px;font-weight:500;letter-spacing:0;color:var(--dsw-alias-label-tertiary)}
-.dsu-cost{display:flex;flex-direction:column;gap:4px;margin:14px 0 4px;padding:12px 14px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform)}
+.dsu-cost{display:flex;flex-direction:column;gap:4px;margin:14px 0 4px;padding:12px 14px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform)}
 .dsu-cost-loading{opacity:.7}
 .dsu-cost-head{display:flex;align-items:baseline;gap:8px}
 .dsu-cost-scope{font-size:11.5px;color:var(--dsw-alias-label-tertiary)}
 .dsu-cost-value{font-size:26px;font-weight:600;line-height:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.dsu-cost-split{display:flex;gap:18px;font-size:12px;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums}
+.dsu-cost-gap{color:var(--dsw-alias-label-caption)}
+.dsu-cost-split{display:flex;gap:18px;min-height:17px;font-size:12px;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums}
 .dsu-cost-split b{font-weight:600;color:var(--dsw-alias-label-primary)}
-.dsu-cost-note{font-size:11.5px;line-height:16px;color:var(--dsw-alias-label-tertiary)}
+.dsu-cost-note{min-height:16px;font-size:11.5px;line-height:16px;color:var(--dsw-alias-label-tertiary)}
 .dsu-cost-origin{opacity:.85}
 .dsu-cost-warn{color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-label-caption))}
 .dsu-cost-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -877,16 +873,17 @@ function stylesheet() {
 .dsu-tag{flex:none;padding:1.5px 5px;border-radius:4px;background:var(--dsw-alias-bg-module-platform);font-size:9.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary)}
 .dsu-hm-body{display:flex;gap:6px}
 .dsu-hm-canvas{flex:1;min-width:0}
-.dsu-months{position:relative;height:14px;margin-bottom:3px;font-size:10.5px;color:var(--dsw-alias-label-caption)}
+.dsu-months{position:relative;height:14px;margin-top:8px;font-size:10.5px;color:var(--dsw-alias-label-caption)}
 .dsu-months span{position:absolute;top:0;white-space:nowrap}
-.dsu-svg{display:block;width:100%;height:auto;overflow:visible}
+.dsu-svg{display:block;width:100%;height:168px;overflow:visible}
 .dsu-svg rect{transition:opacity 100ms}
 .dsu-svg rect:hover{opacity:.72}
-.dsu-dow{display:flex;flex-direction:column;justify-content:space-between;width:14px;flex:none;padding:20px 0 2px;font-size:9px;line-height:1.1;color:var(--dsw-alias-label-caption)}
-.dsu-block-axis{display:flex;flex-direction:column;justify-content:space-between;align-self:stretch;padding-right:10px;font-size:10px;line-height:1;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;text-align:right}
+.dsu-dow{display:flex;flex-direction:column;justify-content:space-between;width:14px;flex:none;height:168px;font-size:9px;line-height:1.1;color:var(--dsw-alias-label-caption)}
+.dsu-block-axis{display:flex;flex-direction:column;justify-content:space-between;height:168px;padding-right:10px;font-size:10px;line-height:1;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;text-align:right}
 .dsu-block-axis-tick{white-space:nowrap}
 .dsu-hm-body{display:flex;align-items:flex-start}
-.dsu-hm-body>.dsu-wk-svg{flex:1;min-width:0}
+.dsu-hm-body>.dsu-wk-svg{flex:1;min-width:0;height:168px}
+.dsu-tip-detail{margin-top:2px;opacity:.82;font-size:11px}
 .dsu-block-legend{justify-content:flex-start;gap:8px}
 .dsu-block-sample{display:inline-flex;align-items:center}
 .dsu-block-sample i{display:block;width:12px;height:12px;border-radius:2px;background:var(--dsu-heat-4)}
@@ -896,7 +893,7 @@ function stylesheet() {
 .dsu-swatch{display:inline-block;width:10px;height:10px;flex:none;border-radius:2.5px}
 .dsu-wk-months{position:relative;height:14px;margin-top:8px;font-size:10px;color:var(--dsw-alias-label-caption)}
 .dsu-wk-months span{position:absolute;top:0}
-.dsu-wk-svg{display:block;width:100%;height:auto}
+.dsu-wk-svg{display:block;width:100%;height:168px}
 .dsu-wk-svg rect{transition:opacity 100ms}
 .dsu-wk-svg rect:hover{opacity:.72}
 
@@ -1015,16 +1012,12 @@ function installStyles() {
   };
 }
 function CostCard({ cost, pricing, currency, scope, holidaysCovered, t }) {
-  if (pricing.phase === "loading") {
-    return h2("div", { className: "dsu-cost dsu-cost-loading" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"));
-  }
-  if (pricing.phase === "failed" || cost === null || cost.calls === 0 || cost.priced === 0) {
-    const note = pricing.phase === "failed" || cost === null ? t("costUnavailable") : cost.calls === 0 ? t("costNoData") : t("costUnpricedAll");
-    return h2("div", { className: "dsu-cost" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"), h2("span", { className: "dsu-cost-note" }, note));
-  }
+  const loading = pricing.phase === "loading";
+  const gap = pricing.phase === "failed" || cost === null ? t("costUnavailable") : cost.calls === 0 ? t("costNoData") : t("costUnpricedAll");
+  const resolved = !loading && pricing.phase !== "failed" && cost !== null && cost.calls > 0 && cost.priced > 0;
   const money = (micro) => formatMoney(decimalOfMicro(micro), currency);
   const origin = pricing.payload?.origin === "bundled" ? t("costBundled", { date: pricing.payload?.readAt ?? "—" }) : t("costLive", { date: pricing.payload?.readAt ?? "—" });
-  return h2("div", { className: "dsu-cost" }, h2("div", { className: "dsu-cost-head" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-scope" }, scope)), h2("div", { className: "dsu-cost-value" }, money(cost.total)), h2("div", { className: "dsu-cost-split" }, h2("span", null, t("costPeak"), " ", h2("b", null, money(cost.peak))), h2("span", null, t("costOffPeak"), " ", h2("b", null, money(cost.offPeak)))), h2("div", { className: "dsu-cost-note" }, t("costPeakNote")), cost.unpriced > 0 ? h2("div", { className: "dsu-cost-note dsu-cost-warn" }, t("costUnpriced", { count: groupCount(cost.unpriced) })) : null, holidaysCovered === false ? h2("div", { className: "dsu-cost-note dsu-cost-warn" }, t("costHolidayGap")) : null, h2("div", { className: "dsu-cost-note dsu-cost-origin" }, origin));
+  return h2("div", { className: "dsu-cost" }, h2("div", { className: "dsu-cost-head" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-scope" }, scope)), h2("div", { className: "dsu-cost-value" }, resolved ? money(cost.total) : "—"), h2("div", { className: "dsu-cost-split" }, resolved ? h2("span", null, t("costPeak"), " ", h2("b", null, money(cost.peak))) : null, resolved ? h2("span", null, t("costOffPeak"), " ", h2("b", null, money(cost.offPeak))) : null, resolved ? null : h2("span", { className: "dsu-cost-gap" }, loading ? "" : gap)), h2("div", { className: "dsu-cost-note" }, t("costPeakNote")), h2("div", { className: "dsu-cost-note dsu-cost-warn" }, resolved && cost.unpriced > 0 ? t("costUnpriced", { count: groupCount(cost.unpriced) }) : resolved && holidaysCovered === false ? t("costHolidayGap") : ""), h2("div", { className: "dsu-cost-note dsu-cost-origin" }, resolved ? origin : ""));
 }
 function UsageView({ t, container, language, initialRefreshToken, primitives }) {
   const [status, setStatus] = React.useState({ phase: "loading" });
@@ -1185,60 +1178,79 @@ function fillOf(level) {
 function DayHeatmap({ series, today, t, onHover }) {
   const columns = React.useMemo(() => dayGrid(today), [today]);
   const labels = React.useMemo(() => monthLabels(columns), [columns]);
-  const width = DAY_COLUMNS * (CELL + GAP);
-  const height = 7 * (CELL + GAP);
   const todayKey = keyOf(today);
-  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("dayHint"))), h2("div", { className: "dsu-lanes" }, series.map(({ row, days }, laneIndex) => {
-    const level = quantileLevels(Object.values(days).map((tally) => tally.total));
-    return h2("div", { className: "dsu-lane", key: row.id }, h2("div", { className: "dsu-lane-head" }, h2("span", { className: "dsu-lane-name", title: row.model }, row.model.split("/").pop()), h2("span", { className: "dsu-tag" }, channelLabel(row.channel, t)), h2("span", { className: "dsu-lane-total" }, h2(Tokens, { value: sumDays(days) }))), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-dow" }, ["mon", "wed", "fri", "sun"].map((_, index) => h2("span", { key: index }, WEEKDAY_GLYPHS[index]))), h2("div", { className: "dsu-hm-canvas" }, laneIndex === 0 ? h2("div", { className: "dsu-months" }, labels.map((label) => h2("span", {
-      key: label.column,
-      style: { left: `${String(label.column / DAY_COLUMNS * 100)}%` }
-    }, String(label.month)))) : null, h2("svg", {
-      className: "dsu-svg",
-      viewBox: `0 0 ${String(width)} ${String(height)}`,
-      preserveAspectRatio: "xMidYMid meet",
-      role: "img",
-      "aria-label": `${row.model} daily token usage`,
-      onMouseLeave: () => {
-        onHover(undefined);
-      },
-      onMouseMove: (event) => {
-        onHover((current) => current === undefined ? current : { ...current, x: event.clientX, y: event.clientY });
-      }
-    }, columns.flatMap((column, weekIndex) => column.map((date, dayIndex) => {
-      const key = keyOf(date);
-      if (key > todayKey)
-        return null;
-      const tally = days[key];
-      const levelValue = level(tally?.total ?? 0);
-      return h2("rect", {
-        key,
-        x: weekIndex * (CELL + GAP),
-        y: dayIndex * (CELL + GAP),
-        width: CELL,
-        height: CELL,
-        rx: 2.5,
-        fill: fillOf(levelValue),
-        stroke: key === todayKey ? "var(--dsw-alias-state-business-primary)" : "none",
-        strokeWidth: key === todayKey ? 1.6 : 0,
-        onMouseEnter: (event) => {
-          onHover({
-            x: event.clientX,
-            y: event.clientY,
-            label: `${key} · ${row.model.split("/").pop()}`,
-            value: tally?.total ?? 0
-          });
+  const byDay = React.useMemo(() => {
+    const totals = new Map;
+    for (const { row, days } of series) {
+      for (const [key, tally] of Object.entries(days ?? {})) {
+        if (tally.total <= 0)
+          continue;
+        let entry = totals.get(key);
+        if (entry === undefined) {
+          entry = { total: 0, calls: 0, models: [] };
+          totals.set(key, entry);
         }
-      });
-    }))))));
-  })), h2(Legend, { t }));
+        entry.total += tally.total;
+        entry.calls += tally.calls;
+        entry.models.push({ name: row.model.split("/").pop(), total: tally.total });
+      }
+    }
+    for (const entry of totals.values())
+      entry.models.sort((a, b) => b.total - a.total);
+    return totals;
+  }, [series]);
+  const level = React.useMemo(() => quantileLevels([...byDay.values()].map((entry) => entry.total)), [byDay]);
+  const width = DAY_COLUMNS * (CELL + GAP);
+  const cellHeight = (CHART_HEIGHT - 6 * GAP) / 7;
+  const height = 7 * cellHeight + 6 * GAP;
+  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("dayHint"))), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-dow", style: { height: `${String(CHART_HEIGHT)}px` } }, ["mon", "wed", "fri", "sun"].map((_, index) => h2("span", { key: index }, WEEKDAY_GLYPHS[index]))), h2("div", { className: "dsu-hm-canvas" }, h2("svg", {
+    className: "dsu-svg",
+    viewBox: `0 0 ${String(width)} ${String(height)}`,
+    preserveAspectRatio: "none",
+    role: "img",
+    "aria-label": t("dayAria"),
+    onMouseLeave: () => {
+      onHover(undefined);
+    },
+    onMouseMove: (event) => {
+      onHover((current) => current === undefined ? current : { ...current, x: event.clientX, y: event.clientY });
+    }
+  }, columns.flatMap((column, weekIndex) => column.map((date, dayIndex) => {
+    const key = keyOf(date);
+    if (key > todayKey)
+      return null;
+    const entry = byDay.get(key);
+    return h2("rect", {
+      key,
+      x: weekIndex * (CELL + GAP),
+      y: dayIndex * (cellHeight + GAP),
+      width: CELL,
+      height: cellHeight,
+      rx: 3,
+      fill: fillOf(level(entry?.total ?? 0)),
+      stroke: key === todayKey ? "var(--dsw-alias-state-business-primary)" : "none",
+      strokeWidth: key === todayKey ? 1.6 : 0,
+      onMouseEnter: (event) => {
+        onHover({
+          x: event.clientX,
+          y: event.clientY,
+          label: key,
+          value: entry?.total ?? 0,
+          detail: entry === undefined || entry.models.length <= 1 ? undefined : entry.models.slice(0, 3).map((model) => `${model.name} ${h26(model.total)}`)
+        });
+      }
+    });
+  }))), h2("div", { className: "dsu-months" }, labels.map((label) => h2("span", {
+    key: label.column,
+    style: { left: `${String(label.column / DAY_COLUMNS * 100)}%` }
+  }, String(label.month)))))), h2(Legend, { t }));
 }
-var WEEKDAY_GLYPHS = ["一", "三", "五", "日"];
-var BLOCK_STEP = 20;
+var BLOCK_STEP = CHART_HEIGHT / MAX_BLOCKS;
 var BLOCK_GAP = 7;
+var WEEKDAY_GLYPHS = ["一", "三", "五", "日"];
 function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) {
   const width = columns.length * (WEEK_CELL + WEEK_GAP);
-  const height = MAX_BLOCKS * BLOCK_STEP;
+  const height = CHART_HEIGHT;
   const compact = compactTokens(unit);
   return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, caption), clipped ? h2("span", { className: "dsu-hm-hint" }, t("blockClipped")) : null), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-block-axis" }, Array.from({ length: MAX_BLOCKS }, (_, index) => {
     const level = MAX_BLOCKS - index;
@@ -1377,7 +1389,7 @@ function Tooltip({ hover, language, t }) {
       fontVariantNumeric: "tabular-nums",
       boxShadow: "0 6px 18px -6px rgba(0,0,0,.3)"
     }
-  }, hover.label, h2("br"), `${compact.value}${compact.unit} tokens`);
+  }, hover.label, h2("br"), `${compact.value}${compact.unit} tokens`, hover.detail === undefined ? null : hover.detail.map((line, index) => h2("div", { key: index, className: "dsu-tip-detail" }, line)));
 }
 
 // packages/dsh-deepseek-usage/src/ui/locale.js
@@ -1402,9 +1414,10 @@ var zh = {
   channelRelay: "第三方",
   channelUnknown: "未知通道",
   excludeSubagents: "排除子代理",
-  dayHint: "近 12 个月 · 每格一天",
-  weekHint: "近 26 周 · 每列一周",
-  totalHint: "近 26 周 · 每列是该周为止的累计用量",
+  dayHint: "近 12 个月",
+  dayAria: "每天 tokens 用量热力图",
+  weekHint: "近 26 周",
+  totalHint: "近 26 周",
   colorHint: "颜色越浓 tokens 越多",
   byModel: "按模型",
   model: "模型",
@@ -1471,9 +1484,10 @@ var en = {
   channelRelay: "Third party",
   channelUnknown: "Unknown",
   excludeSubagents: "Exclude subagents",
-  dayHint: "Last 12 months · one cell per day",
-  weekHint: "Last 26 weeks · one column per week",
-  totalHint: "Last 26 weeks · each column is the running total",
+  dayHint: "Last 12 months",
+  dayAria: "Daily token usage heatmap",
+  weekHint: "Last 26 weeks",
+  totalHint: "Last 26 weeks",
   colorHint: "Stronger color means more tokens",
   byModel: "By model",
   model: "Model",

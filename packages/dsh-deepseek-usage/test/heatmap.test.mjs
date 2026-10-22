@@ -40,7 +40,7 @@ test('the day grid is 53 whole weeks ending with the reference week', () => {
   for (const column of grid) for (const date of column) assert.ok(date instanceof Date)
   const flat = grid.flat()
   assert.equal(flat.length, DAY_COLUMNS * 7)
-  assert.equal(flat[0].getDay(), 0, 'the first column starts on a Sunday')
+  assert.equal(flat[0].getDay(), 1, 'the first column starts on a Monday')
   assert.ok(flat.at(-1) >= TODAY)
 })
 
@@ -74,3 +74,22 @@ test('weekSums buckets every day into exactly one column', () => {
 })
 
 
+
+test('the day grid is Monday-first, matching its row labels', () => {
+  // The gutter labels are 一/三/五/日. A Sunday-first grid under Monday-first
+  // labels shifts every row by one day, which silently misattributes usage to
+  // the wrong weekday.
+  const grid = dayGrid(new Date(2026, 9, 22))
+  for (const column of grid) {
+    assert.equal(column[0].getDay(), 1, 'row 0 is Monday')
+    assert.equal(column[6].getDay(), 0, 'row 6 is Sunday')
+  }
+})
+
+test('today lands on its own weekday row', () => {
+  const today = new Date(2026, 9, 22) // a Thursday
+  const grid = dayGrid(today)
+  const last = grid[grid.length - 1]
+  const row = last.findIndex(date => date.toDateString() === today.toDateString())
+  assert.equal(row, 3, 'Thursday is the fourth row of a Monday-first week')
+})

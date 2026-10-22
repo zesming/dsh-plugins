@@ -43,14 +43,38 @@ export const DAY_COLUMNS = 53
 /** Number of columns in the weekly view. */
 export const WEEK_COLUMNS = 26
 
-/** Cell geometry in the shared viewBox; the SVG scales to its container. */
-export const CELL = 12
+/**
+ * Cell geometry in the shared viewBox; the SVG scales to its container.
+ *
+ * 53 columns of a year share one panel width, so a square cell is capped by
+ * that width and ends up small. The cell is therefore taller than it is wide:
+ * the extra height costs nothing horizontally and gives each day a target that
+ * is easier to hit and easier to read at a glance.
+ */
+export const CELL = 13
+
+/** Cell height, deliberately larger than its width. */
+export const CELL_HEIGHT = 20
 
 /** Gap between cells in the shared viewBox. */
 export const GAP = 3
 
 /**
- * Build the day grid for a rolling year, Sunday-first.
+ * Chart height, in the shared viewBox.
+ *
+ * Every view draws its chart at this height so switching between them does not
+ * move the page under the cursor: the block charts use it directly, and the
+ * daily grid is sized to match.
+ */
+export const CHART_HEIGHT = 168
+
+/**
+ * Build the day grid for a rolling year, Monday-first.
+ *
+ * Monday-first rather than Sunday-first because the gutter labels the rows and
+ * the page is read in Chinese, where a week starts on Monday. A Sunday-first
+ * grid under Monday-first labels shifts every row by a day, which is a wrong
+ * chart rather than a cosmetic difference.
  *
  * @param today - the last day the grid should include.
  * @returns 53 columns of 7 local dates, oldest first.
@@ -58,7 +82,7 @@ export const GAP = 3
 export function dayGrid(today) {
   const start = new Date(today.getTime())
   start.setDate(start.getDate() - 364)
-  start.setDate(start.getDate() - start.getDay())
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
   const columns = []
   for (let week = 0; week < DAY_COLUMNS; week += 1) {
     const column = []

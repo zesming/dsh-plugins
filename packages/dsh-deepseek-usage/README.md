@@ -59,9 +59,15 @@ period the view is showing — today, this week, or everything on record. They a
 
 | View | Chart | Figures describe |
 |---|---|---|
-| **Daily** | One heatmap lane per model, one colour-graded cell per day | Today |
+| **Daily** | One colour-graded cell per day, every model summed | Today |
 | **Weekly** | One block column per week, each block a fixed amount of tokens | This week, Monday to Sunday |
 | **Cumulative** | One block column per week, each column the running total | Everything on record |
+
+Every view draws its chart at the same height, and the cost card keeps the same rows whether or
+not it has a figure, so switching ranges never moves the page under the cursor.
+
+The daily grid is Monday-first to match its row labels, and its cells are taller than they are wide:
+53 columns of a year share one panel width, so a square cell would be capped small.
 
 The block columns replace a colour-graded cell on purpose: a single cell has one shade and no
 height, so a week that doubled looks like a week that grew tenfold. A block is countable, so
