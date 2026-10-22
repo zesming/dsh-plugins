@@ -96,6 +96,151 @@ function balanceView(input) {
   };
 }
 
+// packages/dsh-deepseek-usage/src/holidays.js
+var HOLIDAYS = {
+  2024: [
+    "2024-01-01",
+    "2024-02-10",
+    "2024-02-11",
+    "2024-02-12",
+    "2024-02-13",
+    "2024-02-14",
+    "2024-02-15",
+    "2024-02-16",
+    "2024-02-17",
+    "2024-04-04",
+    "2024-04-05",
+    "2024-04-06",
+    "2024-05-01",
+    "2024-05-02",
+    "2024-05-03",
+    "2024-05-04",
+    "2024-05-05",
+    "2024-06-10",
+    "2024-09-15",
+    "2024-09-16",
+    "2024-09-17",
+    "2024-10-01",
+    "2024-10-02",
+    "2024-10-03",
+    "2024-10-04",
+    "2024-10-05",
+    "2024-10-06",
+    "2024-10-07"
+  ],
+  2025: [
+    "2025-01-01",
+    "2025-01-28",
+    "2025-01-29",
+    "2025-01-30",
+    "2025-01-31",
+    "2025-02-01",
+    "2025-02-02",
+    "2025-02-03",
+    "2025-02-04",
+    "2025-04-04",
+    "2025-04-05",
+    "2025-04-06",
+    "2025-05-01",
+    "2025-05-02",
+    "2025-05-03",
+    "2025-05-04",
+    "2025-05-05",
+    "2025-05-31",
+    "2025-06-01",
+    "2025-06-02",
+    "2025-10-01",
+    "2025-10-02",
+    "2025-10-03",
+    "2025-10-04",
+    "2025-10-05",
+    "2025-10-06",
+    "2025-10-07",
+    "2025-10-08"
+  ],
+  2026: [
+    "2026-01-01",
+    "2026-01-02",
+    "2026-01-03",
+    "2026-02-15",
+    "2026-02-16",
+    "2026-02-17",
+    "2026-02-18",
+    "2026-02-19",
+    "2026-02-20",
+    "2026-02-21",
+    "2026-02-22",
+    "2026-02-23",
+    "2026-04-04",
+    "2026-04-05",
+    "2026-04-06",
+    "2026-05-01",
+    "2026-05-02",
+    "2026-05-03",
+    "2026-05-04",
+    "2026-05-05",
+    "2026-06-19",
+    "2026-06-20",
+    "2026-06-21",
+    "2026-09-25",
+    "2026-09-26",
+    "2026-09-27",
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03",
+    "2026-10-04",
+    "2026-10-05",
+    "2026-10-06",
+    "2026-10-07"
+  ]
+};
+var HOLIDAY_SET = new Set(Object.values(HOLIDAYS).flat());
+
+// packages/dsh-deepseek-usage/src/cost.js
+var BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000;
+var PEAK_WINDOWS = [[9 * 60, 12 * 60], [14 * 60, 18 * 60]];
+function beijingClock(millis) {
+  const shifted = new Date(millis + BEIJING_OFFSET_MS);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    weekday: shifted.getUTCDay(),
+    minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes()
+  };
+}
+function beijingDateKey(clock) {
+  return `${String(clock.year)}-${String(clock.month).padStart(2, "0")}-${String(clock.day).padStart(2, "0")}`;
+}
+function tierOfInstant(millis, holidays = HOLIDAY_SET) {
+  const clock = beijingClock(millis);
+  if (clock.weekday === 0 || clock.weekday === 6)
+    return "offPeak";
+  if (holidays.has(beijingDateKey(clock)))
+    return "offPeak";
+  for (const [start, end] of PEAK_WINDOWS) {
+    if (clock.minutes >= start && clock.minutes < end)
+      return "peak";
+  }
+  return "offPeak";
+}
+function normalizeModelName(model) {
+  if (typeof model !== "string")
+    return "";
+  const tail = model.includes("/") ? model.slice(model.lastIndexOf("/") + 1) : model;
+  return tail.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+function pricingFamilyOf(model) {
+  const name = normalizeModelName(model);
+  if (!name.startsWith("deepseek"))
+    return null;
+  if (name.includes("flash"))
+    return "flash";
+  if (/v\d+pro/.test(name) || /pro\d*$/.test(name))
+    return "pro";
+  return null;
+}
+
 // packages/dsh-deepseek-usage/src/usage.js
 var OFFICIAL_PROVIDERS = new Set(["deepseek-account"]);
 var API_KEY_PROVIDERS = new Set(["deepseek"]);
@@ -112,14 +257,22 @@ function count(value) {
   return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
 }
 function emptyTally() {
-  return { input: 0, output: 0, cacheRead: 0, total: 0, calls: 0 };
+  return { input: 0, output: 0, cacheRead: 0, total: 0, calls: 0, peak: { input: 0, output: 0, cacheRead: 0 } };
 }
-function addInto(tally, usage) {
-  tally.input += count(usage.inputTokens);
-  tally.output += count(usage.outputTokens);
-  tally.cacheRead += count(usage.cacheReadTokens);
+function addInto(tally, usage, tier) {
+  const input = count(usage.inputTokens);
+  const output = count(usage.outputTokens);
+  const cacheRead = count(usage.cacheReadTokens);
+  tally.input += input;
+  tally.output += output;
+  tally.cacheRead += cacheRead;
   tally.total += count(usage.totalTokens);
   tally.calls += 1;
+  if (tier === "peak") {
+    tally.peak.input += input;
+    tally.peak.output += output;
+    tally.peak.cacheRead += cacheRead;
+  }
 }
 function dayKey(millis) {
   const date = new Date(millis);
@@ -166,21 +319,22 @@ function foldSession(events, into, options = {}) {
       continue;
     if (until !== undefined && day > until)
       continue;
-    addInto(record.totals, usage);
+    const tier = tierOfInstant(time);
+    addInto(record.totals, usage, tier);
     let bucket = record.days.get(day);
     if (bucket === undefined) {
       bucket = emptyTally();
       record.days.set(day, bucket);
     }
-    addInto(bucket, usage);
+    addInto(bucket, usage, tier);
     if (subagent) {
-      addInto(record.subagentTotals, usage);
+      addInto(record.subagentTotals, usage, tier);
       let subBucket = record.subagentDays.get(day);
       if (subBucket === undefined) {
         subBucket = emptyTally();
         record.subagentDays.set(day, subBucket);
       }
-      addInto(subBucket, usage);
+      addInto(subBucket, usage, tier);
     }
   }
   return into;
@@ -228,6 +382,13 @@ function mergeTally(target, source) {
   target.cacheRead += source.cacheRead;
   target.total += source.total;
   target.calls += source.calls;
+  const peak = source.peak ?? { input: 0, output: 0, cacheRead: 0 };
+  target.peak.input += peak.input ?? 0;
+  target.peak.output += peak.output ?? 0;
+  target.peak.cacheRead += peak.cacheRead ?? 0;
+}
+function copyTally(tally) {
+  return { ...tally, peak: { ...tally.peak ?? { input: 0, output: 0, cacheRead: 0 } } };
 }
 function serialize(records, options = {}) {
   const models = [...records.values()].map((record) => ({
@@ -235,9 +396,9 @@ function serialize(records, options = {}) {
     provider: record.provider,
     model: record.model,
     channel: record.channel,
-    totals: { ...record.totals },
-    days: Object.fromEntries([...record.days].sort(([a], [b]) => a.localeCompare(b))),
-    ...options.includeSubagents === false ? {} : { subagent: { totals: { ...record.subagentTotals }, days: Object.fromEntries([...record.subagentDays].sort(([a], [b]) => a.localeCompare(b))) } }
+    totals: copyTally(record.totals),
+    days: Object.fromEntries([...record.days].sort(([a], [b]) => a.localeCompare(b)).map(([day, tally]) => [day, copyTally(tally)])),
+    ...options.includeSubagents === false ? {} : { subagent: { totals: copyTally(record.subagentTotals), days: Object.fromEntries([...record.subagentDays].sort(([a], [b]) => a.localeCompare(b)).map(([day, tally]) => [day, copyTally(tally)])) } }
   })).sort((a, b) => b.totals.total - a.totals.total);
   const channels = {};
   for (const row of models) {
@@ -247,12 +408,20 @@ function serialize(records, options = {}) {
   return { models, channels };
 }
 function subtractTally(bucket, remove) {
+  const peakOf = (tally) => tally.peak ?? { input: 0, output: 0, cacheRead: 0 };
+  const mine = peakOf(bucket);
+  const theirs = peakOf(remove);
   return {
     input: Math.max(0, bucket.input - remove.input),
     output: Math.max(0, bucket.output - remove.output),
     cacheRead: Math.max(0, bucket.cacheRead - remove.cacheRead),
     total: Math.max(0, bucket.total - remove.total),
-    calls: Math.max(0, bucket.calls - remove.calls)
+    calls: Math.max(0, bucket.calls - remove.calls),
+    peak: {
+      input: Math.max(0, mine.input - theirs.input),
+      output: Math.max(0, mine.output - theirs.output),
+      cacheRead: Math.max(0, mine.cacheRead - theirs.cacheRead)
+    }
   };
 }
 function withoutSubagents(days, subagentDays) {
@@ -349,9 +518,195 @@ async function collectUsage(deps, options = {}) {
   };
 }
 
+// packages/dsh-deepseek-usage/src/pricing.js
+var PRICING_URL = "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/";
+var DEFAULT_CURRENCY = "CNY";
+var BUNDLED_PRICING = Object.freeze({
+  currency: DEFAULT_CURRENCY,
+  source: PRICING_URL,
+  readAt: "2026-10-22",
+  models: {
+    flash: {
+      name: "deepseek-flash",
+      prices: {
+        peak: { cacheHit: "0.04", cacheMiss: "2", output: "8" },
+        offPeak: { cacheHit: "0.02", cacheMiss: "1", output: "4" }
+      }
+    },
+    pro: {
+      name: "deepseek-v4-pro",
+      prices: {
+        peak: { cacheHit: "0.30", cacheMiss: "9.0", output: "27.0" },
+        offPeak: { cacheHit: "0.15", cacheMiss: "4.5", output: "13.5" }
+      }
+    }
+  }
+});
+function plain(fragment) {
+  return fragment.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+}
+function rowsOf(html) {
+  const rows = [];
+  const rowPattern = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let row;
+  while ((row = rowPattern.exec(html)) !== null) {
+    const cells = [];
+    const cellPattern = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
+    let cell;
+    while ((cell = cellPattern.exec(row[1])) !== null)
+      cells.push(plain(cell[1]));
+    if (cells.length > 0)
+      rows.push(cells);
+  }
+  return rows;
+}
+function priceCell(text) {
+  const match = /^([$¥])?\s*([0-9]+(?:\.[0-9]+)?)\s*(元)?$/.exec(text);
+  if (match === null)
+    return null;
+  const symbol = match[1] ?? (match[3] === undefined ? "" : "¥");
+  const currency = symbol === "$" ? "USD" : symbol === "" ? null : "CNY";
+  return { value: match[2], currency };
+}
+function slotOf(text) {
+  const lower = text.toLowerCase();
+  if (/缓存命中|cache hit/.test(lower))
+    return "cacheHit";
+  if (/缓存未命中|cache miss/.test(lower))
+    return "cacheMiss";
+  if (/输出|output/.test(lower))
+    return "output";
+  return null;
+}
+function tierOf(text) {
+  const lower = text.toLowerCase();
+  if (/空闲|off-peak|off peak/.test(lower))
+    return "offPeak";
+  if (/高峰|peak/.test(lower))
+    return "peak";
+  return null;
+}
+function parsePricingPage(html) {
+  if (typeof html !== "string" || html === "")
+    return null;
+  const cleaned = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ");
+  const rows = rowsOf(cleaned);
+  let names = [];
+  let headerIndex = -1;
+  for (let index = 0;index < rows.length; index += 1) {
+    const found = rows[index].map((cell) => /^(deepseek[\w.-]*)/i.exec(cell)?.[1]).filter((name) => name !== undefined);
+    if (found.some((name) => pricingFamilyOf(name) !== null)) {
+      names = found;
+      headerIndex = index;
+      break;
+    }
+  }
+  if (headerIndex < 0 || names.length === 0)
+    return null;
+  const columns = names.map(() => ({ peak: {}, offPeak: {} }));
+  let currency = null;
+  let slot = null;
+  for (const cells of rows.slice(headerIndex + 1)) {
+    const label = cells.map(slotOf).find((value) => value !== null);
+    if (label !== undefined)
+      slot = label;
+    if (slot === null)
+      continue;
+    const tier = cells.map(tierOf).find((value) => value !== null);
+    if (tier === undefined)
+      continue;
+    const prices = cells.map(priceCell).filter((cell) => cell !== null);
+    if (prices.length !== columns.length)
+      continue;
+    for (let index = 0;index < prices.length; index += 1) {
+      const cell = prices[index];
+      if (cell.currency !== null) {
+        if (currency === null)
+          currency = cell.currency;
+        else if (currency !== cell.currency)
+          return null;
+      }
+      columns[index][tier][slot] = cell.value;
+    }
+  }
+  const models = {};
+  for (let index = 0;index < names.length; index += 1) {
+    const family = pricingFamilyOf(names[index]);
+    if (family === null)
+      continue;
+    const { peak, offPeak } = columns[index];
+    const complete = (pair) => pair.cacheHit !== undefined && pair.cacheMiss !== undefined && pair.output !== undefined;
+    if (!complete(peak) || !complete(offPeak))
+      continue;
+    models[family] = { name: names[index], prices: { peak, offPeak } };
+  }
+  if (Object.keys(models).length === 0)
+    return null;
+  return { currency: currency ?? DEFAULT_CURRENCY, models };
+}
+function localDayKey(millis) {
+  const date = new Date(millis);
+  return `${String(date.getFullYear())}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function payloadOf(table, meta) {
+  return {
+    currency: table.currency,
+    source: PRICING_URL,
+    readAt: meta.readAt,
+    models: table.models,
+    origin: meta.origin
+  };
+}
+function createPricingSource(deps, options = {}) {
+  const { fetchImpl, now } = deps;
+  const timeoutMs = options.timeoutMs ?? 8000;
+  let cached;
+  let pending;
+  return async function read() {
+    const day = localDayKey(now());
+    if (cached !== undefined && cached.day === day)
+      return cached.value;
+    if (pending !== undefined)
+      return pending;
+    pending = (async () => {
+      try {
+        if (typeof fetchImpl !== "function")
+          throw new Error("fetch-unavailable");
+        const controller = new AbortController;
+        const timer = setTimeout(() => {
+          controller.abort();
+        }, timeoutMs);
+        let response;
+        try {
+          response = await fetchImpl(PRICING_URL, {
+            signal: controller.signal,
+            headers: { accept: "text/html", "user-agent": "dsh-deepseek-usage" }
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+        if (response?.ok !== true)
+          throw new Error("http");
+        const table = parsePricingPage(await response.text());
+        if (table === null)
+          throw new Error("unparsable");
+        const value = payloadOf(table, { readAt: day, origin: "live" });
+        cached = { day, value };
+        return value;
+      } catch {
+        return payloadOf(BUNDLED_PRICING, { readAt: BUNDLED_PRICING.readAt, origin: "bundled" });
+      } finally {
+        pending = undefined;
+      }
+    })();
+    return pending;
+  };
+}
+
 // packages/dsh-deepseek-usage/src/index.js
 var BALANCE_PATH = "/api/deepseek-usage.balance";
 var SERIES_PATH = "/api/deepseek-usage.series";
+var PRICING_PATH = "/api/deepseek-usage.pricing";
 var BALANCE_TTL_MS = 60000;
 var SERIES_TTL_MS = 30000;
 var MAX_WINDOW_DAYS = 800;
@@ -445,6 +800,7 @@ function apply(ctx, config = {}) {
   const balanceCache = new TtlCache(config.balanceTtlMs ?? BALANCE_TTL_MS);
   const seriesCache = new TtlCache(config.seriesTtlMs ?? SERIES_TTL_MS);
   const now = () => Date.now();
+  const pricing = createPricingSource({ fetchImpl: config.fetchImpl ?? globalThis.fetch, now });
   ctx.inject(["connection"], (scope) => {
     const disposers = [];
     const register = (route) => disposers.push(scope.connection.fetch.register(route));
@@ -493,6 +849,19 @@ function apply(ctx, config = {}) {
         }
       }
     });
+    register({
+      path: PRICING_PATH,
+      methods: ["GET"],
+      requestBody: "buffered",
+      fetch: async () => {
+        try {
+          return json(await pricing());
+        } catch (error) {
+          ctx.logger?.warn?.("deepseek-usage: pricing read failed", error);
+          return failure("pricing-failed");
+        }
+      }
+    });
     ctx.effect(() => () => {
       for (const dispose of disposers)
         dispose();
@@ -517,5 +886,6 @@ export {
   name,
   apply,
   SERIES_PATH,
+  PRICING_PATH,
   BALANCE_PATH
 };

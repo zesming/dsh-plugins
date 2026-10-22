@@ -35,6 +35,7 @@ from the sidebar's panel list, and from **Settings → Usage**.
 | Balance, bonus wallets | `ctx.deepseekAccount.getBalance()` — Platform's `get_user_summary` |
 | Expiry of granted credit | `ctx.deepseekAccount.getUnnotifiedBonuses()` — the only Platform field carrying an expiry |
 | Token usage | `assistant/message.data.usage` in each stored Session log |
+| Prices | `api-docs.deepseek.com/zh-cn/quick_start/pricing`, read at most once a day |
 
 Two deliberate choices follow from those sources:
 
@@ -50,6 +51,31 @@ Two deliberate choices follow from those sources:
 Session logs record the provider and model of each call but no DeepSeek account id. The usage page
 therefore groups by **access channel** — DeepSeek account, API key, or third party — and labels it
 that way, rather than presenting an account breakdown it cannot support.
+
+## Cost estimation
+
+The usage page prices the tokens it shows, following the range switch: **Daily** covers the 12
+months the heatmap draws, **Weekly** the 26 weeks, and **Cumulative** everything on record. The
+headline figure splits into peak and off-peak, because the same tokens cost twice as much inside
+the peak windows — that split is the actionable part of the number.
+
+- **Peak hours** are Beijing-time weekdays 09:00–12:00 and 14:00–18:00, excluding Chinese statutory
+  holidays. A call's tier is decided from its own instant while the Session log is folded, so it is
+  never recomputed from the reader's clock or timezone. Weekend hours are off-peak even when a
+  Saturday has been shifted into the working week.
+- **The holiday schedule is bundled**, not fetched. A second network dependency would make an
+  offline reader lose the tier split as well as the price, and the State Council publishes one year
+  at a time.
+- **Prices refresh once per local day**, when the page opens. A read failure is not remembered for
+  the day, so the next visit retries; a shipped snapshot answers in the meantime, and the page says
+  which of the two it is showing.
+- **Only official models are priced.** A third-party relay hosting the same weights is matched by
+  name (`opensource/deepseek_v4_1_flash` → the published Flash price), because it is the same model
+  at the same price. Anything that is not a DeepSeek model is left unpriced and *counted* in a
+  notice, never billed at zero.
+- **Money is integer arithmetic.** Prices are per million tokens and arrive as decimal strings, so a
+  two-decimal total computed in floating point can drift by a cent; the estimator works in
+  micro-units and formats once.
 
 ## Counting rules
 

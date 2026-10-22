@@ -8,6 +8,8 @@
  * disk or the network, so the whole aggregation is unit-testable.
  */
 
+import { tierOfInstant } from './cost.js'
+
 /** Provider names that mean "the signed-in DeepSeek account" or "a DeepSeek API key". */
 const OFFICIAL_PROVIDERS = new Set(['deepseek-account'])
 const API_KEY_PROVIDERS = new Set(['deepseek'])
@@ -34,18 +36,38 @@ function count(value) {
   return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0
 }
 
-/** An empty per-bucket usage tally. */
+/**
+ * An empty per-bucket usage tally.
+ *
+ * `peak` carries the subset of the same bucket that was billed at the peak
+ * rate. It is a strict subset rather than a sibling field, so the off-peak
+ * portion is always `total - peak` and the two can never drift apart.
+ */
 function emptyTally() {
-  return { input: 0, output: 0, cacheRead: 0, total: 0, calls: 0 }
+  return { input: 0, output: 0, cacheRead: 0, total: 0, calls: 0, peak: { input: 0, output: 0, cacheRead: 0 } }
 }
 
-/** Add one event's usage into a tally, in place. */
-function addInto(tally, usage) {
-  tally.input += count(usage.inputTokens)
-  tally.output += count(usage.outputTokens)
-  tally.cacheRead += count(usage.cacheReadTokens)
+/**
+ * Add one event's usage into a tally, in place.
+ *
+ * @param tally - bucket to grow.
+ * @param usage - provider-reported usage of one call.
+ * @param tier - price tier the call was billed at.
+ */
+function addInto(tally, usage, tier) {
+  const input = count(usage.inputTokens)
+  const output = count(usage.outputTokens)
+  const cacheRead = count(usage.cacheReadTokens)
+  tally.input += input
+  tally.output += output
+  tally.cacheRead += cacheRead
   tally.total += count(usage.totalTokens)
   tally.calls += 1
+  if (tier === 'peak') {
+    tally.peak.input += input
+    tally.peak.output += output
+    tally.peak.cacheRead += cacheRead
+  }
 }
 
 /**
@@ -125,21 +147,24 @@ export function foldSession(events, into, options = {}) {
     // dropped before it is allocated into any bucket.
     if (from !== undefined && day < from) continue
     if (until !== undefined && day > until) continue
-    addInto(record.totals, usage)
+    // The billed tier is decided from the instant of the call, once, so every
+    // later fold and every later total agree on which half it belonged to.
+    const tier = tierOfInstant(time)
+    addInto(record.totals, usage, tier)
     let bucket = record.days.get(day)
     if (bucket === undefined) {
       bucket = emptyTally()
       record.days.set(day, bucket)
     }
-    addInto(bucket, usage)
+    addInto(bucket, usage, tier)
     if (subagent) {
-      addInto(record.subagentTotals, usage)
+      addInto(record.subagentTotals, usage, tier)
       let subBucket = record.subagentDays.get(day)
       if (subBucket === undefined) {
         subBucket = emptyTally()
         record.subagentDays.set(day, subBucket)
       }
-      addInto(subBucket, usage)
+      addInto(subBucket, usage, tier)
     }
   }
   return into
@@ -197,6 +222,24 @@ function mergeTally(target, source) {
   target.cacheRead += source.cacheRead
   target.total += source.total
   target.calls += source.calls
+  const peak = source.peak ?? { input: 0, output: 0, cacheRead: 0 }
+  target.peak.input += peak.input ?? 0
+  target.peak.output += peak.output ?? 0
+  target.peak.cacheRead += peak.cacheRead ?? 0
+}
+
+/**
+ * Copy a tally, including its nested peak sub-tally.
+ *
+ * A shallow spread would leave the serialized payload sharing the `peak`
+ * object with the live accumulator, so a later fold could mutate a value the
+ * Client already holds.
+ *
+ * @param tally - bucket to copy.
+ * @returns an independent copy.
+ */
+function copyTally(tally) {
+  return { ...tally, peak: { ...(tally.peak ?? { input: 0, output: 0, cacheRead: 0 }) } }
 }
 
 /**
@@ -216,11 +259,11 @@ export function serialize(records, options = {}) {
       provider: record.provider,
       model: record.model,
       channel: record.channel,
-      totals: { ...record.totals },
-      days: Object.fromEntries([...record.days].sort(([a], [b]) => a.localeCompare(b))),
+      totals: copyTally(record.totals),
+      days: Object.fromEntries([...record.days].sort(([a], [b]) => a.localeCompare(b)).map(([day, tally]) => [day, copyTally(tally)])),
       ...options.includeSubagents === false
         ? {}
-        : { subagent: { totals: { ...record.subagentTotals }, days: Object.fromEntries([...record.subagentDays].sort(([a], [b]) => a.localeCompare(b))) } },
+        : { subagent: { totals: copyTally(record.subagentTotals), days: Object.fromEntries([...record.subagentDays].sort(([a], [b]) => a.localeCompare(b)).map(([day, tally]) => [day, copyTally(tally)])) } },
     }))
     .sort((a, b) => b.totals.total - a.totals.total)
 
@@ -234,12 +277,22 @@ export function serialize(records, options = {}) {
 
 /** Subtract one tally from another, never going negative. */
 function subtractTally(bucket, remove) {
+  const peakOf = tally => tally.peak ?? { input: 0, output: 0, cacheRead: 0 }
+  const mine = peakOf(bucket)
+  const theirs = peakOf(remove)
   return {
     input: Math.max(0, bucket.input - remove.input),
     output: Math.max(0, bucket.output - remove.output),
     cacheRead: Math.max(0, bucket.cacheRead - remove.cacheRead),
     total: Math.max(0, bucket.total - remove.total),
     calls: Math.max(0, bucket.calls - remove.calls),
+    // The peak subset is subtracted too, so "exclude subagents" removes the same
+    // proportion of expensive calls as it removes of the total.
+    peak: {
+      input: Math.max(0, mine.input - theirs.input),
+      output: Math.max(0, mine.output - theirs.output),
+      cacheRead: Math.max(0, mine.cacheRead - theirs.cacheRead),
+    },
   }
 }
 

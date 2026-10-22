@@ -18,7 +18,7 @@ docs/images/              screenshots referenced by the READMEs
 
 | Package | What it does |
 |---|---|
-| [`dsh-deepseek-usage`](packages/dsh-deepseek-usage/) | Account balance and expiring credit in the sidebar; a token-usage heatmap by day, week, or weekly stack, split per model |
+| [`dsh-deepseek-usage`](packages/dsh-deepseek-usage/) | Account balance and expiring credit in the sidebar; a token-usage heatmap by day, week, or weekly stack, split per model, with a peak/off-peak cost estimate |
 
 <p align="center">
   <img src="docs/images/usage-daily.png" alt="Usage page showing a daily token heatmap with one lane per model" width="760">

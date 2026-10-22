@@ -129,6 +129,7 @@ var REFRESH = glyph([
 // packages/dsh-deepseek-usage/src/ui/api.js
 var BALANCE_ROUTE = "api/deepseek-usage.balance";
 var SERIES_ROUTE = "api/deepseek-usage.series";
+var PRICING_ROUTE = "api/deepseek-usage.pricing";
 function identity(url) {
   const locale = typeof navigator !== "undefined" && navigator.language ? navigator.language : "zh-CN";
   const tz = -new Date().getTimezoneOffset() * 60;
@@ -175,6 +176,18 @@ async function fetchSeries(options = {}) {
     throw new Error("usage response was not an object");
   if (payload.available === false)
     throw new Error(String(payload.error ?? "usage-unavailable"));
+  return payload;
+}
+async function fetchPricing(options = {}) {
+  const url = new URL(PRICING_ROUTE, document.baseURI);
+  const response = await fetch(url, { signal: options.signal, headers: { accept: "application/json" } });
+  if (!response.ok)
+    throw new Error(`pricing request failed: HTTP ${String(response.status)}`);
+  const payload = await response.json();
+  if (typeof payload !== "object" || payload === null)
+    throw new Error("pricing response was not an object");
+  if (typeof payload.models !== "object" || payload.models === null)
+    throw new Error("pricing response carried no models");
   return payload;
 }
 
@@ -362,16 +375,194 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
   }));
 }
 
+// packages/dsh-deepseek-usage/src/holidays.js
+var HOLIDAYS = {
+  2024: [
+    "2024-01-01",
+    "2024-02-10",
+    "2024-02-11",
+    "2024-02-12",
+    "2024-02-13",
+    "2024-02-14",
+    "2024-02-15",
+    "2024-02-16",
+    "2024-02-17",
+    "2024-04-04",
+    "2024-04-05",
+    "2024-04-06",
+    "2024-05-01",
+    "2024-05-02",
+    "2024-05-03",
+    "2024-05-04",
+    "2024-05-05",
+    "2024-06-10",
+    "2024-09-15",
+    "2024-09-16",
+    "2024-09-17",
+    "2024-10-01",
+    "2024-10-02",
+    "2024-10-03",
+    "2024-10-04",
+    "2024-10-05",
+    "2024-10-06",
+    "2024-10-07"
+  ],
+  2025: [
+    "2025-01-01",
+    "2025-01-28",
+    "2025-01-29",
+    "2025-01-30",
+    "2025-01-31",
+    "2025-02-01",
+    "2025-02-02",
+    "2025-02-03",
+    "2025-02-04",
+    "2025-04-04",
+    "2025-04-05",
+    "2025-04-06",
+    "2025-05-01",
+    "2025-05-02",
+    "2025-05-03",
+    "2025-05-04",
+    "2025-05-05",
+    "2025-05-31",
+    "2025-06-01",
+    "2025-06-02",
+    "2025-10-01",
+    "2025-10-02",
+    "2025-10-03",
+    "2025-10-04",
+    "2025-10-05",
+    "2025-10-06",
+    "2025-10-07",
+    "2025-10-08"
+  ],
+  2026: [
+    "2026-01-01",
+    "2026-01-02",
+    "2026-01-03",
+    "2026-02-15",
+    "2026-02-16",
+    "2026-02-17",
+    "2026-02-18",
+    "2026-02-19",
+    "2026-02-20",
+    "2026-02-21",
+    "2026-02-22",
+    "2026-02-23",
+    "2026-04-04",
+    "2026-04-05",
+    "2026-04-06",
+    "2026-05-01",
+    "2026-05-02",
+    "2026-05-03",
+    "2026-05-04",
+    "2026-05-05",
+    "2026-06-19",
+    "2026-06-20",
+    "2026-06-21",
+    "2026-09-25",
+    "2026-09-26",
+    "2026-09-27",
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03",
+    "2026-10-04",
+    "2026-10-05",
+    "2026-10-06",
+    "2026-10-07"
+  ]
+};
+var HOLIDAY_SET = new Set(Object.values(HOLIDAYS).flat());
+
+// packages/dsh-deepseek-usage/src/cost.js
+var BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000;
+var PEAK_WINDOWS = [[9 * 60, 12 * 60], [14 * 60, 18 * 60]];
+var PER_MILLION = 1000000n;
+function normalizeModelName(model) {
+  if (typeof model !== "string")
+    return "";
+  const tail = model.includes("/") ? model.slice(model.lastIndexOf("/") + 1) : model;
+  return tail.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+function pricingFamilyOf(model) {
+  const name = normalizeModelName(model);
+  if (!name.startsWith("deepseek"))
+    return null;
+  if (name.includes("flash"))
+    return "flash";
+  if (/v\d+pro/.test(name) || /pro\d*$/.test(name))
+    return "pro";
+  return null;
+}
+function priceToMicro(text) {
+  if (typeof text !== "string")
+    return null;
+  const match = /^(\d+)(?:\.(\d*))?$/.exec(text.trim());
+  if (match === null)
+    return null;
+  const whole = match[1];
+  const fraction = (match[2] ?? "").padEnd(6, "0").slice(0, 6);
+  return BigInt(whole) * 1000000n + BigInt(fraction === "" ? "0" : fraction);
+}
+function microToDecimal(micro) {
+  const negative = micro < 0n;
+  const magnitude = negative ? -micro : micro;
+  const whole = magnitude / 1000000n;
+  const fraction = String(magnitude % 1000000n).padStart(6, "0");
+  return `${negative ? "-" : ""}${String(whole)}.${fraction}`;
+}
+function zeroTier() {
+  return { input: 0, output: 0, cacheRead: 0 };
+}
+function splitTiers(bucket) {
+  const peak = bucket?.peak ?? zeroTier();
+  const pick = (key) => Math.max(0, (bucket?.[key] ?? 0) - (peak[key] ?? 0));
+  return {
+    peak: { input: peak.input ?? 0, output: peak.output ?? 0, cacheRead: peak.cacheRead ?? 0 },
+    offPeak: { input: pick("input"), output: pick("output"), cacheRead: pick("cacheRead") }
+  };
+}
+function priceTier(tokens, price) {
+  const miss = priceToMicro(price.cacheMiss);
+  const hit = priceToMicro(price.cacheHit);
+  const out = priceToMicro(price.output);
+  if (miss === null || hit === null || out === null)
+    return 0n;
+  const numerator = BigInt(Math.max(0, Math.trunc(tokens.input))) * miss + BigInt(Math.max(0, Math.trunc(tokens.cacheRead))) * hit + BigInt(Math.max(0, Math.trunc(tokens.output))) * out;
+  return (numerator + PER_MILLION / 2n) / PER_MILLION;
+}
+function estimateCost(bucket, plan) {
+  if (plan === undefined || plan === null)
+    return null;
+  const { peak, offPeak } = splitTiers(bucket);
+  const peakMicro = priceTier(peak, plan.prices.peak);
+  const offPeakMicro = priceTier(offPeak, plan.prices.offPeak);
+  return {
+    total: microToDecimal(peakMicro + offPeakMicro),
+    peak: microToDecimal(peakMicro),
+    offPeak: microToDecimal(offPeakMicro)
+  };
+}
+
 // packages/dsh-deepseek-usage/src/usage.js
 var OFFICIAL_PROVIDERS = new Set(["deepseek-account"]);
 var API_KEY_PROVIDERS = new Set(["deepseek"]);
 function subtractTally(bucket, remove) {
+  const peakOf = (tally) => tally.peak ?? { input: 0, output: 0, cacheRead: 0 };
+  const mine = peakOf(bucket);
+  const theirs = peakOf(remove);
   return {
     input: Math.max(0, bucket.input - remove.input),
     output: Math.max(0, bucket.output - remove.output),
     cacheRead: Math.max(0, bucket.cacheRead - remove.cacheRead),
     total: Math.max(0, bucket.total - remove.total),
-    calls: Math.max(0, bucket.calls - remove.calls)
+    calls: Math.max(0, bucket.calls - remove.calls),
+    peak: {
+      input: Math.max(0, mine.input - theirs.input),
+      output: Math.max(0, mine.output - theirs.output),
+      cacheRead: Math.max(0, mine.cacheRead - theirs.cacheRead)
+    }
   };
 }
 function withoutSubagents(days, subagentDays) {
@@ -390,7 +581,7 @@ function withoutSubagents(days, subagentDays) {
 
 // packages/dsh-deepseek-usage/src/ui/aggregate.js
 function sumSeries(series) {
-  const totals = { total: 0, input: 0, output: 0, cacheRead: 0, calls: 0 };
+  const totals = { total: 0, input: 0, output: 0, cacheRead: 0, calls: 0, peak: { input: 0, output: 0, cacheRead: 0 } };
   for (const entry of series) {
     for (const tally of Object.values(entry.days ?? {})) {
       totals.total += tally.total;
@@ -398,6 +589,12 @@ function sumSeries(series) {
       totals.output += tally.output;
       totals.cacheRead += tally.cacheRead;
       totals.calls += tally.calls;
+      const peak = tally.peak;
+      if (peak !== undefined && peak !== null) {
+        totals.peak.input += peak.input ?? 0;
+        totals.peak.output += peak.output ?? 0;
+        totals.peak.cacheRead += peak.cacheRead ?? 0;
+      }
     }
   }
   return totals;
@@ -423,6 +620,55 @@ function weekStacks(series, weeks) {
       value: week.days.reduce((sum, key) => sum + (entry.days[key]?.total ?? 0), 0)
     }));
     return { key: week.key, parts, total: parts.reduce((sum, part) => sum + part.value, 0) };
+  });
+}
+function microOf(text) {
+  const match = /^(-?)(\d+)\.(\d{6})$/.exec(String(text));
+  if (match === null)
+    return 0;
+  const magnitude = Number(match[2]) * 1e6 + Number(match[3]);
+  return match[1] === "-" ? -magnitude : magnitude;
+}
+function decimalOfMicro(micro) {
+  const negative = micro < 0;
+  const magnitude = Math.abs(Math.trunc(micro));
+  const whole = Math.trunc(magnitude / 1e6);
+  const fraction = String(magnitude % 1e6).padStart(6, "0");
+  return `${negative ? "-" : ""}${String(whole)}.${fraction}`;
+}
+function sumCost(series, pricing, estimate, familyOf) {
+  if (pricing === undefined || pricing === null)
+    return null;
+  const sum = { total: 0, peak: 0, offPeak: 0, priced: 0, unpriced: 0 };
+  for (const entry of series) {
+    const family = familyOf(entry.row.model);
+    const plan = family === null ? undefined : pricing.models?.[family];
+    if (plan === undefined) {
+      sum.unpriced += 1;
+      continue;
+    }
+    const cost = estimate(sumSeries([entry]), plan);
+    if (cost === null) {
+      sum.unpriced += 1;
+      continue;
+    }
+    sum.total += microOf(cost.total);
+    sum.peak += microOf(cost.peak);
+    sum.offPeak += microOf(cost.offPeak);
+    sum.priced += 1;
+  }
+  return sum;
+}
+function restrictSeries(series, keys) {
+  if (keys === null)
+    return series;
+  return series.map((entry) => {
+    const days = {};
+    for (const [key, tally] of Object.entries(entry.days ?? {})) {
+      if (keys.has(key))
+        days[key] = tally;
+    }
+    return { row: entry.row, days };
   });
 }
 
@@ -560,6 +806,17 @@ function stylesheet() {
 .dsu-kpi-label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dsw-alias-label-caption)}
 .dsu-kpi-value{font-size:26px;font-weight:600;line-height:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .dsu-kpi-value .u{margin-left:3px;font-size:13px;font-weight:500;letter-spacing:0;color:var(--dsw-alias-label-tertiary)}
+.dsu-cost{display:flex;flex-direction:column;gap:4px;margin:14px 0 4px;padding:12px 14px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform)}
+.dsu-cost-loading{opacity:.7}
+.dsu-cost-head{display:flex;align-items:baseline;gap:8px}
+.dsu-cost-scope{font-size:11.5px;color:var(--dsw-alias-label-tertiary)}
+.dsu-cost-value{font-size:26px;font-weight:600;line-height:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.dsu-cost-split{display:flex;gap:18px;font-size:12px;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums}
+.dsu-cost-split b{font-weight:600;color:var(--dsw-alias-label-primary)}
+.dsu-cost-note{font-size:11.5px;line-height:16px;color:var(--dsw-alias-label-tertiary)}
+.dsu-cost-origin{opacity:.85}
+.dsu-cost-warn{color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-label-caption))}
+.dsu-cost-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
 .dsu-kpi-meta{font-size:11.5px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
 
 .dsu-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:16px 0 14px}
@@ -712,6 +969,17 @@ function installStyles() {
     tag.remove();
   };
 }
+function CostCard({ cost, pricing, currency, scope, t }) {
+  if (pricing.phase === "loading") {
+    return h2("div", { className: "dsu-cost dsu-cost-loading" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"));
+  }
+  if (pricing.phase === "failed" || cost === null) {
+    return h2("div", { className: "dsu-cost" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"), h2("span", { className: "dsu-cost-note" }, t("costUnavailable")));
+  }
+  const money = (micro) => formatMoney(decimalOfMicro(micro), currency);
+  const origin = pricing.payload?.origin === "bundled" ? t("costBundled", { date: pricing.payload?.readAt ?? "—" }) : t("costLive", { date: pricing.payload?.readAt ?? "—" });
+  return h2("div", { className: "dsu-cost" }, h2("div", { className: "dsu-cost-head" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-scope" }, scope)), h2("div", { className: "dsu-cost-value" }, money(cost.total)), h2("div", { className: "dsu-cost-split" }, h2("span", null, t("costPeak"), " ", h2("b", null, money(cost.peak))), h2("span", null, t("costOffPeak"), " ", h2("b", null, money(cost.offPeak)))), h2("div", { className: "dsu-cost-note" }, t("costPeakNote")), cost.unpriced > 0 ? h2("div", { className: "dsu-cost-note dsu-cost-warn" }, t("costUnpriced", { count: groupCount(cost.unpriced) })) : null, h2("div", { className: "dsu-cost-note dsu-cost-origin" }, origin));
+}
 function UsageView({ t, container, language, initialRefreshToken, primitives }) {
   const [status, setStatus] = React.useState({ phase: "loading" });
   const [view, setView] = React.useState("day");
@@ -720,6 +988,7 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
   const [touched, setTouched] = React.useState(false);
   const [refreshToken, setRefreshToken] = React.useState(0);
   const [hover, setHover] = React.useState(undefined);
+  const [pricing, setPricing] = React.useState({ phase: "loading" });
   const reportHover = React.useCallback((next) => {
     setHover((current) => typeof next === "function" ? next(current) : next);
   }, []);
@@ -746,6 +1015,19 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
       controller.abort();
     };
   }, [refreshToken]);
+  React.useEffect(() => {
+    const controller = new AbortController;
+    fetchPricing({ signal: controller.signal }).then((payload) => {
+      setPricing({ phase: "ready", payload });
+    }).catch((error) => {
+      if (error?.name === "AbortError")
+        return;
+      setPricing({ phase: "failed" });
+    });
+    return () => {
+      controller.abort();
+    };
+  }, [refreshToken]);
   const models = React.useMemo(() => {
     if (status.phase !== "ready")
       return [];
@@ -758,6 +1040,27 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
   const totals = React.useMemo(() => sumSeries(series), [series]);
   const today = React.useMemo(() => new Date, [status]);
   const last7 = React.useMemo(() => sumWindow(series, today, 7), [series, today]);
+  const costKeys = React.useMemo(() => {
+    if (view === "total")
+      return null;
+    const columns = view === "day" ? dayGrid(today) : weekGrid(today);
+    const keys = new Set;
+    const todayKey = keyOf(today);
+    for (const column of columns) {
+      for (const date of column) {
+        const key = keyOf(date);
+        if (key <= todayKey)
+          keys.add(key);
+      }
+    }
+    return keys;
+  }, [view, today]);
+  const cost = React.useMemo(() => {
+    if (pricing.phase !== "ready")
+      return null;
+    const scoped = restrictSeries(series, costKeys);
+    return sumCost(scoped, pricing.payload, estimateCost, pricingFamilyOf);
+  }, [pricing, series, costKeys]);
   React.useEffect(() => {
     if (status.phase !== "ready" || touched)
       return;
@@ -805,7 +1108,13 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
   return h2("div", {
     className: "dsu dsu-view",
     "data-container": container
-  }, header, controls, body, h2(ModelTable, { series, totals, t }), h2("p", { className: "dsu-foot" }, t("footnote"), " ", t("channelNote"), notices.length > 0 ? ` ${notices.join(" ")}` : null), hover !== undefined && h2(Tooltip, { hover, language, t }));
+  }, header, h2(CostCard, {
+    cost,
+    pricing,
+    currency: pricing.payload?.currency ?? "CNY",
+    scope: view === "day" ? t("costScopeYear") : view === "week" ? t("costScopeHalfYear") : t("costScopeAll"),
+    t
+  }), controls, body, h2(ModelTable, { series, totals, t, pricing, costKeys }), h2("p", { className: "dsu-foot" }, t("footnote"), " ", t("channelNote"), notices.length > 0 ? ` ${notices.join(" ")}` : null), hover !== undefined && h2(Tooltip, { hover, language, t }));
 }
 function h26(value) {
   const compact = compactTokens(value);
@@ -973,14 +1282,20 @@ function Legend({ t }) {
     style: { background: fillOf(level) }
   })));
 }
-function ModelTable({ series, totals, t }) {
+function ModelTable({ series, totals, t, pricing, costKeys }) {
+  const priced = pricing?.phase === "ready" ? pricing.payload : null;
+  const currency = priced?.currency ?? "CNY";
   const rows = series.map(({ row, days }) => {
     const sum = sumSeries([{ row, days }]);
-    return { row, sum };
+    const scoped = costKeys === null || costKeys === undefined ? { row, days } : restrictSeries([{ row, days }], costKeys)[0];
+    const family = pricingFamilyOf(row.model);
+    const plan = family === null ? undefined : priced?.models?.[family];
+    const cost = plan === undefined ? null : estimateCost(sumSeries([scoped]), plan);
+    return { row, sum, cost };
   }).sort((a, b) => b.sum.total - a.sum.total);
-  return h2("div", { className: "dsu-table-wrap" }, h2("div", { className: "dsu-table-title" }, h2("span", null, t("byModel")), h2("span", null, "tokens")), h2("table", { className: "dsu-table" }, h2("thead", null, h2("tr", null, h2("th", null, t("model")), h2("th", null, t("modelCalls")), h2("th", null, t("modelInput")), h2("th", null, t("modelOutput")), h2("th", null, t("modelCache")), h2("th", null, t("modelTotal")), h2("th", null, t("modelShare")))), h2("tbody", null, rows.length === 0 ? h2("tr", null, h2("td", { colSpan: 7, style: { textAlign: "center", padding: "20px 0" } }, t("noData"))) : rows.map(({ row, sum }) => {
+  return h2("div", { className: "dsu-table-wrap" }, h2("div", { className: "dsu-table-title" }, h2("span", null, t("byModel")), h2("span", null, "tokens")), h2("table", { className: "dsu-table" }, h2("thead", null, h2("tr", null, h2("th", null, t("model")), h2("th", null, t("modelCalls")), h2("th", null, t("modelInput")), h2("th", null, t("modelOutput")), h2("th", null, t("modelCache")), h2("th", null, t("modelTotal")), priced !== null ? h2("th", null, t("costColumn")) : null, h2("th", null, t("modelShare")))), h2("tbody", null, rows.length === 0 ? h2("tr", null, h2("td", { colSpan: priced !== null ? 8 : 7, style: { textAlign: "center", padding: "20px 0" } }, t("noData"))) : rows.map(({ row, sum, cost }) => {
     const share = totals.total === 0 ? 0 : sum.total / totals.total;
-    return h2("tr", { key: row.id }, h2("td", { className: "model" }, row.model.split("/").pop(), h2("span", { className: "sub" }, row.provider)), h2("td", null, groupCount(sum.calls)), h2("td", null, h26(sum.input)), h2("td", null, h26(sum.output)), h2("td", null, h26(sum.cacheRead)), h2("td", { className: "total" }, h26(sum.total)), h2("td", null, h2("span", { className: "dsu-share" }, h2("span", { className: "dsu-share-bar" }, h2("i", { style: { width: `${(share * 100).toFixed(0)}%` } })), `${(share * 100).toFixed(0)}%`)));
+    return h2("tr", { key: row.id }, h2("td", { className: "model" }, row.model.split("/").pop(), h2("span", { className: "sub" }, row.provider)), h2("td", null, groupCount(sum.calls)), h2("td", null, h26(sum.input)), h2("td", null, h26(sum.output)), h2("td", null, h26(sum.cacheRead)), h2("td", { className: "total" }, h26(sum.total)), priced !== null ? h2("td", { className: "dsu-cost-cell" }, cost === null ? "—" : formatMoney(cost.total, currency)) : null, h2("td", null, h2("span", { className: "dsu-share" }, h2("span", { className: "dsu-share-bar" }, h2("i", { style: { width: `${(share * 100).toFixed(0)}%` } })), `${(share * 100).toFixed(0)}%`)));
   }))));
 }
 function Tooltip({ hover, language, t }) {
@@ -1062,7 +1377,21 @@ var zh = {
   failedSessions: "{count} 个会话读取失败，未计入。",
   footnote: "统计来源：本机会话日志中每次模型调用的 usage 记录，按本地时区归日。总量含缓存读取，缓存单独展示。",
   channelNote: "会话日志不记录 DeepSeek 账号 ID，因此这里按接入通道区分，而不是按账号。",
-  subagentTotal: "其中子代理 {value}"
+  subagentTotal: "其中子代理 {value}",
+  cost: "预估费用",
+  costNote: "按 DeepSeek 官方价目表估算，仅供参考",
+  costPeak: "高峰时段",
+  costOffPeak: "空闲时段",
+  costUnpriced: "{count} 个模型没有官方定价，未计入",
+  costPeakNote: "工作日的北京时间 9:00–12:00、14:00–18:00，法定节假日除外",
+  costBundled: "官网价目表暂时无法读取，正在使用 {date} 的内置价格",
+  costLive: "价目表更新于 {date}",
+  costUnavailable: "暂时无法读取官方价目表",
+  costColumn: "费用",
+  costTotal: "合计",
+  costScopeYear: "近 12 个月",
+  costScopeHalfYear: "近 26 周",
+  costScopeAll: "全部记录"
 };
 var en = {
   balance: "Balance",
@@ -1121,7 +1450,21 @@ var en = {
   failedSessions: "{count} Sessions could not be read and are excluded.",
   footnote: "Source: the usage record of every model call in this machine's Session logs, bucketed by local calendar day. Totals include cache reads; cache is also shown separately.",
   channelNote: "Session logs do not record a DeepSeek account id, so this axis is the access channel rather than the account.",
-  subagentTotal: "{value} of it from subagents"
+  subagentTotal: "{value} of it from subagents",
+  cost: "Estimated cost",
+  costNote: "Estimated from DeepSeek's published prices; for reference only",
+  costPeak: "Peak",
+  costOffPeak: "Off-peak",
+  costUnpriced: "{count} models have no published price and are excluded",
+  costPeakNote: "Weekdays 09:00–12:00 and 14:00–18:00 Beijing time, excluding Chinese public holidays",
+  costBundled: "The published price list is unreachable; using prices bundled on {date}",
+  costLive: "Price list updated {date}",
+  costUnavailable: "The published price list is unavailable right now",
+  costColumn: "Cost",
+  costTotal: "Total",
+  costScopeYear: "Last 12 months",
+  costScopeHalfYear: "Last 26 weeks",
+  costScopeAll: "All recorded"
 };
 var keys = Object.keys(zh);
 function interpolate(template, values) {

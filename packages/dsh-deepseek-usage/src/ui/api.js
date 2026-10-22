@@ -11,6 +11,9 @@ export const BALANCE_ROUTE = 'api/deepseek-usage.balance'
 /** Browser-relative form of the usage series route. */
 export const SERIES_ROUTE = 'api/deepseek-usage.series'
 
+/** Browser-relative form of the price list route. */
+export const PRICING_ROUTE = 'api/deepseek-usage.pricing'
+
 /** Stamp the calling page's identity onto a request the Host forwards to Platform. */
 function identity(url) {
   const locale = typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'zh-CN'
@@ -74,5 +77,24 @@ export async function fetchSeries(options = {}) {
   const payload = await response.json()
   if (typeof payload !== 'object' || payload === null) throw new Error('usage response was not an object')
   if (payload.available === false) throw new Error(String(payload.error ?? 'usage-unavailable'))
+  return payload
+}
+
+/**
+ * Read the price list used to estimate cost.
+ *
+ * A failure here must not break the page: usage figures are local and always
+ * available, so the caller treats a rejected pricing read as "no cost column".
+ *
+ * @param options.signal - aborts the request when the caller unmounts.
+ * @returns the parsed payload.
+ */
+export async function fetchPricing(options = {}) {
+  const url = new URL(PRICING_ROUTE, document.baseURI)
+  const response = await fetch(url, { signal: options.signal, headers: { accept: 'application/json' } })
+  if (!response.ok) throw new Error(`pricing request failed: HTTP ${String(response.status)}`)
+  const payload = await response.json()
+  if (typeof payload !== 'object' || payload === null) throw new Error('pricing response was not an object')
+  if (typeof payload.models !== 'object' || payload.models === null) throw new Error('pricing response carried no models')
   return payload
 }

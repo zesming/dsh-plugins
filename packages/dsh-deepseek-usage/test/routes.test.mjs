@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { BALANCE_PATH, SERIES_PATH, apply } from '../src/index.js'
+import { BALANCE_PATH, PRICING_PATH, SERIES_PATH, apply } from '../src/index.js'
 
 /** A minimal Cordis-shaped context capturing the routes a plugin registers. */
-function harness(services = {}) {
+function harness(services = {}, config = {}) {
   const routes = new Map()
   const effects = []
   const warns = []
@@ -26,7 +26,7 @@ function harness(services = {}) {
     effect: (factory, label) => { effects.push({ factory, label }) },
     logger: { warn: (...args) => warns.push(args) },
   }
-  apply(ctx, {})
+  apply(ctx, config)
   return { routes, effects, warns, services }
 }
 
@@ -57,9 +57,9 @@ test('every route declares a body mode the carrier understands', async () => {
   }
 })
 
-test('both routes register and answer JSON without store caching', async () => {
+test('all three routes register and answer JSON without store caching', async () => {
   const { routes } = harness({ sessionQuery: { listSessions: async () => [], readSession: async () => ({ events: [] }) } })
-  assert.deepEqual([...routes.keys()].sort(), [BALANCE_PATH, SERIES_PATH])
+  assert.deepEqual([...routes.keys()].sort(), [BALANCE_PATH, PRICING_PATH, SERIES_PATH])
   const response = await routes.get(SERIES_PATH).fetch(new Request(`http://127.0.0.1:1${SERIES_PATH}`))
   assert.match(response.headers.get('cache-control') ?? '', /no-store/)
   assert.match(response.headers.get('content-type') ?? '', /application\/json/)
@@ -204,9 +204,9 @@ test('the usage cache is keyed by window and subagent scope', async () => {
   assert.equal(scans, 2)
 })
 
-test('disposing the plugin removes both routes', () => {
+test('disposing the plugin removes every route', () => {
   const { routes, effects } = harness({ sessionQuery: undefined })
-  assert.equal(routes.size, 2)
+  assert.equal(routes.size, 3)
   const disposer = effects[0].factory()
   disposer()
   assert.equal(routes.size, 0)
@@ -266,4 +266,42 @@ test('a transient usage failure is retried on the next read', async () => {
   const second = await call(routes, SERIES_PATH)
   assert.equal(second.body.available, true)
   assert.equal(attempts, 2)
+})
+
+test('the pricing route answers with a usable price list offline', async () => {
+  // A failing fetch stands in for a machine with no route to the docs site: the
+  // route must still answer from the bundled snapshot rather than failing.
+  const { routes } = harness({ sessionQuery: undefined }, { fetchImpl: async () => { throw new Error('offline') } })
+  const { status, body } = await call(routes, PRICING_PATH)
+  assert.equal(status, 200)
+  assert.equal(body.origin, 'bundled')
+  assert.equal(body.currency, 'CNY')
+  assert.equal(typeof body.models.flash.prices.peak.cacheMiss, 'string')
+})
+
+test('a configured fetch implementation is used for the price list', async () => {
+  const pages = []
+  const ctx = {
+    get: () => undefined,
+    inject: (deps, callback) => { if (deps.includes('connection')) callback({ connection: { fetch: { register: route => { pages.push(route); return () => {} } } } }) },
+    effect: () => {},
+    logger: { warn: () => {} },
+  }
+  const html = `<table><tbody>
+<tr><td>模型</td><td>deepseek-flash</td></tr>
+<tr><td>百万tokens输入（缓存命中）</td><td>空闲时段</td><td>0.02元</td></tr>
+<tr><td>高峰时段</td><td>0.04元</td></tr>
+<tr><td>百万tokens输入（缓存未命中）</td><td>空闲时段</td><td>1元</td></tr>
+<tr><td>高峰时段</td><td>2元</td></tr>
+<tr><td>百万tokens输出</td><td>空闲时段</td><td>4元</td></tr>
+<tr><td>高峰时段</td><td>8元</td></tr>
+</tbody></table>`
+  let reads = 0
+  apply(ctx, { fetchImpl: async () => { reads += 1; return { ok: true, text: async () => html } } })
+  const route = pages.find(entry => entry.path === PRICING_PATH)
+  const body = await (await route.fetch(new Request(`http://127.0.0.1:1${PRICING_PATH}`))).json()
+  assert.equal(body.origin, 'live')
+  assert.equal(body.models.flash.prices.peak.output, '8')
+  await (await route.fetch(new Request(`http://127.0.0.1:1${PRICING_PATH}`))).json()
+  assert.equal(reads, 1, 'the page is read once per day')
 })

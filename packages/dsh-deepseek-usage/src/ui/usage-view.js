@@ -6,10 +6,12 @@
  * section — so the two entries can never drift apart.
  */
 
-import { fetchSeries } from './api.js'
-import { compactTokens, groupCount, keyOf, shiftDays } from './format.js'
+import { fetchPricing, fetchSeries } from './api.js'
+import { compactTokens, formatMoney, groupCount, keyOf, shiftDays } from './format.js'
 import { withoutSubagents } from '../usage.js'
-import { sumSeries, sumWindow, weekStacks } from './aggregate.js'
+import { decimalOfMicro, restrictSeries, sumCost, sumSeries, sumWindow, weekStacks } from './aggregate.js'
+import { estimateCost, holidayCoverageCovers, pricingFamilyOf } from '../cost.js'
+import { COVERED_YEARS } from '../holidays.js'
 import {
   CELL, DAY_COLUMNS, GAP, WEEK_COLUMNS, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid, weekSums,
 } from './heatmap.js'
@@ -151,6 +153,60 @@ export function installStyles() {
 }
 
 /**
+ * The estimated-cost block.
+ *
+ * `null` cost means nothing could be priced at all, and is rendered as an
+ * explicit "unavailable" line rather than a zero, because a page that says
+ * ¥0.00 for a month of real traffic is worse than one that admits it does not
+ * know. The peak and off-peak split is shown because the same tokens cost twice
+ * as much inside the peak windows, which is the actionable part of the number.
+ *
+ * @param props.cost - summed micro-units from `sumCost`, or null.
+ * @param props.pricing - pricing state `{ phase, payload }`.
+ * @param props.currency - currency of the price list.
+ * @param props.scope - which range the figure covers, for the caption.
+ * @param props.t - locale lookup.
+ * @returns the cost block.
+ */
+export function CostCard({ cost, pricing, currency, scope, t }) {
+  if (pricing.phase === 'loading') {
+    return h('div', { className: 'dsu-cost dsu-cost-loading' },
+      h('span', { className: 'dsu-kpi-label' }, t('cost')),
+      h('span', { className: 'dsu-cost-value' }, '—'),
+    )
+  }
+  if (pricing.phase === 'failed' || cost === null) {
+    return h('div', { className: 'dsu-cost' },
+      h('span', { className: 'dsu-kpi-label' }, t('cost')),
+      h('span', { className: 'dsu-cost-value' }, '—'),
+      h('span', { className: 'dsu-cost-note' }, t('costUnavailable')),
+    )
+  }
+  const money = micro => formatMoney(decimalOfMicro(micro), currency)
+  const origin = pricing.payload?.origin === 'bundled'
+    ? t('costBundled', { date: pricing.payload?.readAt ?? '—' })
+    : t('costLive', { date: pricing.payload?.readAt ?? '—' })
+  return h('div', { className: 'dsu-cost' },
+    h('div', { className: 'dsu-cost-head' },
+      h('span', { className: 'dsu-kpi-label' }, t('cost')),
+      h('span', { className: 'dsu-cost-scope' }, scope),
+    ),
+    h('div', { className: 'dsu-cost-value' }, money(cost.total)),
+    h('div', { className: 'dsu-cost-split' },
+      h('span', null, t('costPeak'), ' ', h('b', null, money(cost.peak))),
+      h('span', null, t('costOffPeak'), ' ', h('b', null, money(cost.offPeak))),
+    ),
+    h('div', { className: 'dsu-cost-note' }, t('costPeakNote')),
+    // Separate lines, not one run-on sentence: the peak-window rule explains
+    // the split above, while the exclusion notice qualifies the total.
+    cost.unpriced > 0
+      ? h('div', { className: 'dsu-cost-note dsu-cost-warn' }, t('costUnpriced', { count: groupCount(cost.unpriced) }))
+      : null,
+    h('div', { className: 'dsu-cost-note dsu-cost-origin' }, origin),
+  )
+}
+
+/**
  * The full usage view.
  *
  * @param props.t - locale lookup.
@@ -167,6 +223,9 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
   const [touched, setTouched] = React.useState(false)
   const [refreshToken, setRefreshToken] = React.useState(0)
   const [hover, setHover] = React.useState(undefined)
+  // Prices load beside the usage, not before it: the figures on this page are
+  // local and must not wait on a network read that may never answer.
+  const [pricing, setPricing] = React.useState({ phase: 'loading' })
   /** Accept either the next readout or an updater, so a map can move one. */
   const reportHover = React.useCallback(next => {
     setHover(current => (typeof next === 'function' ? next(current) : next))
@@ -198,6 +257,19 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
     return () => { controller.abort() }
   }, [refreshToken])
 
+  React.useEffect(() => {
+    const controller = new AbortController()
+    fetchPricing({ signal: controller.signal })
+      .then(payload => { setPricing({ phase: 'ready', payload }) })
+      .catch(error => {
+        if (error?.name === 'AbortError') return
+        // A failed price read degrades to "no cost shown", never to zero: an
+        // estimated bill of ¥0.00 for real usage would be a lie, not a gap.
+        setPricing({ phase: 'failed' })
+      })
+    return () => { controller.abort() }
+  }, [refreshToken])
+
   /** Models that pass the channel filter and carry at least one call. */
   const models = React.useMemo(() => {
     if (status.phase !== 'ready') return []
@@ -215,6 +287,33 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
   // midnight still measures "last 7 days" against today rather than yesterday.
   const today = React.useMemo(() => new Date(), [status])
   const last7 = React.useMemo(() => sumWindow(series, today, 7), [series, today])
+
+  /**
+   * Day keys the cost follows.
+   *
+   * The cost figure is scoped to whatever the range switch is showing, so
+   * "daily" prices the year the heatmap draws and "cumulative" prices everything
+   * on record; `null` means no restriction.
+   */
+  const costKeys = React.useMemo(() => {
+    if (view === 'total') return null
+    const columns = view === 'day' ? dayGrid(today) : weekGrid(today)
+    const keys = new Set()
+    const todayKey = keyOf(today)
+    for (const column of columns) {
+      for (const date of column) {
+        const key = keyOf(date)
+        if (key <= todayKey) keys.add(key)
+      }
+    }
+    return keys
+  }, [view, today])
+
+  const cost = React.useMemo(() => {
+    if (pricing.phase !== 'ready') return null
+    const scoped = restrictSeries(series, costKeys)
+    return sumCost(scoped, pricing.payload, estimateCost, pricingFamilyOf)
+  }, [pricing, series, costKeys])
 
   // Once the payload arrives, narrow the default selection to the channels it
   // actually reports — but only until the person touches a chip, so a filter
@@ -317,9 +416,16 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
     'data-container': container,
   },
     header,
+    h(CostCard, {
+      cost,
+      pricing,
+      currency: pricing.payload?.currency ?? 'CNY',
+      scope: view === 'day' ? t('costScopeYear') : view === 'week' ? t('costScopeHalfYear') : t('costScopeAll'),
+      t,
+    }),
     controls,
     body,
-    h(ModelTable, { series, totals, t }),
+    h(ModelTable, { series, totals, t, pricing, costKeys }),
     h('p', { className: 'dsu-foot' },
       t('footnote'),
       ' ',
@@ -624,11 +730,21 @@ export function Legend({ t }) {
  * @param props.t - locale lookup.
  * @returns the table block.
  */
-export function ModelTable({ series, totals, t }) {
+export function ModelTable({ series, totals, t, pricing, costKeys }) {
+  const priced = pricing?.phase === 'ready' ? pricing.payload : null
+  const currency = priced?.currency ?? 'CNY'
   const rows = series
     .map(({ row, days }) => {
       const sum = sumSeries([{ row, days }])
-      return { row, sum }
+      // Each row is priced from the same scoped days the total uses, so the
+      // column adds up to the headline figure instead of quietly disagreeing.
+      const scoped = costKeys === null || costKeys === undefined
+        ? { row, days }
+        : restrictSeries([{ row, days }], costKeys)[0]
+      const family = pricingFamilyOf(row.model)
+      const plan = family === null ? undefined : priced?.models?.[family]
+      const cost = plan === undefined ? null : estimateCost(sumSeries([scoped]), plan)
+      return { row, sum, cost }
     })
     .sort((a, b) => b.sum.total - a.sum.total)
 
@@ -642,12 +758,13 @@ export function ModelTable({ series, totals, t }) {
         h('th', null, t('modelOutput')),
         h('th', null, t('modelCache')),
         h('th', null, t('modelTotal')),
+        priced !== null ? h('th', null, t('costColumn')) : null,
         h('th', null, t('modelShare')),
       )),
       h('tbody', null,
         rows.length === 0
-          ? h('tr', null, h('td', { colSpan: 7, style: { textAlign: 'center', padding: '20px 0' } }, t('noData')))
-          : rows.map(({ row, sum }) => {
+          ? h('tr', null, h('td', { colSpan: priced !== null ? 8 : 7, style: { textAlign: 'center', padding: '20px 0' } }, t('noData')))
+          : rows.map(({ row, sum, cost }) => {
               const share = totals.total === 0 ? 0 : sum.total / totals.total
               return h('tr', { key: row.id },
                 h('td', { className: 'model' }, row.model.split('/').pop(), h('span', { className: 'sub' }, row.provider)),
@@ -656,6 +773,9 @@ export function ModelTable({ series, totals, t }) {
                 h('td', null, h26(sum.output)),
                 h('td', null, h26(sum.cacheRead)),
                 h('td', { className: 'total' }, h26(sum.total)),
+                priced !== null
+                  ? h('td', { className: 'dsu-cost-cell' }, cost === null ? '—' : formatMoney(cost.total, currency))
+                  : null,
                 h('td', null, h('span', { className: 'dsu-share' },
                   h('span', { className: 'dsu-share-bar' }, h('i', { style: { width: `${(share * 100).toFixed(0)}%` } })),
                   `${(share * 100).toFixed(0)}%`,

@@ -10,12 +10,16 @@
 
 import { balanceView } from './balance.js'
 import { collectUsage } from './collect.js'
+import { createPricingSource } from './pricing.js'
 
 /** Route the sidebar reads the balance from. */
 export const BALANCE_PATH = '/api/deepseek-usage.balance'
 
 /** Route the usage page reads the series from. */
 export const SERIES_PATH = '/api/deepseek-usage.series'
+
+/** Route the usage page reads the price list from. */
+export const PRICING_PATH = '/api/deepseek-usage.pricing'
 
 /** Balance answers are reused for this long; the Platform call is not free. */
 const BALANCE_TTL_MS = 60_000
@@ -168,6 +172,9 @@ export function apply(ctx, config = {}) {
   const balanceCache = new TtlCache(config.balanceTtlMs ?? BALANCE_TTL_MS)
   const seriesCache = new TtlCache(config.seriesTtlMs ?? SERIES_TTL_MS)
   const now = () => Date.now()
+  // Prices change at most a few times a year, so the source refreshes its own
+  // copy once a day and the route needs no cache of its own.
+  const pricing = createPricingSource({ fetchImpl: config.fetchImpl ?? globalThis.fetch, now })
 
   // `ctx.inject` hands the callback a child Context, so the service is reached
   // as `scope.connection` — the same shape the shipped Host plugins use for
@@ -225,6 +232,23 @@ export function apply(ctx, config = {}) {
         } catch (error) {
           ctx.logger?.warn?.('deepseek-usage: usage scan failed', error)
           return failure('usage-failed')
+        }
+      },
+    })
+
+    register({
+      path: PRICING_PATH,
+      methods: ['GET'],
+      requestBody: 'buffered',
+      fetch: async () => {
+        try {
+          // The source owns the once-a-day rule and the bundled fallback, so the
+          // route stays a thin pass-through: it never answers "no prices", only
+          // prices with an `origin` the page can label.
+          return json(await pricing())
+        } catch (error) {
+          ctx.logger?.warn?.('deepseek-usage: pricing read failed', error)
+          return failure('pricing-failed')
         }
       },
     })

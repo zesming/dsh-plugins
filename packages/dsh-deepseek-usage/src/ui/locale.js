@@ -65,6 +65,20 @@ const zh = {
   footnote: '统计来源：本机会话日志中每次模型调用的 usage 记录，按本地时区归日。总量含缓存读取，缓存单独展示。',
   channelNote: '会话日志不记录 DeepSeek 账号 ID，因此这里按接入通道区分，而不是按账号。',
   subagentTotal: '其中子代理 {value}',
+  cost: '预估费用',
+  costNote: '按 DeepSeek 官方价目表估算，仅供参考',
+  costPeak: '高峰时段',
+  costOffPeak: '空闲时段',
+  costUnpriced: '{count} 个模型没有官方定价，未计入',
+  costPeakNote: '工作日的北京时间 9:00–12:00、14:00–18:00，法定节假日除外',
+  costBundled: '官网价目表暂时无法读取，正在使用 {date} 的内置价格',
+  costLive: '价目表更新于 {date}',
+  costUnavailable: '暂时无法读取官方价目表',
+  costColumn: '费用',
+  costTotal: '合计',
+  costScopeYear: '近 12 个月',
+  costScopeHalfYear: '近 26 周',
+  costScopeAll: '全部记录',
 }
 
 /** English dictionary, checked complete against the Chinese key set. */
@@ -126,6 +140,20 @@ const en = {
   footnote: 'Source: the usage record of every model call in this machine\'s Session logs, bucketed by local calendar day. Totals include cache reads; cache is also shown separately.',
   channelNote: 'Session logs do not record a DeepSeek account id, so this axis is the access channel rather than the account.',
   subagentTotal: '{value} of it from subagents',
+  cost: 'Estimated cost',
+  costNote: 'Estimated from DeepSeek\'s published prices; for reference only',
+  costPeak: 'Peak',
+  costOffPeak: 'Off-peak',
+  costUnpriced: '{count} models have no published price and are excluded',
+  costPeakNote: 'Weekdays 09:00–12:00 and 14:00–18:00 Beijing time, excluding Chinese public holidays',
+  costBundled: 'The published price list is unreachable; using prices bundled on {date}',
+  costLive: 'Price list updated {date}',
+  costUnavailable: 'The published price list is unavailable right now',
+  costColumn: 'Cost',
+  costTotal: 'Total',
+  costScopeYear: 'Last 12 months',
+  costScopeHalfYear: 'Last 26 weeks',
+  costScopeAll: 'All recorded',
 }
 
 /** The dictionary namespaces and their rows. */

@@ -74,6 +74,17 @@ export function stylesheet() {
 .dsu-kpi-label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dsw-alias-label-caption)}
 .dsu-kpi-value{font-size:26px;font-weight:600;line-height:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .dsu-kpi-value .u{margin-left:3px;font-size:13px;font-weight:500;letter-spacing:0;color:var(--dsw-alias-label-tertiary)}
+.dsu-cost{display:flex;flex-direction:column;gap:4px;margin:14px 0 4px;padding:12px 14px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform)}
+.dsu-cost-loading{opacity:.7}
+.dsu-cost-head{display:flex;align-items:baseline;gap:8px}
+.dsu-cost-scope{font-size:11.5px;color:var(--dsw-alias-label-tertiary)}
+.dsu-cost-value{font-size:26px;font-weight:600;line-height:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.dsu-cost-split{display:flex;gap:18px;font-size:12px;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums}
+.dsu-cost-split b{font-weight:600;color:var(--dsw-alias-label-primary)}
+.dsu-cost-note{font-size:11.5px;line-height:16px;color:var(--dsw-alias-label-tertiary)}
+.dsu-cost-origin{opacity:.85}
+.dsu-cost-warn{color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-label-caption))}
+.dsu-cost-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
 .dsu-kpi-meta{font-size:11.5px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
 
 .dsu-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:16px 0 14px}
