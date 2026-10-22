@@ -820,7 +820,7 @@ function DayHeatmap({ series, today, t, onHover }) {
   const width = DAY_COLUMNS * (CELL + GAP);
   const height = 7 * (CELL + GAP);
   const todayKey = keyOf(today);
-  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("dayHint")), h2("span", { className: "dsu-hm-hint" }, t("colorHint"))), h2("div", { className: "dsu-lanes" }, series.map(({ row, days }, laneIndex) => {
+  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("dayHint"))), h2("div", { className: "dsu-lanes" }, series.map(({ row, days }, laneIndex) => {
     const level = quantileLevels(Object.values(days).map((tally) => tally.total));
     return h2("div", { className: "dsu-lane", key: row.id }, h2("div", { className: "dsu-lane-head" }, h2("span", { className: "dsu-lane-name", title: row.model }, row.model.split("/").pop()), h2("span", { className: "dsu-tag" }, channelLabel(row.channel, t)), h2("span", { className: "dsu-lane-total" }, h2(Tokens, { value: sumDays(days) }))), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-dow" }, ["mon", "wed", "fri", "sun"].map((_, index) => h2("span", { key: index }, WEEKDAY_GLYPHS[index]))), h2("div", { className: "dsu-hm-canvas" }, laneIndex === 0 ? h2("div", { className: "dsu-months" }, labels.map((label) => h2("span", {
       key: label.column,
@@ -870,7 +870,7 @@ function WeekHeatmap({ series, today, t, onHover }) {
   const columns = React.useMemo(() => weekGrid(today), [today]);
   const width = WEEK_COLUMNS * (WEEK_CELL + WEEK_GAP);
   const height = WEEK_CELL;
-  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("weekHint")), h2("span", { className: "dsu-hm-hint" }, t("colorHint"))), h2("div", { className: "dsu-lanes" }, series.map(({ row, days }) => {
+  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("weekHint"))), h2("div", { className: "dsu-lanes" }, series.map(({ row, days }) => {
     const sums = weekSums(days, columns);
     const level = quantileLevels(sums);
     return h2("div", { className: "dsu-lane", key: row.id }, h2("div", { className: "dsu-lane-head" }, h2("span", { className: "dsu-lane-name", title: row.model }, row.model.split("/").pop()), h2("span", { className: "dsu-tag" }, channelLabel(row.channel, t)), h2("span", { className: "dsu-lane-total" }, h2(Tokens, { value: sums.reduce((a, b) => a + b, 0) }))), h2("svg", {
@@ -967,11 +967,11 @@ function CumulativeChart({ series, today, t, onHover }) {
   }, week.key.slice(5)) : null)));
 }
 function Legend({ t }) {
-  return h2("div", { className: "dsu-legend" }, h2("span", null, t("less")), h2("span", { className: "dsu-swatch", style: { background: "var(--dsu-empty)" } }), LEVELS.map((level) => h2("span", {
+  return h2("div", { className: "dsu-legend", role: "img", "aria-label": t("colorHint") }, h2("span", { className: "dsu-swatch", style: { background: "var(--dsu-empty)" } }), LEVELS.map((level) => h2("span", {
     key: level,
     className: "dsu-swatch",
     style: { background: fillOf(level) }
-  })), h2("span", null, t("more")));
+  })));
 }
 function ModelTable({ series, totals, t }) {
   const rows = series.map(({ row, days }) => {

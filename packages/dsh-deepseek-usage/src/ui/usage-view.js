@@ -360,7 +360,6 @@ export function DayHeatmap({ series, today, t, onHover }) {
   return h('div', null,
     h('div', { className: 'dsu-hm-head' },
       h('span', { className: 'dsu-hm-title' }, t('dayHint')),
-      h('span', { className: 'dsu-hm-hint' }, t('colorHint')),
     ),
     h('div', { className: 'dsu-lanes' },
       series.map(({ row, days }, laneIndex) => {
@@ -447,7 +446,6 @@ export function WeekHeatmap({ series, today, t, onHover }) {
   return h('div', null,
     h('div', { className: 'dsu-hm-head' },
       h('span', { className: 'dsu-hm-title' }, t('weekHint')),
-      h('span', { className: 'dsu-hm-hint' }, t('colorHint')),
     ),
     h('div', { className: 'dsu-lanes' },
       series.map(({ row, days }) => {
@@ -600,19 +598,21 @@ export function CumulativeChart({ series, today, t, onHover }) {
 /**
  * The legend under each heatmap.
  *
+ * It carries the scale as swatches only: the order of the shades states the
+ * direction, and a caption saying so would repeat the idea a second time.
+ * The row is labelled for assistive technology, which cannot see the ramp.
+ *
  * @param props.t - locale lookup.
  * @returns the legend row.
  */
 export function Legend({ t }) {
-  return h('div', { className: 'dsu-legend' },
-    h('span', null, t('less')),
+  return h('div', { className: 'dsu-legend', role: 'img', 'aria-label': t('colorHint') },
     h('span', { className: 'dsu-swatch', style: { background: 'var(--dsu-empty)' } }),
     LEVELS.map(level => h('span', {
       key: level,
       className: 'dsu-swatch',
       style: { background: fillOf(level) },
     })),
-    h('span', null, t('more')),
   )
 }
 
