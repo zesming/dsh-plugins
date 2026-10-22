@@ -165,21 +165,27 @@ export function installStyles() {
  * @param props.pricing - pricing state `{ phase, payload }`.
  * @param props.currency - currency of the price list.
  * @param props.scope - which range the figure covers, for the caption.
+ * @param props.holidaysCovered - false when the window predates the bundled
+ *   holiday schedule, which would price holidays as peak days.
  * @param props.t - locale lookup.
  * @returns the cost block.
  */
-export function CostCard({ cost, pricing, currency, scope, t }) {
+export function CostCard({ cost, pricing, currency, scope, holidaysCovered, t }) {
   if (pricing.phase === 'loading') {
     return h('div', { className: 'dsu-cost dsu-cost-loading' },
       h('span', { className: 'dsu-kpi-label' }, t('cost')),
       h('span', { className: 'dsu-cost-value' }, '—'),
     )
   }
-  if (pricing.phase === 'failed' || cost === null) {
+  // Nothing in scope is a gap, not a zero: the token KPI already says "—" in
+  // that case, and a ¥0.00 next to it would claim a month cost nothing. The two
+  // gaps are worded apart, because one is a problem to fix and the other is not.
+  if (pricing.phase === 'failed' || cost === null || cost.calls === 0) {
     return h('div', { className: 'dsu-cost' },
       h('span', { className: 'dsu-kpi-label' }, t('cost')),
       h('span', { className: 'dsu-cost-value' }, '—'),
-      h('span', { className: 'dsu-cost-note' }, t('costUnavailable')),
+      h('span', { className: 'dsu-cost-note' },
+        pricing.phase === 'failed' || cost === null ? t('costUnavailable') : t('costNoData')),
     )
   }
   const money = micro => formatMoney(decimalOfMicro(micro), currency)
@@ -201,6 +207,9 @@ export function CostCard({ cost, pricing, currency, scope, t }) {
     // the split above, while the exclusion notice qualifies the total.
     cost.unpriced > 0
       ? h('div', { className: 'dsu-cost-note dsu-cost-warn' }, t('costUnpriced', { count: groupCount(cost.unpriced) }))
+      : null,
+    holidaysCovered === false
+      ? h('div', { className: 'dsu-cost-note dsu-cost-warn' }, t('costHolidayGap'))
       : null,
     h('div', { className: 'dsu-cost-note dsu-cost-origin' }, origin),
   )
@@ -312,8 +321,29 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
   const cost = React.useMemo(() => {
     if (pricing.phase !== 'ready') return null
     const scoped = restrictSeries(series, costKeys)
-    return sumCost(scoped, pricing.payload, estimateCost, pricingFamilyOf)
+    const sum = sumCost(scoped, pricing.payload, estimateCost, pricingFamilyOf)
+    if (sum === null) return null
+    // Whether anything was actually spent inside the current range, which is a
+    // different question from whether any model was priced: a model can be
+    // priced and still have no calls in the window the page is showing.
+    return { ...sum, calls: sumSeries(scoped).calls }
   }, [pricing, series, costKeys])
+
+  /**
+   * Whether every day being priced has a bundled holiday schedule.
+   *
+   * Outside that range a statutory holiday would be read as an ordinary weekday
+   * and priced at the peak rate, which overstates the bill. The page says so
+   * instead of presenting the number as exact.
+   */
+  const holidaysCovered = React.useMemo(() => {
+    const days = new Set()
+    for (const entry of series) for (const key of Object.keys(entry.days ?? {})) days.add(key)
+    if (costKeys !== null) for (const key of [...days]) if (!costKeys.has(key)) days.delete(key)
+    if (days.size === 0) return true
+    const sorted = [...days].sort()
+    return holidayCoverageCovers(sorted[0], sorted[sorted.length - 1], COVERED_YEARS)
+  }, [series, costKeys])
 
   // Once the payload arrives, narrow the default selection to the channels it
   // actually reports — but only until the person touches a chip, so a filter
@@ -421,6 +451,7 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
       pricing,
       currency: pricing.payload?.currency ?? 'CNY',
       scope: view === 'day' ? t('costScopeYear') : view === 'week' ? t('costScopeHalfYear') : t('costScopeAll'),
+      holidaysCovered,
       t,
     }),
     controls,

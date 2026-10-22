@@ -72,9 +72,3 @@ export const CLOCK = glyph([
 
 /** Plus glyph for the top-up entry. */
 export const PLUS = glyph([{ d: 'M8 3.2v9.6M3.2 8h9.6' }], 15)
-
-/** Refresh glyph, kept for hosts that render their own controls. */
-export const REFRESH = glyph([
-  { d: 'M13.2 8a5.2 5.2 0 1 1-1.5-3.7' },
-  { d: 'M13.2 2.6v3.1h-3.1' },
-], 15)

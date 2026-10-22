@@ -138,3 +138,19 @@ test('micro-units round-trip through their decimal form', () => {
     assert.equal(microOf(decimalOfMicro(micro)), micro)
   }
 })
+
+test('sumCost reports the call count of the range it priced', () => {
+  // "priced" counts models with a published price; "calls" answers whether the
+  // current range spent anything at all. The page needs both: one to word the
+  // exclusion notice, the other to avoid claiming a month cost ¥0.00.
+  const pricing = { models: { flash: { prices: { peak: { cacheHit: '0.04', cacheMiss: '2', output: '8' }, offPeak: { cacheHit: '0.02', cacheMiss: '1', output: '4' } } } } }
+  const withCalls = [{ row: { id: 'a', model: 'deepseek-flash' }, days: { '2026-10-21': { input: 1_000_000, output: 0, cacheRead: 0, total: 1_000_000, calls: 3 } } }]
+  const result = sumCost(withCalls, pricing, estimateCost, pricingFamilyOf)
+  assert.equal(result.priced, 1)
+  assert.equal(sumSeries(withCalls).calls, 3)
+
+  const noCalls = [{ row: { id: 'a', model: 'deepseek-flash' }, days: {} }]
+  const emptyResult = sumCost(noCalls, pricing, estimateCost, pricingFamilyOf)
+  assert.equal(emptyResult.priced, 1, 'the model is still priced even with no days')
+  assert.equal(sumSeries(noCalls).calls, 0, 'but nothing was spent')
+})

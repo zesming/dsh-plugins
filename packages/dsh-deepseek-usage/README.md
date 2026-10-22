@@ -65,7 +65,8 @@ the peak windows — that split is the actionable part of the number.
   Saturday has been shifted into the working week.
 - **The holiday schedule is bundled**, not fetched. A second network dependency would make an
   offline reader lose the tier split as well as the price, and the State Council publishes one year
-  at a time.
+  at a time. It covers 2024–2026; older history is still priced, but the page says so, because a
+  missing holiday would be read as an ordinary weekday and overstate the bill.
 - **Prices refresh once per local day**, when the page opens. A read failure is not remembered for
   the day, so the next visit retries; a shipped snapshot answers in the meantime, and the page says
   which of the two it is showing.

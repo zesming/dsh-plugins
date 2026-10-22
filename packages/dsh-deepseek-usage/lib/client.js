@@ -121,10 +121,6 @@ var CLOCK = glyph([
   { d: "M8 4.7v3.5l2.2 1.4" }
 ], 11, REGULAR);
 var PLUS = glyph([{ d: "M8 3.2v9.6M3.2 8h9.6" }], 15);
-var REFRESH = glyph([
-  { d: "M13.2 8a5.2 5.2 0 1 1-1.5-3.7" },
-  { d: "M13.2 2.6v3.1h-3.1" }
-], 15);
 
 // packages/dsh-deepseek-usage/src/ui/api.js
 var BALANCE_ROUTE = "api/deepseek-usage.balance";
@@ -473,6 +469,7 @@ var HOLIDAYS = {
     "2026-10-07"
   ]
 };
+var COVERED_YEARS = [2024, 2025, 2026];
 var HOLIDAY_SET = new Set(Object.values(HOLIDAYS).flat());
 
 // packages/dsh-deepseek-usage/src/cost.js
@@ -543,6 +540,20 @@ function estimateCost(bucket, plan) {
     peak: microToDecimal(peakMicro),
     offPeak: microToDecimal(offPeakMicro)
   };
+}
+function holidayCoverageCovers(from, until, coveredYears) {
+  if (typeof from !== "string" || typeof until !== "string")
+    return true;
+  const first = Number(from.slice(0, 4));
+  const last = Number(until.slice(0, 4));
+  if (!Number.isFinite(first) || !Number.isFinite(last))
+    return true;
+  const years = new Set(coveredYears ?? []);
+  for (let year = first;year <= last; year += 1) {
+    if (!years.has(year))
+      return false;
+  }
+  return true;
 }
 
 // packages/dsh-deepseek-usage/src/usage.js
@@ -969,16 +980,16 @@ function installStyles() {
     tag.remove();
   };
 }
-function CostCard({ cost, pricing, currency, scope, t }) {
+function CostCard({ cost, pricing, currency, scope, holidaysCovered, t }) {
   if (pricing.phase === "loading") {
     return h2("div", { className: "dsu-cost dsu-cost-loading" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"));
   }
-  if (pricing.phase === "failed" || cost === null) {
-    return h2("div", { className: "dsu-cost" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"), h2("span", { className: "dsu-cost-note" }, t("costUnavailable")));
+  if (pricing.phase === "failed" || cost === null || cost.calls === 0) {
+    return h2("div", { className: "dsu-cost" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"), h2("span", { className: "dsu-cost-note" }, pricing.phase === "failed" || cost === null ? t("costUnavailable") : t("costNoData")));
   }
   const money = (micro) => formatMoney(decimalOfMicro(micro), currency);
   const origin = pricing.payload?.origin === "bundled" ? t("costBundled", { date: pricing.payload?.readAt ?? "—" }) : t("costLive", { date: pricing.payload?.readAt ?? "—" });
-  return h2("div", { className: "dsu-cost" }, h2("div", { className: "dsu-cost-head" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-scope" }, scope)), h2("div", { className: "dsu-cost-value" }, money(cost.total)), h2("div", { className: "dsu-cost-split" }, h2("span", null, t("costPeak"), " ", h2("b", null, money(cost.peak))), h2("span", null, t("costOffPeak"), " ", h2("b", null, money(cost.offPeak)))), h2("div", { className: "dsu-cost-note" }, t("costPeakNote")), cost.unpriced > 0 ? h2("div", { className: "dsu-cost-note dsu-cost-warn" }, t("costUnpriced", { count: groupCount(cost.unpriced) })) : null, h2("div", { className: "dsu-cost-note dsu-cost-origin" }, origin));
+  return h2("div", { className: "dsu-cost" }, h2("div", { className: "dsu-cost-head" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-scope" }, scope)), h2("div", { className: "dsu-cost-value" }, money(cost.total)), h2("div", { className: "dsu-cost-split" }, h2("span", null, t("costPeak"), " ", h2("b", null, money(cost.peak))), h2("span", null, t("costOffPeak"), " ", h2("b", null, money(cost.offPeak)))), h2("div", { className: "dsu-cost-note" }, t("costPeakNote")), cost.unpriced > 0 ? h2("div", { className: "dsu-cost-note dsu-cost-warn" }, t("costUnpriced", { count: groupCount(cost.unpriced) })) : null, holidaysCovered === false ? h2("div", { className: "dsu-cost-note dsu-cost-warn" }, t("costHolidayGap")) : null, h2("div", { className: "dsu-cost-note dsu-cost-origin" }, origin));
 }
 function UsageView({ t, container, language, initialRefreshToken, primitives }) {
   const [status, setStatus] = React.useState({ phase: "loading" });
@@ -1059,8 +1070,26 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
     if (pricing.phase !== "ready")
       return null;
     const scoped = restrictSeries(series, costKeys);
-    return sumCost(scoped, pricing.payload, estimateCost, pricingFamilyOf);
+    const sum = sumCost(scoped, pricing.payload, estimateCost, pricingFamilyOf);
+    if (sum === null)
+      return null;
+    return { ...sum, calls: sumSeries(scoped).calls };
   }, [pricing, series, costKeys]);
+  const holidaysCovered = React.useMemo(() => {
+    const days = new Set;
+    for (const entry of series)
+      for (const key of Object.keys(entry.days ?? {}))
+        days.add(key);
+    if (costKeys !== null) {
+      for (const key of [...days])
+        if (!costKeys.has(key))
+          days.delete(key);
+    }
+    if (days.size === 0)
+      return true;
+    const sorted = [...days].sort();
+    return holidayCoverageCovers(sorted[0], sorted[sorted.length - 1], COVERED_YEARS);
+  }, [series, costKeys]);
   React.useEffect(() => {
     if (status.phase !== "ready" || touched)
       return;
@@ -1113,6 +1142,7 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
     pricing,
     currency: pricing.payload?.currency ?? "CNY",
     scope: view === "day" ? t("costScopeYear") : view === "week" ? t("costScopeHalfYear") : t("costScopeAll"),
+    holidaysCovered,
     t
   }), controls, body, h2(ModelTable, { series, totals, t, pricing, costKeys }), h2("p", { className: "dsu-foot" }, t("footnote"), " ", t("channelNote"), notices.length > 0 ? ` ${notices.join(" ")}` : null), hover !== undefined && h2(Tooltip, { hover, language, t }));
 }
@@ -1322,18 +1352,12 @@ function Tooltip({ hover, language, t }) {
 // packages/dsh-deepseek-usage/src/ui/locale.js
 var zh = {
   balance: "余额",
-  officialAccount: "DeepSeek 官方账户",
-  balanceNote: "余额由 DeepSeek 平台实时返回",
-  balanceNoteUnavailable: "暂时无法读取余额，可稍后重试",
   balanceUnavailable: "暂时无法读取",
   expiresIn: "{amount} 将在 {when}过期",
   usage: "用量",
   topUp: "充值",
-  refreshNow: "立即刷新",
-  refreshing: "正在刷新…",
   nav: "用量",
   title: "用量",
-  subtitle: "来自本机会话日志",
   cumulativeTokens: "累计 tokens",
   calls: "{count} 次调用 · 含缓存读取",
   last7: "近 7 天",
@@ -1355,8 +1379,6 @@ var zh = {
   totalHint: "每周堆叠 · 每个颜色一个模型",
   totalHintWeekly: "悬停查看该周合计",
   colorHint: "颜色越浓 tokens 越多",
-  less: "少",
-  more: "多",
   byModel: "按模型",
   model: "模型",
   modelCalls: "调用",
@@ -1372,14 +1394,11 @@ var zh = {
   loadFailedBody: "本机日志暂时无法读取，请稍后重试。",
   retry: "重试",
   refresh: "刷新",
-  close: "关闭",
   truncated: "会话过多，仅统计了最近 {count} 个会话。",
   failedSessions: "{count} 个会话读取失败，未计入。",
   footnote: "统计来源：本机会话日志中每次模型调用的 usage 记录，按本地时区归日。总量含缓存读取，缓存单独展示。",
   channelNote: "会话日志不记录 DeepSeek 账号 ID，因此这里按接入通道区分，而不是按账号。",
-  subagentTotal: "其中子代理 {value}",
   cost: "预估费用",
-  costNote: "按 DeepSeek 官方价目表估算，仅供参考",
   costPeak: "高峰时段",
   costOffPeak: "空闲时段",
   costUnpriced: "{count} 个模型没有官方定价，未计入",
@@ -1388,25 +1407,20 @@ var zh = {
   costLive: "价目表更新于 {date}",
   costUnavailable: "暂时无法读取官方价目表",
   costColumn: "费用",
-  costTotal: "合计",
   costScopeYear: "近 12 个月",
   costScopeHalfYear: "近 26 周",
-  costScopeAll: "全部记录"
+  costScopeAll: "全部记录",
+  costHolidayGap: "所选时段早于内置节假日表，法定节假日可能被按高峰计价，费用偏高。",
+  costNoData: "所选时段没有用量"
 };
 var en = {
   balance: "Balance",
-  officialAccount: "DeepSeek account",
-  balanceNote: "Returned live by the DeepSeek platform",
-  balanceNoteUnavailable: "Balance is temporarily unavailable; try again shortly",
   balanceUnavailable: "Temporarily unavailable",
   expiresIn: "{amount} expires {when}",
   usage: "Usage",
   topUp: "Top up",
-  refreshNow: "Refresh now",
-  refreshing: "Refreshing…",
   nav: "Usage",
   title: "Usage",
-  subtitle: "From this machine's Session logs",
   cumulativeTokens: "Total tokens",
   calls: "{count} calls · cache reads included",
   last7: "Last 7 days",
@@ -1428,8 +1442,6 @@ var en = {
   totalHint: "Weekly stacked · one color per model",
   totalHintWeekly: "Hover a bar for that week's total",
   colorHint: "Stronger color means more tokens",
-  less: "Less",
-  more: "More",
   byModel: "By model",
   model: "Model",
   modelCalls: "Calls",
@@ -1445,14 +1457,11 @@ var en = {
   loadFailedBody: "The local Session logs are unavailable right now. Try again shortly.",
   retry: "Retry",
   refresh: "Refresh",
-  close: "Close",
   truncated: "Too many Sessions; only the most recent {count} were counted.",
   failedSessions: "{count} Sessions could not be read and are excluded.",
   footnote: "Source: the usage record of every model call in this machine's Session logs, bucketed by local calendar day. Totals include cache reads; cache is also shown separately.",
   channelNote: "Session logs do not record a DeepSeek account id, so this axis is the access channel rather than the account.",
-  subagentTotal: "{value} of it from subagents",
   cost: "Estimated cost",
-  costNote: "Estimated from DeepSeek's published prices; for reference only",
   costPeak: "Peak",
   costOffPeak: "Off-peak",
   costUnpriced: "{count} models have no published price and are excluded",
@@ -1461,10 +1470,11 @@ var en = {
   costLive: "Price list updated {date}",
   costUnavailable: "The published price list is unavailable right now",
   costColumn: "Cost",
-  costTotal: "Total",
   costScopeYear: "Last 12 months",
   costScopeHalfYear: "Last 26 weeks",
-  costScopeAll: "All recorded"
+  costScopeAll: "All recorded",
+  costHolidayGap: "This range predates the bundled holiday schedule, so public holidays may be priced at the peak rate.",
+  costNoData: "No usage in this range"
 };
 var keys = Object.keys(zh);
 function interpolate(template, values) {

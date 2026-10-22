@@ -26,3 +26,21 @@ test('language selection falls back to English', () => {
   assert.equal(dictionaryFor('en-US').usage, 'Usage')
   assert.equal(dictionaryFor(undefined).usage, 'Usage')
 })
+
+test('every dictionary key is actually rendered somewhere', async () => {
+  // A key nobody asks for is dead weight that still has to be translated twice
+  // and still has to pass review. This guards the key set against re-accreting
+  // strings that were removed from the UI but not from the dictionaries.
+  const { readdirSync, readFileSync } = await import('node:fs')
+  const { keys } = await import('../src/ui/locale.js')
+  // Every source file the client bundle is built from, not just the view
+  // directory: the sidebar registers its own labels from src/client.js.
+  const collect = dir => readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const url = new URL(entry.name + (entry.isDirectory() ? '/' : ''), dir)
+    if (entry.isDirectory()) return collect(url)
+    return entry.name.endsWith('.js') && entry.name !== 'locale.js' ? [readFileSync(url, 'utf8')] : []
+  })
+  const text = collect(new URL('../src/', import.meta.url)).join('\n')
+  const unused = keys.filter(key => !new RegExp(`['"\`]${key}['"\`]`).test(text))
+  assert.deepEqual(unused, [], 'dictionary keys with no call site')
+})
