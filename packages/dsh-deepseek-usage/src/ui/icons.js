@@ -6,6 +6,9 @@
  * glyph sits at the same optical weight as the shipped icons next to it. Two
  * weights exist for the same reason the product has two: `Medium` for an icon
  * that must hold its own in a menu, `Regular` for a quieter inline mark.
+ *
+ * Attribute names use the camelCase spelling React expects for SVG
+ * presentation attributes; a hyphenated one renders but warns on every paint.
  */
 
 /** Stroke width of the product's `Medium` icon variant. */
@@ -49,8 +52,8 @@ function glyph(children, size, weight = MEDIUM) {
  */
 export const USAGE = glyph([
   { d: 'M2 2h4.6v4.6H2z' },
-  { d: 'M9.4 2h4.6v4.6H9.4z', fill: 'currentColor', 'fill-opacity': 0.32 },
-  { d: 'M2 9.4h4.6v4.6H2z', fill: 'currentColor', 'fill-opacity': 0.62 },
+  { d: 'M9.4 2h4.6v4.6H9.4z', fill: 'currentColor', fillOpacity: 0.32 },
+  { d: 'M2 9.4h4.6v4.6H2z', fill: 'currentColor', fillOpacity: 0.62 },
   { d: 'M9.4 9.4h4.6v4.6H9.4z', fill: 'currentColor', stroke: 'none' },
 ], 16)
 

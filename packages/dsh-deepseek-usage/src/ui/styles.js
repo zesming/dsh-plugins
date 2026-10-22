@@ -22,8 +22,31 @@ const HEAT = {
  *
  * @returns CSS text scoped under `.dsu`.
  */
+/**
+ * Rules for the settings nav seat, kept out of the component stylesheet.
+ *
+ * They reach a button the shell draws, so they cannot be scoped under this
+ * plugin's own root class. Both rules key on structure plus this plugin's
+ * marker rather than on a hashed class token: the shell emits an icon and a
+ * label inside each nav button, and its class names change every build.
+ */
+const NAV_SEAT_CSS = [
+  'button:has(> [data-dsu-navmark]) > svg { display: none; }',
+  'button:has(> span > [data-dsu-navmark]) > svg { display: none; }',
+  'button:has(> span > [data-dsu-navmark]) > span { display: flex; align-items: center; gap: 8px; min-width: 0; }',
+  '[data-dsu-navmark] { display: inline-flex; flex: none; width: 16px; height: 16px; color: currentColor; }',
+  '[data-dsu-navtext] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
+].join('\n')
+
+/**
+ * Build the stylesheet.
+ *
+ * @returns CSS text for every surface this plugin draws.
+ */
 export function stylesheet() {
-  return `
+  return `${NAV_SEAT_CSS}
+[data-dsu-navtext] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .dsu{--dsu-heat-1:${HEAT.light[0]};--dsu-heat-2:${HEAT.light[1]};--dsu-heat-3:${HEAT.light[2]};--dsu-heat-4:${HEAT.light[3]};--dsu-heat-5:${HEAT.light[4]};--dsu-empty:var(--dsw-alias-bg-module-platform);font-family:var(--dsw-font-family);color:var(--dsw-alias-label-primary);-webkit-font-smoothing:antialiased}
 [data-ds-dark-theme] .dsu{--dsu-heat-1:${HEAT.dark[0]};--dsu-heat-2:${HEAT.dark[1]};--dsu-heat-3:${HEAT.dark[2]};--dsu-heat-4:${HEAT.dark[3]};--dsu-heat-5:${HEAT.dark[4]};--dsu-empty:rgba(255,255,255,.07)}
 

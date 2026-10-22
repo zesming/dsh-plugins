@@ -41,7 +41,19 @@ test('the usage mark encodes an intensity scale, not a uniform grid', () => {
   const outlined = cells.filter(child => child.fill === undefined)
   assert.equal(solid.length, 1, 'exactly one solid cell')
   assert.equal(outlined.length, 1, 'exactly one outline-only cell')
-  assert.ok(cells.some(child => typeof child['fill-opacity'] === 'number'), 'at least one graded cell')
+  assert.ok(cells.some(child => typeof child.fillOpacity === 'number'), 'at least one graded cell')
+})
+
+test('no glyph uses a hyphenated SVG attribute React would warn about', () => {
+  // React renders `fill-opacity` but warns on every paint; the camelCase form
+  // is the supported one.
+  for (const [name, glyph] of Object.entries(all)) {
+    for (const child of glyph.children) {
+      for (const key of Object.keys(child)) {
+        assert.equal(key.includes('-'), false, `${name} uses "${key}"`)
+      }
+    }
+  }
 })
 
 test('every glyph starts inside the 16-unit box', () => {

@@ -105,14 +105,47 @@ export function apply(ctx) {
     label: () => t()('usage'),
   }, () => h(Glyph, { description: USAGE })))
 
+  // The settings shell picks a nav glyph by section id and falls back to the
+  // gear for any id it does not know, and `settings.section` has no icon
+  // option. Rather than occupy another section's id, the label itself carries
+  // the mark: the shell renders `label` as React children, and a stylesheet
+  // hides the gear only in the row whose label contains our marker.
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: SECTION_ID,
     order: 5,
-    label: () => t()('nav'),
+    label: () => h(UsageNavLabel, { text: t()('nav') }),
     locale: NS,
     inject: () => ({ t: t(), language: languageOf(ctx), primitives }),
   }, UsageSettingsSection))
+}
+
+/**
+ * The settings nav label, with the usage mark in the seat the shell's gear
+ * occupies.
+ *
+ * `data-dsu-navmark` is the hook the plugin's own stylesheet keys on: while a
+ * row's label contains it, that row's built-in glyph is hidden and this one is
+ * laid out in its place. Every other row keeps the shipped rendering.
+ *
+ * @param props.text - localized section name.
+ * @returns the marker plus the label text.
+ */
+function UsageNavLabel({ text }) {
+  return h(React.Fragment, null,
+    h('span', { 'data-dsu-navmark': '', 'aria-hidden': 'true' },
+      h('svg', {
+        viewBox: USAGE.viewBox,
+        width: 16,
+        height: 16,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: USAGE.strokeWidth,
+        strokeLinejoin: 'round',
+      }, USAGE.children.map((child, index) => h('path', { key: index, ...child }))),
+    ),
+    h('span', { 'data-dsu-navtext': '' }, text),
+  )
 }
 
 /**
