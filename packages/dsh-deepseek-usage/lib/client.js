@@ -703,8 +703,14 @@ function Tokens({ value }) {
   const compact = compactTokens(value);
   return h2("span", null, compact.value, compact.unit === "" ? null : h2("span", { className: "u" }, compact.unit));
 }
-function Styles() {
-  return h2("style", null, stylesheet());
+function installStyles() {
+  const tag = document.createElement("style");
+  tag.dataset.plugin = "dsh-deepseek-usage";
+  tag.textContent = stylesheet();
+  document.head.appendChild(tag);
+  return () => {
+    tag.remove();
+  };
 }
 function UsageView({ t, container, language, initialRefreshToken, primitives }) {
   const [status, setStatus] = React.useState({ phase: "loading" });
@@ -1147,6 +1153,7 @@ function languageOf(ctx) {
 function apply(ctx) {
   const t = () => lookup(languageOf(ctx));
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor("zh"), en: dictionaryFor("en") }), "deepseek-usage: dictionaries");
+  ctx.effect(() => installStyles(), "deepseek-usage: stylesheet");
   const openUsage = () => {
     try {
       ctx.layout.selectPanel(PANEL_ID);
@@ -1206,7 +1213,7 @@ function UsageNavLabel({ text }) {
 }
 function UsagePanel({ t, language, primitives: primitives2 }) {
   const [refreshToken, setRefreshToken] = import_react.default.useState(0);
-  return h3("div", { className: "dsu dsu-panel" }, h3(Styles), h3("div", { className: "dsu-panel-head" }, h3("h1", { className: "dsu-panel-title" }, t("title")), h3("div", { className: "dsu-panel-actions" }, h3("button", {
+  return h3("div", { className: "dsu dsu-panel" }, h3("div", { className: "dsu-panel-head" }, h3("h1", { className: "dsu-panel-title" }, t("title")), h3("div", { className: "dsu-panel-actions" }, h3("button", {
     type: "button",
     className: "dsu-icon-btn",
     "aria-label": t("refresh"),
@@ -1218,7 +1225,7 @@ function UsagePanel({ t, language, primitives: primitives2 }) {
 }
 function UsageSettingsSection({ t, language, primitives: primitives2 }) {
   const [refreshToken, setRefreshToken] = import_react.default.useState(0);
-  return h3("div", { className: "dsu" }, h3(Styles), h3(UsageView, { t, language, container: "settings", initialRefreshToken: refreshToken, primitives: primitives2 }));
+  return h3("div", { className: "dsu" }, h3(UsageView, { t, language, container: "settings", initialRefreshToken: refreshToken, primitives: primitives2 }));
 }
 
     })(module, exports, reactRequire);

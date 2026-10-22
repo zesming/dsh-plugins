@@ -13,7 +13,7 @@ import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 
 import { USAGE } from './ui/icons.js'
 import { BalanceRow, Glyph } from './ui/balance-row.js'
-import { Styles, UsageView } from './ui/usage-view.js'
+import { UsageView, installStyles } from './ui/usage-view.js'
 import { dictionaryFor, interpolate } from './ui/locale.js'
 
 const h = React.createElement
@@ -64,6 +64,7 @@ export function apply(ctx) {
   const t = () => lookup(languageOf(ctx))
 
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor('zh'), en: dictionaryFor('en') }), 'deepseek-usage: dictionaries')
+  ctx.effect(() => installStyles(), 'deepseek-usage: stylesheet')
 
   const openUsage = () => {
     try {
@@ -158,7 +159,6 @@ function UsageNavLabel({ text }) {
 export function UsagePanel({ t, language, primitives }) {
   const [refreshToken, setRefreshToken] = React.useState(0)
   return h('div', { className: 'dsu dsu-panel' },
-    h(Styles),
     h('div', { className: 'dsu-panel-head' },
       h('h1', { className: 'dsu-panel-title' }, t('title')),
       h('div', { className: 'dsu-panel-actions' },
@@ -187,7 +187,6 @@ export function UsagePanel({ t, language, primitives }) {
 export function UsageSettingsSection({ t, language, primitives }) {
   const [refreshToken, setRefreshToken] = React.useState(0)
   return h('div', { className: 'dsu' },
-    h(Styles),
     h(UsageView, { t, language, container: 'settings', initialRefreshToken: refreshToken, primitives }),
   )
 }

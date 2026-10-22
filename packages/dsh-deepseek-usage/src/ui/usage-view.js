@@ -132,12 +132,22 @@ function Tokens({ value }) {
 }
 
 /**
- * The plugin stylesheet, mounted with the component tree.
+ * Install the plugin stylesheet for the plugin's whole lifetime.
  *
- * @returns a style element.
+ * It cannot ride on the component tree: the settings nav row that carries the
+ * plugin's mark renders whether or not the usage section is the selected one,
+ * so a stylesheet mounted only with the section would leave that row with two
+ * glyphs until the section is opened once. The element is owned here and
+ * removed by the returned disposer, so unload leaves no trace.
+ *
+ * @returns a disposer removing the style element.
  */
-export function Styles() {
-  return h('style', null, stylesheet())
+export function installStyles() {
+  const tag = document.createElement('style')
+  tag.dataset.plugin = 'dsh-deepseek-usage'
+  tag.textContent = stylesheet()
+  document.head.appendChild(tag)
+  return () => { tag.remove() }
 }
 
 /**

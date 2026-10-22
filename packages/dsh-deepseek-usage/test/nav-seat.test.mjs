@@ -34,3 +34,17 @@ test('the marker itself is a fixed 16-unit seat', () => {
   assert.match(marker, /height:\s*16px/)
   assert.match(marker, /currentColor/)
 })
+
+test('the stylesheet does not depend on the usage section being rendered', async () => {
+  // The nav row is drawn whether or not the section is selected, so a sheet
+  // mounted with the section would leave two glyphs until it was opened once.
+  const source = await import('node:fs/promises').then(fs => fs.readFile(
+    new URL('../src/ui/usage-view.js', import.meta.url), 'utf8'))
+  assert.ok(source.includes('installStyles'), 'the sheet must be installable outside the tree')
+  assert.equal(/export function Styles\s*\(/.test(source), false, 'no per-render style component may remain')
+
+  const client = await import('node:fs/promises').then(fs => fs.readFile(
+    new URL('../src/client.js', import.meta.url), 'utf8'))
+  assert.ok(client.includes('installStyles()'), 'the plugin entry must install it')
+  assert.ok(client.includes('ctx.effect'), 'installation must be owned by the plugin lifetime')
+})
