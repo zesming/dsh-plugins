@@ -151,6 +151,9 @@ test('sumCost reports the call count of the range it priced', () => {
 
   const noCalls = [{ row: { id: 'a', model: 'deepseek-flash' }, days: {} }]
   const emptyResult = sumCost(noCalls, pricing, estimateCost, pricingFamilyOf)
-  assert.equal(emptyResult.priced, 1, 'the model is still priced even with no days')
-  assert.equal(sumSeries(noCalls).calls, 0, 'but nothing was spent')
+  // A priced model with no calls covers nothing, so it must not be counted as
+  // having priced the range: doing so would hide that the range's actual usage
+  // came from models with no published price at all.
+  assert.equal(emptyResult.priced, 0)
+  assert.equal(sumSeries(noCalls).calls, 0, 'and nothing was spent')
 })

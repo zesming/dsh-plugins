@@ -25,7 +25,7 @@ Session logs, so it needs no network access and no DeepSeek login. Reachable fro
 from the sidebar's panel list, and from **Settings → Usage**.
 
 <p align="center">
-  <img src="../../docs/images/usage-weekly.png" alt="The weekly view: one row of week cells per model" width="760">
+  <img src="../../docs/images/usage-weekly.png" alt="The weekly view: one block column per week, with the block unit in the legend" width="760">
 </p>
 
 ## Where the numbers come from
@@ -51,6 +51,26 @@ Two deliberate choices follow from those sources:
 Session logs record the provider and model of each call but no DeepSeek account id. The usage page
 therefore groups by **access channel** — DeepSeek account, API key, or third party — and labels it
 that way, rather than presenting an account breakdown it cannot support.
+
+## The three views
+
+Each view answers a different question, and the KPI row and the cost card always describe the
+period the view is showing — today, this week, or everything on record. They are never fixed.
+
+| View | Chart | Figures describe |
+|---|---|---|
+| **Daily** | One heatmap lane per model, one colour-graded cell per day | Today |
+| **Weekly** | One block column per week, each block a fixed amount of tokens | This week, Monday to Sunday |
+| **Cumulative** | One block column per week, each column the running total | Everything on record |
+
+The block columns replace a colour-graded cell on purpose: a single cell has one shade and no
+height, so a week that doubled looks like a week that grew tenfold. A block is countable, so
+magnitude reads the way a bar chart reads.
+
+The block size is derived from the data rather than fixed — the smallest step on a 1/2/5 ladder
+that lets the tallest column fit in seven blocks — and the legend states it. A fixed unit would
+draw nothing at all for a month of light use, and an empty chart cannot be told apart from "no
+usage".
 
 ## Cost estimation
 

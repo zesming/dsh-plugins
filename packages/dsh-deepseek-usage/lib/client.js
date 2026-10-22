@@ -610,29 +610,6 @@ function sumSeries(series) {
   }
   return totals;
 }
-function sumWindow(series, today, days) {
-  const keys = new Set;
-  for (let offset = 0;offset < days; offset += 1)
-    keys.add(keyOf(shiftDays(today, -offset)));
-  let total = 0;
-  for (const entry of series) {
-    for (const [key, tally] of Object.entries(entry.days ?? {})) {
-      if (keys.has(key))
-        total += tally.total;
-    }
-  }
-  return total;
-}
-function weekStacks(series, weeks) {
-  return weeks.map((week) => {
-    const parts = series.map((entry) => ({
-      id: entry.row.id,
-      label: entry.row.model.split("/").pop(),
-      value: week.days.reduce((sum, key) => sum + (entry.days[key]?.total ?? 0), 0)
-    }));
-    return { key: week.key, parts, total: parts.reduce((sum, part) => sum + part.value, 0) };
-  });
-}
 function microOf(text) {
   const match = /^(-?)(\d+)\.(\d{6})$/.exec(String(text));
   if (match === null)
@@ -652,6 +629,8 @@ function sumCost(series, pricing, estimate, familyOf) {
     return null;
   const sum = { total: 0, peak: 0, offPeak: 0, priced: 0, unpriced: 0 };
   for (const entry of series) {
+    if (sumSeries([entry]).calls === 0)
+      continue;
     const family = familyOf(entry.row.model);
     const plan = family === null ? undefined : pricing.models?.[family];
     if (plan === undefined) {
@@ -681,6 +660,62 @@ function restrictSeries(series, keys) {
     }
     return { row: entry.row, days };
   });
+}
+
+// packages/dsh-deepseek-usage/src/ui/blocks.js
+var MAX_BLOCKS = 7;
+var LADDER = [
+  1e6,
+  2000000,
+  5000000,
+  1e7,
+  20000000,
+  50000000,
+  1e8,
+  200000000,
+  500000000,
+  1e9,
+  2000000000,
+  5000000000,
+  10000000000,
+  20000000000,
+  50000000000,
+  100000000000,
+  200000000000,
+  500000000000,
+  1000000000000,
+  2000000000000,
+  5000000000000
+];
+function blockUnit(maxValue) {
+  const largest = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 0;
+  const needed = largest / MAX_BLOCKS;
+  for (const step of LADDER) {
+    if (step >= needed)
+      return step;
+  }
+  return LADDER[LADDER.length - 1];
+}
+function blockCount(value, unit, max = MAX_BLOCKS) {
+  if (!Number.isFinite(value) || value <= 0)
+    return 0;
+  if (!Number.isFinite(unit) || unit <= 0)
+    return 0;
+  return Math.min(max, Math.max(1, Math.ceil(value / unit)));
+}
+function blockColumns(values, options = {}) {
+  const max = options.max ?? MAX_BLOCKS;
+  const unit = blockUnit(Math.max(0, ...values));
+  const columns = values.map((value) => ({ value, blocks: blockCount(value, unit, max) }));
+  return {
+    unit,
+    columns,
+    clipped: columns.some((column) => column.value > unit * max)
+  };
+}
+function runningTotal(values) {
+  let sum = 0;
+  return values.map((value) => sum += Number.isFinite(value) && value > 0 ? value : 0);
 }
 
 // packages/dsh-deepseek-usage/src/ui/heatmap.js
@@ -761,16 +796,6 @@ function sumDays(days) {
   for (const tally of Object.values(days ?? {}))
     total += tally?.total ?? 0;
   return total;
-}
-function weekSums(days, columns) {
-  return columns.map((column) => {
-    let total = 0;
-    for (const date of column) {
-      const key = `${String(date.getFullYear())}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      total += days?.[key]?.total ?? 0;
-    }
-    return total;
-  });
 }
 
 // packages/dsh-deepseek-usage/src/ui/styles.js
@@ -858,6 +883,15 @@ function stylesheet() {
 .dsu-svg rect{transition:opacity 100ms}
 .dsu-svg rect:hover{opacity:.72}
 .dsu-dow{display:flex;flex-direction:column;justify-content:space-between;width:14px;flex:none;padding:20px 0 2px;font-size:9px;line-height:1.1;color:var(--dsw-alias-label-caption)}
+.dsu-block-axis{display:flex;flex-direction:column;justify-content:space-between;align-self:stretch;padding-right:10px;font-size:10px;line-height:1;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;text-align:right}
+.dsu-block-axis-tick{white-space:nowrap}
+.dsu-hm-body{display:flex;align-items:flex-start}
+.dsu-hm-body>.dsu-wk-svg{flex:1;min-width:0}
+.dsu-block-legend{justify-content:flex-start;gap:8px}
+.dsu-block-sample{display:inline-flex;align-items:center}
+.dsu-block-sample i{display:block;width:12px;height:12px;border-radius:2px;background:var(--dsu-heat-4)}
+.dsu-block-legend-text{color:var(--dsw-alias-label-secondary);font-weight:500}
+.dsu-block-legend-cap{color:var(--dsw-alias-label-caption)}
 .dsu-legend{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:12px;font-size:10.5px;color:var(--dsw-alias-label-caption)}
 .dsu-swatch{display:inline-block;width:10px;height:10px;flex:none;border-radius:2.5px}
 .dsu-wk-months{position:relative;height:14px;margin-top:8px;font-size:10px;color:var(--dsw-alias-label-caption)}
@@ -984,8 +1018,9 @@ function CostCard({ cost, pricing, currency, scope, holidaysCovered, t }) {
   if (pricing.phase === "loading") {
     return h2("div", { className: "dsu-cost dsu-cost-loading" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"));
   }
-  if (pricing.phase === "failed" || cost === null || cost.calls === 0) {
-    return h2("div", { className: "dsu-cost" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"), h2("span", { className: "dsu-cost-note" }, pricing.phase === "failed" || cost === null ? t("costUnavailable") : t("costNoData")));
+  if (pricing.phase === "failed" || cost === null || cost.calls === 0 || cost.priced === 0) {
+    const note = pricing.phase === "failed" || cost === null ? t("costUnavailable") : cost.calls === 0 ? t("costNoData") : t("costUnpricedAll");
+    return h2("div", { className: "dsu-cost" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-value" }, "—"), h2("span", { className: "dsu-cost-note" }, note));
   }
   const money = (micro) => formatMoney(decimalOfMicro(micro), currency);
   const origin = pricing.payload?.origin === "bundled" ? t("costBundled", { date: pricing.payload?.readAt ?? "—" }) : t("costLive", { date: pricing.payload?.readAt ?? "—" });
@@ -1050,46 +1085,39 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
   })), [models, excludeSubagents]);
   const totals = React.useMemo(() => sumSeries(series), [series]);
   const today = React.useMemo(() => new Date, [status]);
-  const last7 = React.useMemo(() => sumWindow(series, today, 7), [series, today]);
-  const costKeys = React.useMemo(() => {
-    if (view === "total")
-      return null;
-    const columns = view === "day" ? dayGrid(today) : weekGrid(today);
-    const keys = new Set;
-    const todayKey = keyOf(today);
-    for (const column of columns) {
-      for (const date of column) {
-        const key = keyOf(date);
-        if (key <= todayKey)
-          keys.add(key);
-      }
+  const period = React.useMemo(() => {
+    if (view === "total") {
+      const days = new Set;
+      for (const entry of series)
+        for (const key of Object.keys(entry.days ?? {}))
+          days.add(key);
+      return days;
     }
-    return keys;
-  }, [view, today]);
+    if (view === "week") {
+      const monday = shiftDays(today, -((today.getDay() + 6) % 7));
+      const days = new Set;
+      for (let offset = 0;offset < 7; offset += 1)
+        days.add(keyOf(shiftDays(monday, offset)));
+      return days;
+    }
+    return new Set([keyOf(today)]);
+  }, [view, series, today]);
+  const inPeriod = React.useMemo(() => restrictSeries(series, period), [series, period]);
+  const periodTotals = React.useMemo(() => sumSeries(inPeriod), [inPeriod]);
   const cost = React.useMemo(() => {
     if (pricing.phase !== "ready")
       return null;
-    const scoped = restrictSeries(series, costKeys);
-    const sum = sumCost(scoped, pricing.payload, estimateCost, pricingFamilyOf);
+    const sum = sumCost(inPeriod, pricing.payload, estimateCost, pricingFamilyOf);
     if (sum === null)
       return null;
-    return { ...sum, calls: sumSeries(scoped).calls };
-  }, [pricing, series, costKeys]);
+    return { ...sum, calls: periodTotals.calls };
+  }, [pricing, inPeriod, periodTotals]);
   const holidaysCovered = React.useMemo(() => {
-    const days = new Set;
-    for (const entry of series)
-      for (const key of Object.keys(entry.days ?? {}))
-        days.add(key);
-    if (costKeys !== null) {
-      for (const key of [...days])
-        if (!costKeys.has(key))
-          days.delete(key);
-    }
-    if (days.size === 0)
+    if (period.size === 0)
       return true;
-    const sorted = [...days].sort();
+    const sorted = [...period].sort();
     return holidayCoverageCovers(sorted[0], sorted[sorted.length - 1], COVERED_YEARS);
-  }, [series, costKeys]);
+  }, [period]);
   React.useEffect(() => {
     if (status.phase !== "ready" || touched)
       return;
@@ -1108,9 +1136,10 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
       return next;
     });
   };
-  const empty = totals.calls === 0;
+  const empty = periodTotals.calls === 0;
   const figure = (value) => empty ? h2("span", null, "—") : h2(Tokens, { value });
-  const header = h2("div", { className: "dsu-kpis" }, h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("cumulativeTokens")), h2("span", { className: "dsu-kpi-value" }, figure(totals.total)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("calls", { count: groupCount(totals.calls) }))), h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("last7")), h2("span", { className: "dsu-kpi-value" }, figure(last7)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("dailyAverage", { value: h26(Math.round(last7 / 7)) }))), h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("cacheRead")), h2("span", { className: "dsu-kpi-value" }, figure(totals.cacheRead)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("cacheShare", { percent: (totals.cacheRead / totals.total * 100).toFixed(1) }))), h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("output")), h2("span", { className: "dsu-kpi-value" }, figure(totals.output)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("input", { value: h26(totals.input) }))));
+  const periodLabel = view === "day" ? t("periodToday") : view === "week" ? t("periodThisWeek") : t("periodAll");
+  const header = h2("div", { className: "dsu-kpis" }, h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, periodLabel), h2("span", { className: "dsu-kpi-value" }, figure(periodTotals.total)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("calls", { count: groupCount(periodTotals.calls) }))), h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("cacheRead")), h2("span", { className: "dsu-kpi-value" }, figure(periodTotals.cacheRead)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("cacheShare", { percent: (periodTotals.cacheRead / periodTotals.total * 100).toFixed(1) }))), h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("output")), h2("span", { className: "dsu-kpi-value" }, figure(periodTotals.output)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("input", { value: h26(periodTotals.input) }))), h2("div", { className: "dsu-kpi" }, h2("span", { className: "dsu-kpi-label" }, t("recordedTotal")), h2("span", { className: "dsu-kpi-value" }, figure(totals.total)), h2("span", { className: "dsu-kpi-meta" }, empty ? t("noData") : t("calls", { count: groupCount(totals.calls) }))));
   const controls = h2("div", { className: "dsu-controls" }, h2(RangeSwitch, { primitives, value: view, t, onChange: setView }), h2("div", { className: "dsu-spacer" }), ...CHANNELS.filter((channel) => status.phase !== "ready" || status.payload.channels.includes(channel)).map((channel) => h2(ChannelChip, {
     key: channel,
     primitives,
@@ -1128,7 +1157,7 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
       setRefreshToken((value) => value + 1);
     } }, t("retry"))));
   }
-  const body = models.length === 0 ? h2("div", { className: "dsu-empty" }, h2("strong", null, t("noUsageTitle")), h2("div", null, t("noUsageBody"))) : view === "day" ? h2(DayHeatmap, { series, today, t, onHover: reportHover }) : view === "week" ? h2(WeekHeatmap, { series, today, t, onHover: reportHover }) : h2(CumulativeChart, { series, today, t, onHover: reportHover });
+  const body = models.length === 0 ? h2("div", { className: "dsu-empty" }, h2("strong", null, t("noUsageTitle")), h2("div", null, t("noUsageBody"))) : view === "day" ? h2(DayHeatmap, { series, today, t, onHover: reportHover }) : view === "week" ? h2(WeekBlocks, { series, today, t, onHover: reportHover }) : h2(CumulativeBlocks, { series, today, t, onHover: reportHover });
   const notices = [];
   if (status.payload.truncated)
     notices.push(t("truncated", { count: groupCount(status.payload.scannedSessions) }));
@@ -1141,10 +1170,10 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
     cost,
     pricing,
     currency: pricing.payload?.currency ?? "CNY",
-    scope: view === "day" ? t("costScopeYear") : view === "week" ? t("costScopeHalfYear") : t("costScopeAll"),
+    scope: periodLabel,
     holidaysCovered,
     t
-  }), controls, body, h2(ModelTable, { series, totals, t, pricing, costKeys }), h2("p", { className: "dsu-foot" }, t("footnote"), " ", t("channelNote"), notices.length > 0 ? ` ${notices.join(" ")}` : null), hover !== undefined && h2(Tooltip, { hover, language, t }));
+  }), controls, body, h2(ModelTable, { series: inPeriod, totals: periodTotals, t, pricing }), h2("p", { className: "dsu-foot" }, t("footnote"), " ", t("channelNote"), notices.length > 0 ? ` ${notices.join(" ")}` : null), hover !== undefined && h2(Tooltip, { hover, language, t }));
 }
 function h26(value) {
   const compact = compactTokens(value);
@@ -1205,105 +1234,108 @@ function DayHeatmap({ series, today, t, onHover }) {
   })), h2(Legend, { t }));
 }
 var WEEKDAY_GLYPHS = ["一", "三", "五", "日"];
-function WeekHeatmap({ series, today, t, onHover }) {
-  const columns = React.useMemo(() => weekGrid(today), [today]);
-  const width = WEEK_COLUMNS * (WEEK_CELL + WEEK_GAP);
-  const height = WEEK_CELL;
-  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("weekHint"))), h2("div", { className: "dsu-lanes" }, series.map(({ row, days }) => {
-    const sums = weekSums(days, columns);
-    const level = quantileLevels(sums);
-    return h2("div", { className: "dsu-lane", key: row.id }, h2("div", { className: "dsu-lane-head" }, h2("span", { className: "dsu-lane-name", title: row.model }, row.model.split("/").pop()), h2("span", { className: "dsu-tag" }, channelLabel(row.channel, t)), h2("span", { className: "dsu-lane-total" }, h2(Tokens, { value: sums.reduce((a, b) => a + b, 0) }))), h2("svg", {
-      className: "dsu-wk-svg",
-      viewBox: `0 0 ${String(width)} ${String(height)}`,
-      preserveAspectRatio: "none",
-      role: "img",
-      "aria-label": `${row.model} weekly token usage`,
-      onMouseLeave: () => {
-        onHover(undefined);
-      },
-      onMouseMove: (event) => {
-        onHover((current) => current === undefined ? current : { ...current, x: event.clientX, y: event.clientY });
-      }
-    }, sums.map((value, index) => h2("rect", {
-      key: index,
-      x: index * (WEEK_CELL + WEEK_GAP),
-      y: 0,
-      width: WEEK_CELL,
-      height,
-      rx: 3,
-      fill: fillOf(level(value)),
-      onMouseEnter: (event) => {
-        const start = keyOf(columns[index][0]);
-        onHover({
-          x: event.clientX,
-          y: event.clientY,
-          label: `${start} · ${row.model.split("/").pop()}`,
-          value
-        });
-      }
-    }))));
-  })), h2("div", { className: "dsu-wk-months" }, columns.map((column, index) => index % 4 === 0 ? h2("span", { key: index, style: { left: `${String(index / WEEK_COLUMNS * 100)}%` } }, keyOf(column[0]).slice(5)) : null)), h2(Legend, { t }));
+var BLOCK_STEP = 20;
+var BLOCK_GAP = 7;
+function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) {
+  const width = columns.length * (WEEK_CELL + WEEK_GAP);
+  const height = MAX_BLOCKS * BLOCK_STEP;
+  const compact = compactTokens(unit);
+  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, caption), clipped ? h2("span", { className: "dsu-hm-hint" }, t("blockClipped")) : null), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-block-axis" }, Array.from({ length: MAX_BLOCKS }, (_, index) => {
+    const level = MAX_BLOCKS - index;
+    const amount = compactTokens(unit * level);
+    return h2("span", { key: level, className: "dsu-block-axis-tick" }, `${amount.value}${amount.unit}`);
+  })), h2("svg", {
+    className: "dsu-wk-svg",
+    viewBox: `0 0 ${String(width)} ${String(height)}`,
+    preserveAspectRatio: "none",
+    role: "img",
+    "aria-label": ariaLabel,
+    onMouseLeave: () => {
+      onHover(undefined);
+    },
+    onMouseMove: (event) => {
+      onHover((current) => current === undefined ? current : { ...current, x: event.clientX, y: event.clientY });
+    }
+  }, columns.map((column, index) => h2("g", {
+    key: column.key,
+    onMouseEnter: (event) => {
+      onHover({
+        x: event.clientX,
+        y: event.clientY,
+        label: `${column.label} · ${t("blocksCount", { count: String(column.blocks) })}`,
+        value: column.total
+      });
+    }
+  }, Array.from({ length: column.blocks }, (_, level) => h2("rect", {
+    key: level,
+    x: index * (WEEK_CELL + WEEK_GAP),
+    y: height - (level + 1) * BLOCK_STEP + BLOCK_GAP,
+    width: WEEK_CELL,
+    height: BLOCK_STEP - BLOCK_GAP,
+    rx: 2,
+    fill: "var(--dsu-heat-4)"
+  })))))), h2("div", { className: "dsu-wk-months" }, columns.map((column, index) => index % 4 === 0 ? h2("span", { key: column.key, style: { left: `${String(index / columns.length * 100)}%` } }, column.axis) : null)), h2(BlockLegend, { unit, t }));
 }
-function CumulativeChart({ series, today, t, onHover }) {
+function BlockLegend({ unit, t }) {
+  const compact = compactTokens(unit);
+  return h2("div", { className: "dsu-legend dsu-block-legend" }, h2("span", { className: "dsu-block-sample" }, h2("i")), h2("span", { className: "dsu-block-legend-text" }, t("blockUnit", { value: `${compact.value}${compact.unit}` })), h2("span", { className: "dsu-block-legend-cap" }, t("blockCap", { count: String(MAX_BLOCKS) })));
+}
+function WeekBlocks({ series, today, t, onHover }) {
   const weeks = React.useMemo(() => {
     const grid = weekGrid(today);
     return grid.map((column) => ({ key: keyOf(column[0]), days: column.map(keyOf) }));
   }, [today]);
-  const stacks = React.useMemo(() => weekStacks(series, weeks), [series, weeks]);
-  const max = Math.max(1, ...stacks.map((day) => day.total));
-  const W = 720;
-  const HGT = 148;
-  const PAD_L = 46;
-  const PAD_B = 18;
-  const barWidth = (W - PAD_L - 4) / stacks.length;
-  const y = (value) => HGT - PAD_B - value / max * (HGT - PAD_B - 6);
-  const colors = ["var(--dsu-heat-4)", "var(--dsu-heat-3)", "var(--dsu-heat-5)"];
-  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("totalHint")), h2("span", { className: "dsu-hm-hint" }, t("totalHintWeekly"))), h2("div", { className: "dsu-cum-legend" }, series.map(({ row }, index) => h2("span", { key: row.id }, h2("i", { style: { background: colors[index % colors.length] } }), row.model.split("/").pop()))), h2("svg", {
-    className: "dsu-chart",
-    viewBox: `0 0 ${String(W)} ${String(HGT)}`,
-    preserveAspectRatio: "none",
-    role: "img",
-    "aria-label": t("viewTotal"),
-    onMouseLeave: () => {
-      onHover(undefined);
-    }
-  }, [0, 0.5, 1].map((fraction) => {
-    const value = max * fraction;
-    const compact = compactTokens(value);
-    return h2("g", { key: fraction }, h2("line", { className: "gridline", x1: PAD_L, x2: W - 4, y1: y(value), y2: y(value) }), h2("text", { className: "axis", x: PAD_L - 6, y: y(value) + 3, textAnchor: "end" }, `${compact.value}${compact.unit}`));
-  }), stacks.map((day, index) => {
-    let cursor = 0;
-    return h2("g", {
-      key: day.key,
-      onMouseEnter: (event) => {
-        onHover({
-          x: event.clientX,
-          y: event.clientY,
-          label: `${day.key} 起一周 · ${String(series.length)} models`,
-          value: day.total
-        });
-      }
-    }, day.parts.map((part, partIndex) => {
-      if (part.value === 0)
-        return null;
-      const bottom = cursor;
-      cursor += part.value;
-      return h2("rect", {
-        key: part.id,
-        x: PAD_L + index * barWidth,
-        y: y(cursor),
-        width: Math.max(0.8, barWidth - 0.6),
-        height: Math.max(0, y(bottom) - y(cursor)),
-        fill: colors[partIndex % colors.length]
-      });
-    }));
-  }), weeks.map((week, index) => index % 4 === 0 ? h2("text", {
+  const values = React.useMemo(() => weeks.map((week) => week.days.reduce((sum, key) => {
+    let total = 0;
+    for (const entry of series)
+      total += entry.days[key]?.total ?? 0;
+    return sum + total;
+  }, 0)), [weeks, series]);
+  const { unit, columns, clipped } = React.useMemo(() => blockColumns(values), [values]);
+  const rows = weeks.map((week, index) => ({
     key: week.key,
-    className: "axis",
-    x: PAD_L + index * barWidth,
-    y: HGT - 4,
-    textAnchor: "middle"
-  }, week.key.slice(5)) : null)));
+    label: `${week.key} ${t("weekRange")}`,
+    axis: week.key.slice(5),
+    weekIndex: index
+  }));
+  return h2(BlockChart, {
+    columns: rows.map((row) => ({ ...row, total: values[row.weekIndex], blocks: columns[row.weekIndex].blocks })),
+    unit,
+    clipped,
+    caption: t("weekHint"),
+    ariaLabel: t("weekAria"),
+    t,
+    onHover
+  });
+}
+function CumulativeBlocks({ series, today, t, onHover }) {
+  const weeks = React.useMemo(() => {
+    const grid = weekGrid(today);
+    return grid.map((column) => ({ key: keyOf(column[0]), days: column.map(keyOf) }));
+  }, [today]);
+  const weekly = React.useMemo(() => weeks.map((week) => week.days.reduce((sum, key) => {
+    let total = 0;
+    for (const entry of series)
+      total += entry.days[key]?.total ?? 0;
+    return sum + total;
+  }, 0)), [weeks, series]);
+  const running = React.useMemo(() => runningTotal(weekly), [weekly]);
+  const { unit, columns, clipped } = React.useMemo(() => blockColumns(running), [running]);
+  return h2(BlockChart, {
+    columns: weeks.map((week, index) => ({
+      key: week.key,
+      label: `${week.key} ${t("weekRange")} · ${t("cumulativeSince")}`,
+      axis: week.key.slice(5),
+      total: running[index],
+      blocks: columns[index].blocks
+    })),
+    unit,
+    clipped,
+    caption: t("totalHint"),
+    ariaLabel: t("totalAria"),
+    t,
+    onHover
+  });
 }
 function Legend({ t }) {
   return h2("div", { className: "dsu-legend", role: "img", "aria-label": t("colorHint") }, h2("span", { className: "dsu-swatch", style: { background: "var(--dsu-empty)" } }), LEVELS.map((level) => h2("span", {
@@ -1312,17 +1344,16 @@ function Legend({ t }) {
     style: { background: fillOf(level) }
   })));
 }
-function ModelTable({ series, totals, t, pricing, costKeys }) {
+function ModelTable({ series, totals, t, pricing }) {
   const priced = pricing?.phase === "ready" ? pricing.payload : null;
   const currency = priced?.currency ?? "CNY";
   const rows = series.map(({ row, days }) => {
     const sum = sumSeries([{ row, days }]);
-    const scoped = costKeys === null || costKeys === undefined ? { row, days } : restrictSeries([{ row, days }], costKeys)[0];
     const family = pricingFamilyOf(row.model);
     const plan = family === null ? undefined : priced?.models?.[family];
-    const cost = plan === undefined ? null : estimateCost(sumSeries([scoped]), plan);
+    const cost = plan === undefined ? null : estimateCost(sum, plan);
     return { row, sum, cost };
-  }).sort((a, b) => b.sum.total - a.sum.total);
+  }).filter((entry) => entry.sum.calls > 0).sort((a, b) => b.sum.total - a.sum.total);
   return h2("div", { className: "dsu-table-wrap" }, h2("div", { className: "dsu-table-title" }, h2("span", null, t("byModel")), h2("span", null, "tokens")), h2("table", { className: "dsu-table" }, h2("thead", null, h2("tr", null, h2("th", null, t("model")), h2("th", null, t("modelCalls")), h2("th", null, t("modelInput")), h2("th", null, t("modelOutput")), h2("th", null, t("modelCache")), h2("th", null, t("modelTotal")), priced !== null ? h2("th", null, t("costColumn")) : null, h2("th", null, t("modelShare")))), h2("tbody", null, rows.length === 0 ? h2("tr", null, h2("td", { colSpan: priced !== null ? 8 : 7, style: { textAlign: "center", padding: "20px 0" } }, t("noData"))) : rows.map(({ row, sum, cost }) => {
     const share = totals.total === 0 ? 0 : sum.total / totals.total;
     return h2("tr", { key: row.id }, h2("td", { className: "model" }, row.model.split("/").pop(), h2("span", { className: "sub" }, row.provider)), h2("td", null, groupCount(sum.calls)), h2("td", null, h26(sum.input)), h2("td", null, h26(sum.output)), h2("td", null, h26(sum.cacheRead)), h2("td", { className: "total" }, h26(sum.total)), priced !== null ? h2("td", { className: "dsu-cost-cell" }, cost === null ? "—" : formatMoney(cost.total, currency)) : null, h2("td", null, h2("span", { className: "dsu-share" }, h2("span", { className: "dsu-share-bar" }, h2("i", { style: { width: `${(share * 100).toFixed(0)}%` } })), `${(share * 100).toFixed(0)}%`)));
@@ -1358,10 +1389,7 @@ var zh = {
   topUp: "充值",
   nav: "用量",
   title: "用量",
-  cumulativeTokens: "累计 tokens",
   calls: "{count} 次调用 · 含缓存读取",
-  last7: "近 7 天",
-  dailyAverage: "日均 {value}",
   cacheRead: "缓存读取",
   cacheShare: "占 {percent}%",
   output: "输出",
@@ -1375,9 +1403,8 @@ var zh = {
   channelUnknown: "未知通道",
   excludeSubagents: "排除子代理",
   dayHint: "近 12 个月 · 每格一天",
-  weekHint: "近 26 周 · 每格一周",
-  totalHint: "每周堆叠 · 每个颜色一个模型",
-  totalHintWeekly: "悬停查看该周合计",
+  weekHint: "近 26 周 · 每列一周",
+  totalHint: "近 26 周 · 每列是该周为止的累计用量",
   colorHint: "颜色越浓 tokens 越多",
   byModel: "按模型",
   model: "模型",
@@ -1407,11 +1434,21 @@ var zh = {
   costLive: "价目表更新于 {date}",
   costUnavailable: "暂时无法读取官方价目表",
   costColumn: "费用",
-  costScopeYear: "近 12 个月",
-  costScopeHalfYear: "近 26 周",
-  costScopeAll: "全部记录",
   costHolidayGap: "所选时段早于内置节假日表，法定节假日可能被按高峰计价，费用偏高。",
-  costNoData: "所选时段没有用量"
+  costNoData: "所选时段没有用量",
+  costUnpricedAll: "所选时段的用量来自没有官方定价的模型，无法估算费用",
+  periodToday: "今天",
+  periodThisWeek: "本周",
+  periodAll: "统计以来",
+  recordedTotal: "累计记录",
+  blockUnit: "每块 {value} tokens",
+  blockCap: "最多 {count} 块",
+  blockClipped: "有列超出上限，按 {count} 块截断",
+  blocksCount: "{count} 块",
+  weekRange: "起一周",
+  cumulativeSince: "累计到此",
+  weekAria: "每周 tokens 用量柱状图",
+  totalAria: "累计 tokens 用量柱状图"
 };
 var en = {
   balance: "Balance",
@@ -1421,10 +1458,7 @@ var en = {
   topUp: "Top up",
   nav: "Usage",
   title: "Usage",
-  cumulativeTokens: "Total tokens",
   calls: "{count} calls · cache reads included",
-  last7: "Last 7 days",
-  dailyAverage: "{value} per day",
   cacheRead: "Cache reads",
   cacheShare: "{percent}% of total",
   output: "Output",
@@ -1438,9 +1472,8 @@ var en = {
   channelUnknown: "Unknown",
   excludeSubagents: "Exclude subagents",
   dayHint: "Last 12 months · one cell per day",
-  weekHint: "Last 26 weeks · one cell per week",
-  totalHint: "Weekly stacked · one color per model",
-  totalHintWeekly: "Hover a bar for that week's total",
+  weekHint: "Last 26 weeks · one column per week",
+  totalHint: "Last 26 weeks · each column is the running total",
   colorHint: "Stronger color means more tokens",
   byModel: "By model",
   model: "Model",
@@ -1470,11 +1503,21 @@ var en = {
   costLive: "Price list updated {date}",
   costUnavailable: "The published price list is unavailable right now",
   costColumn: "Cost",
-  costScopeYear: "Last 12 months",
-  costScopeHalfYear: "Last 26 weeks",
-  costScopeAll: "All recorded",
   costHolidayGap: "This range predates the bundled holiday schedule, so public holidays may be priced at the peak rate.",
-  costNoData: "No usage in this range"
+  costNoData: "No usage in this range",
+  costUnpricedAll: "This range was served by models with no published price, so it cannot be estimated",
+  periodToday: "Today",
+  periodThisWeek: "This week",
+  periodAll: "Since records began",
+  recordedTotal: "All recorded",
+  blockUnit: "{value} tokens per block",
+  blockCap: "up to {count} blocks",
+  blockClipped: "Some columns exceed the ceiling and are clipped at {count} blocks",
+  blocksCount: "{count} blocks",
+  weekRange: "week",
+  cumulativeSince: "running total",
+  weekAria: "Weekly token usage as block columns",
+  totalAria: "Cumulative token usage as block columns"
 };
 var keys = Object.keys(zh);
 function interpolate(template, values) {

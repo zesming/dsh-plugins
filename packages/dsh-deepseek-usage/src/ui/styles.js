@@ -115,6 +115,15 @@ export function stylesheet() {
 .dsu-svg rect{transition:opacity 100ms}
 .dsu-svg rect:hover{opacity:.72}
 .dsu-dow{display:flex;flex-direction:column;justify-content:space-between;width:14px;flex:none;padding:20px 0 2px;font-size:9px;line-height:1.1;color:var(--dsw-alias-label-caption)}
+.dsu-block-axis{display:flex;flex-direction:column;justify-content:space-between;align-self:stretch;padding-right:10px;font-size:10px;line-height:1;color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;text-align:right}
+.dsu-block-axis-tick{white-space:nowrap}
+.dsu-hm-body{display:flex;align-items:flex-start}
+.dsu-hm-body>.dsu-wk-svg{flex:1;min-width:0}
+.dsu-block-legend{justify-content:flex-start;gap:8px}
+.dsu-block-sample{display:inline-flex;align-items:center}
+.dsu-block-sample i{display:block;width:12px;height:12px;border-radius:2px;background:var(--dsu-heat-4)}
+.dsu-block-legend-text{color:var(--dsw-alias-label-secondary);font-weight:500}
+.dsu-block-legend-cap{color:var(--dsw-alias-label-caption)}
 .dsu-legend{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:12px;font-size:10.5px;color:var(--dsw-alias-label-caption)}
 .dsu-swatch{display:inline-block;width:10px;height:10px;flex:none;border-radius:2.5px}
 .dsu-wk-months{position:relative;height:14px;margin-top:8px;font-size:10px;color:var(--dsw-alias-label-caption)}

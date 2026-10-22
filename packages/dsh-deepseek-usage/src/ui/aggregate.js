@@ -122,6 +122,10 @@ export function sumCost(series, pricing, estimate, familyOf) {
   if (pricing === undefined || pricing === null) return null
   const sum = { total: 0, peak: 0, offPeak: 0, priced: 0, unpriced: 0 }
   for (const entry of series) {
+    // A row with no calls in this window is not part of the answer. Counting it
+    // would let a priced-but-unused model make the total look known when the
+    // usage it actually covers belongs to unpriced models.
+    if (sumSeries([entry]).calls === 0) continue
     const family = familyOf(entry.row.model)
     const plan = family === null ? undefined : pricing.models?.[family]
     if (plan === undefined) {

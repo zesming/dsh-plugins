@@ -9,7 +9,8 @@
 import { fetchPricing, fetchSeries } from './api.js'
 import { compactTokens, formatMoney, groupCount, keyOf, shiftDays } from './format.js'
 import { withoutSubagents } from '../usage.js'
-import { decimalOfMicro, restrictSeries, sumCost, sumSeries, sumWindow, weekStacks } from './aggregate.js'
+import { decimalOfMicro, restrictSeries, sumCost, sumSeries } from './aggregate.js'
+import { MAX_BLOCKS, blockColumns, runningTotal } from './blocks.js'
 import { estimateCost, holidayCoverageCovers, pricingFamilyOf } from '../cost.js'
 import { COVERED_YEARS } from '../holidays.js'
 import {
@@ -180,12 +181,18 @@ export function CostCard({ cost, pricing, currency, scope, holidaysCovered, t })
   // Nothing in scope is a gap, not a zero: the token KPI already says "—" in
   // that case, and a ¥0.00 next to it would claim a month cost nothing. The two
   // gaps are worded apart, because one is a problem to fix and the other is not.
-  if (pricing.phase === 'failed' || cost === null || cost.calls === 0) {
+  if (pricing.phase === 'failed' || cost === null || cost.calls === 0 || cost.priced === 0) {
+    // Three different gaps, worded apart because only two of them are worth
+    // acting on. "Nothing was spent" and "spent, but none of it has a published
+    // price" both have to avoid ¥0.00: one number cannot mean both "you owe
+    // nothing" and "I cannot tell you what you owe".
+    const note = pricing.phase === 'failed' || cost === null
+      ? t('costUnavailable')
+      : cost.calls === 0 ? t('costNoData') : t('costUnpricedAll')
     return h('div', { className: 'dsu-cost' },
       h('span', { className: 'dsu-kpi-label' }, t('cost')),
       h('span', { className: 'dsu-cost-value' }, '—'),
-      h('span', { className: 'dsu-cost-note' },
-        pricing.phase === 'failed' || cost === null ? t('costUnavailable') : t('costNoData')),
+      h('span', { className: 'dsu-cost-note' }, note),
     )
   }
   const money = micro => formatMoney(decimalOfMicro(micro), currency)
@@ -295,39 +302,44 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
   // Recomputed each render from the last fetch time, so a page left open across
   // midnight still measures "last 7 days" against today rather than yesterday.
   const today = React.useMemo(() => new Date(), [status])
-  const last7 = React.useMemo(() => sumWindow(series, today, 7), [series, today])
-
   /**
-   * Day keys the cost follows.
+   * The day keys that make up "the period in view".
    *
-   * The cost figure is scoped to whatever the range switch is showing, so
-   * "daily" prices the year the heatmap draws and "cumulative" prices everything
-   * on record; `null` means no restriction.
+   * One definition drives the headline figures, the cost, and the chart
+   * caption, because they must never describe different windows: a page whose
+   * KPI says "today" while its cost says "last 12 months" is worse than either
+   * number alone. Daily is today, weekly is this Monday to Sunday, and
+   * cumulative is every day on record.
    */
-  const costKeys = React.useMemo(() => {
-    if (view === 'total') return null
-    const columns = view === 'day' ? dayGrid(today) : weekGrid(today)
-    const keys = new Set()
-    const todayKey = keyOf(today)
-    for (const column of columns) {
-      for (const date of column) {
-        const key = keyOf(date)
-        if (key <= todayKey) keys.add(key)
-      }
+  const period = React.useMemo(() => {
+    if (view === 'total') {
+      const days = new Set()
+      for (const entry of series) for (const key of Object.keys(entry.days ?? {})) days.add(key)
+      return days
     }
-    return keys
-  }, [view, today])
+    if (view === 'week') {
+      // The whole week, including the days after today, so the figure answers
+      // "this week" as a calendar week rather than "the last seven days".
+      const monday = shiftDays(today, -((today.getDay() + 6) % 7))
+      const days = new Set()
+      for (let offset = 0; offset < 7; offset += 1) days.add(keyOf(shiftDays(monday, offset)))
+      return days
+    }
+    return new Set([keyOf(today)])
+  }, [view, series, today])
+
+  const inPeriod = React.useMemo(() => restrictSeries(series, period), [series, period])
+  const periodTotals = React.useMemo(() => sumSeries(inPeriod), [inPeriod])
 
   const cost = React.useMemo(() => {
     if (pricing.phase !== 'ready') return null
-    const scoped = restrictSeries(series, costKeys)
-    const sum = sumCost(scoped, pricing.payload, estimateCost, pricingFamilyOf)
+    const sum = sumCost(inPeriod, pricing.payload, estimateCost, pricingFamilyOf)
     if (sum === null) return null
-    // Whether anything was actually spent inside the current range, which is a
+    // Whether anything was actually spent inside the period, which is a
     // different question from whether any model was priced: a model can be
     // priced and still have no calls in the window the page is showing.
-    return { ...sum, calls: sumSeries(scoped).calls }
-  }, [pricing, series, costKeys])
+    return { ...sum, calls: periodTotals.calls }
+  }, [pricing, inPeriod, periodTotals])
 
   /**
    * Whether every day being priced has a bundled holiday schedule.
@@ -337,13 +349,10 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
    * instead of presenting the number as exact.
    */
   const holidaysCovered = React.useMemo(() => {
-    const days = new Set()
-    for (const entry of series) for (const key of Object.keys(entry.days ?? {})) days.add(key)
-    if (costKeys !== null) for (const key of [...days]) if (!costKeys.has(key)) days.delete(key)
-    if (days.size === 0) return true
-    const sorted = [...days].sort()
+    if (period.size === 0) return true
+    const sorted = [...period].sort()
     return holidayCoverageCovers(sorted[0], sorted[sorted.length - 1], COVERED_YEARS)
-  }, [series, costKeys])
+  }, [period])
 
   // Once the payload arrives, narrow the default selection to the channels it
   // actually reports — but only until the person touches a chip, so a filter
@@ -365,30 +374,31 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
     })
   }
 
-  // With nothing recorded, zeroes read as "you spent nothing" rather than
-  // "nothing was measured", so the figures stay blank instead.
-  const empty = totals.calls === 0
+  // With nothing recorded in the period, zeroes read as "you spent nothing"
+  // rather than "nothing was measured", so the figures stay blank instead.
+  const empty = periodTotals.calls === 0
   const figure = value => (empty ? h('span', null, '—') : h(Tokens, { value }))
+  const periodLabel = view === 'day' ? t('periodToday') : view === 'week' ? t('periodThisWeek') : t('periodAll')
   const header = h('div', { className: 'dsu-kpis' },
     h('div', { className: 'dsu-kpi' },
-      h('span', { className: 'dsu-kpi-label' }, t('cumulativeTokens')),
-      h('span', { className: 'dsu-kpi-value' }, figure(totals.total)),
-      h('span', { className: 'dsu-kpi-meta' }, empty ? t('noData') : t('calls', { count: groupCount(totals.calls) })),
-    ),
-    h('div', { className: 'dsu-kpi' },
-      h('span', { className: 'dsu-kpi-label' }, t('last7')),
-      h('span', { className: 'dsu-kpi-value' }, figure(last7)),
-      h('span', { className: 'dsu-kpi-meta' }, empty ? t('noData') : t('dailyAverage', { value: h26(Math.round(last7 / 7)) })),
+      h('span', { className: 'dsu-kpi-label' }, periodLabel),
+      h('span', { className: 'dsu-kpi-value' }, figure(periodTotals.total)),
+      h('span', { className: 'dsu-kpi-meta' }, empty ? t('noData') : t('calls', { count: groupCount(periodTotals.calls) })),
     ),
     h('div', { className: 'dsu-kpi' },
       h('span', { className: 'dsu-kpi-label' }, t('cacheRead')),
-      h('span', { className: 'dsu-kpi-value' }, figure(totals.cacheRead)),
-      h('span', { className: 'dsu-kpi-meta' }, empty ? t('noData') : t('cacheShare', { percent: (totals.cacheRead / totals.total * 100).toFixed(1) })),
+      h('span', { className: 'dsu-kpi-value' }, figure(periodTotals.cacheRead)),
+      h('span', { className: 'dsu-kpi-meta' }, empty ? t('noData') : t('cacheShare', { percent: (periodTotals.cacheRead / periodTotals.total * 100).toFixed(1) })),
     ),
     h('div', { className: 'dsu-kpi' },
       h('span', { className: 'dsu-kpi-label' }, t('output')),
-      h('span', { className: 'dsu-kpi-value' }, figure(totals.output)),
-      h('span', { className: 'dsu-kpi-meta' }, empty ? t('noData') : t('input', { value: h26(totals.input) })),
+      h('span', { className: 'dsu-kpi-value' }, figure(periodTotals.output)),
+      h('span', { className: 'dsu-kpi-meta' }, empty ? t('noData') : t('input', { value: h26(periodTotals.input) })),
+    ),
+    h('div', { className: 'dsu-kpi' },
+      h('span', { className: 'dsu-kpi-label' }, t('recordedTotal')),
+      h('span', { className: 'dsu-kpi-value' }, figure(totals.total)),
+      h('span', { className: 'dsu-kpi-meta' }, empty ? t('noData') : t('calls', { count: groupCount(totals.calls) })),
     ),
   )
 
@@ -434,8 +444,8 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
     : view === 'day'
       ? h(DayHeatmap, { series, today, t, onHover: reportHover })
       : view === 'week'
-        ? h(WeekHeatmap, { series, today, t, onHover: reportHover })
-        : h(CumulativeChart, { series, today, t, onHover: reportHover })
+        ? h(WeekBlocks, { series, today, t, onHover: reportHover })
+        : h(CumulativeBlocks, { series, today, t, onHover: reportHover })
 
   const notices = []
   if (status.payload.truncated) notices.push(t('truncated', { count: groupCount(status.payload.scannedSessions) }))
@@ -450,13 +460,14 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
       cost,
       pricing,
       currency: pricing.payload?.currency ?? 'CNY',
-      scope: view === 'day' ? t('costScopeYear') : view === 'week' ? t('costScopeHalfYear') : t('costScopeAll'),
+      // The same window the KPI row above is describing.
+      scope: periodLabel,
       holidaysCovered,
       t,
     }),
     controls,
     body,
-    h(ModelTable, { series, totals, t, pricing, costKeys }),
+    h(ModelTable, { series: inPeriod, totals: periodTotals, t, pricing }),
     h('p', { className: 'dsu-foot' },
       t('footnote'),
       ' ',
@@ -566,170 +577,198 @@ export function DayHeatmap({ series, today, t, onHover }) {
 /** Monday-first weekday glyphs for the row label column. */
 const WEEKDAY_GLYPHS = ['一', '三', '五', '日']
 
+/** Vertical distance between two stacked blocks in the chart viewBox. */
+const BLOCK_STEP = 20
+
 /**
- * The per-model weekly heatmap.
+ * Gap between two stacked blocks.
  *
- * @param props.series - `{ row, days }` rows.
- * @param props.today - the last included day.
- * @param props.t - locale lookup.
- * @param props.onHover - receives tooltip coordinates.
- * @returns the weekly block.
+ * A stack has to stay countable: with a tight gap the blocks fuse into one
+ * solid bar and the only thing the chart communicates is its height, which is
+ * exactly what the block form was meant to improve on.
  */
-export function WeekHeatmap({ series, today, t, onHover }) {
-  const columns = React.useMemo(() => weekGrid(today), [today])
-  const width = WEEK_COLUMNS * (WEEK_CELL + WEEK_GAP)
-  const height = WEEK_CELL
-
-  return h('div', null,
-    h('div', { className: 'dsu-hm-head' },
-      h('span', { className: 'dsu-hm-title' }, t('weekHint')),
-    ),
-    h('div', { className: 'dsu-lanes' },
-      series.map(({ row, days }) => {
-        const sums = weekSums(days, columns)
-        const level = quantileLevels(sums)
-        return h('div', { className: 'dsu-lane', key: row.id },
-          h('div', { className: 'dsu-lane-head' },
-            h('span', { className: 'dsu-lane-name', title: row.model }, row.model.split('/').pop()),
-            h('span', { className: 'dsu-tag' }, channelLabel(row.channel, t)),
-            h('span', { className: 'dsu-lane-total' }, h(Tokens, { value: sums.reduce((a, b) => a + b, 0) })),
-          ),
-          h('svg', {
-            className: 'dsu-wk-svg',
-            viewBox: `0 0 ${String(width)} ${String(height)}`,
-            preserveAspectRatio: 'none',
-            role: 'img',
-            'aria-label': `${row.model} weekly token usage`,
-            onMouseLeave: () => { onHover(undefined) },
-            onMouseMove: event => { onHover(current => (current === undefined ? current : { ...current, x: event.clientX, y: event.clientY })) },
-          },
-            sums.map((value, index) => h('rect', {
-              key: index,
-              x: index * (WEEK_CELL + WEEK_GAP),
-              y: 0,
-              width: WEEK_CELL,
-              height,
-              rx: 3,
-              fill: fillOf(level(value)),
-              onMouseEnter: event => {
-                const start = keyOf(columns[index][0])
-                onHover({
-                  x: event.clientX,
-                  y: event.clientY,
-                  label: `${start} · ${row.model.split('/').pop()}`,
-                  value,
-                })
-              },
-            })),
-          ),
-        )
-      }),
-    ),
-    h('div', { className: 'dsu-wk-months' },
-      columns.map((column, index) => index % 4 === 0
-        ? h('span', { key: index, style: { left: `${String(index / WEEK_COLUMNS * 100)}%` } }, keyOf(column[0]).slice(5))
-        : null),
-    ),
-    h(Legend, { t }),
-  )
-}
+const BLOCK_GAP = 7
 
 /**
- * The "cumulative" view.
+ * The block-column chart shared by the weekly and cumulative views.
  *
- * Three models that grew at similar rates produce three lines on top of each
- * other: a cumulative line chart answers "how did the total grow", which the
- * KPI row already states. What this view adds is *when* the spend happened, so
- * it stacks each day's total by model as bars — the shape of the period is
- * readable, and the hover readout still names the exact number.
+ * One column per week, each column a stack of identical blocks. A fixed 2B or
+ * 100B block would draw nothing at all for a light month, and an empty chart is
+ * indistinguishable from "no usage", so the unit is derived from the data and
+ * stated in the legend beneath.
  *
- * @param props.series - `{ row, days }` rows.
- * @param props.today - the last included day.
+ * @param props.columns - `{ key, label, parts, total }` per column, oldest first.
+ * @param props.unit - block size in tokens.
+ * @param props.clipped - whether any column overflowed the block ceiling.
+ * @param props.caption - what the chart shows, above the grid.
+ * @param props.ariaLabel - accessible name for the grid.
  * @param props.t - locale lookup.
- * @param props.onHover - receives tooltip coordinates.
+ * @param props.onHover - receives tooltip coordinates and text.
  * @returns the chart block.
  */
-export function CumulativeChart({ series, today, t, onHover }) {
-  // One bar per week: a year of daily bars is 365 hairlines that hide the trend
-  // they are supposed to show.
-  const weeks = React.useMemo(() => {
-    const grid = weekGrid(today)
-    return grid.map(column => ({ key: keyOf(column[0]), days: column.map(keyOf) }))
-  }, [today])
-  const stacks = React.useMemo(() => weekStacks(series, weeks), [series, weeks])
-  const max = Math.max(1, ...stacks.map(day => day.total))
-  const W = 720
-  const HGT = 148
-  const PAD_L = 46
-  const PAD_B = 18
-  const barWidth = (W - PAD_L - 4) / stacks.length
-  const y = value => HGT - PAD_B - (value / max) * (HGT - PAD_B - 6)
-  const colors = ['var(--dsu-heat-4)', 'var(--dsu-heat-3)', 'var(--dsu-heat-5)']
+export function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) {
+  const width = columns.length * (WEEK_CELL + WEEK_GAP)
+  const height = MAX_BLOCKS * (BLOCK_STEP)
+  const compact = compactTokens(unit)
 
   return h('div', null,
     h('div', { className: 'dsu-hm-head' },
-      h('span', { className: 'dsu-hm-title' }, t('totalHint')),
-      h('span', { className: 'dsu-hm-hint' }, t('totalHintWeekly')),
+      h('span', { className: 'dsu-hm-title' }, caption),
+      clipped ? h('span', { className: 'dsu-hm-hint' }, t('blockClipped')) : null,
     ),
-    h('div', { className: 'dsu-cum-legend' },
-      series.map(({ row }, index) => h('span', { key: row.id },
-        h('i', { style: { background: colors[index % colors.length] } }),
-        row.model.split('/').pop(),
-      )),
-    ),
-    h('svg', {
-      className: 'dsu-chart',
-      viewBox: `0 0 ${String(W)} ${String(HGT)}`,
-      preserveAspectRatio: 'none',
-      role: 'img',
-      'aria-label': t('viewTotal'),
-      onMouseLeave: () => { onHover(undefined) },
-    },
-      [0, 0.5, 1].map(fraction => {
-        const value = max * fraction
-        const compact = compactTokens(value)
-        return h('g', { key: fraction },
-          h('line', { className: 'gridline', x1: PAD_L, x2: W - 4, y1: y(value), y2: y(value) }),
-          h('text', { className: 'axis', x: PAD_L - 6, y: y(value) + 3, textAnchor: 'end' }, `${compact.value}${compact.unit}`),
-        )
-      }),
-      stacks.map((day, index) => {
-        let cursor = 0
-        return h('g', {
-          key: day.key,
+    h('div', { className: 'dsu-hm-body' },
+      h('div', { className: 'dsu-block-axis' },
+        // One label per block level, top down, so a reader can count a column
+        // and read its value without hovering.
+        Array.from({ length: MAX_BLOCKS }, (_, index) => {
+          const level = MAX_BLOCKS - index
+          const amount = compactTokens(unit * level)
+          return h('span', { key: level, className: 'dsu-block-axis-tick' },
+            `${amount.value}${amount.unit}`)
+        }),
+      ),
+      h('svg', {
+        className: 'dsu-wk-svg',
+        viewBox: `0 0 ${String(width)} ${String(height)}`,
+        preserveAspectRatio: 'none',
+        role: 'img',
+        'aria-label': ariaLabel,
+        onMouseLeave: () => { onHover(undefined) },
+        onMouseMove: event => { onHover(current => (current === undefined ? current : { ...current, x: event.clientX, y: event.clientY })) },
+      },
+        columns.map((column, index) => h('g', {
+          key: column.key,
           onMouseEnter: event => {
             onHover({
               x: event.clientX,
               y: event.clientY,
-              label: `${day.key} 起一周 · ${String(series.length)} models`,
-              value: day.total,
+              label: `${column.label} · ${t('blocksCount', { count: String(column.blocks) })}`,
+              value: column.total,
             })
           },
-        }, day.parts.map((part, partIndex) => {
-          if (part.value === 0) return null
-          const bottom = cursor
-          cursor += part.value
-          return h('rect', {
-            key: part.id,
-            x: PAD_L + index * barWidth,
-            y: y(cursor),
-            width: Math.max(0.8, barWidth - 0.6),
-            height: Math.max(0, y(bottom) - y(cursor)),
-            fill: colors[partIndex % colors.length],
-          })
-        }))
-      }),
-      weeks.map((week, index) => index % 4 === 0
-        ? h('text', {
-            key: week.key,
-            className: 'axis',
-            x: PAD_L + index * barWidth,
-            y: HGT - 4,
-            textAnchor: 'middle',
-          }, week.key.slice(5))
+        },
+          // One rect per block, drawn bottom-up, so the stack reads as a bar
+          // built from countable units rather than as a single height.
+          Array.from({ length: column.blocks }, (_, level) => h('rect', {
+            key: level,
+            x: index * (WEEK_CELL + WEEK_GAP),
+            y: height - (level + 1) * BLOCK_STEP + BLOCK_GAP,
+            width: WEEK_CELL,
+            height: BLOCK_STEP - BLOCK_GAP,
+            rx: 2,
+            fill: 'var(--dsu-heat-4)',
+          })),
+        )),
+      ),
+    ),
+    h('div', { className: 'dsu-wk-months' },
+      columns.map((column, index) => index % 4 === 0
+        ? h('span', { key: column.key, style: { left: `${String(index / columns.length * 100)}%` } }, column.axis)
         : null),
     ),
+    h(BlockLegend, { unit, t }),
   )
+}
+
+/**
+ * The block chart's legend.
+ *
+ * It states the unit, because the columns are meaningless without it: "seven
+ * blocks" says nothing until the reader knows what one block is worth.
+ *
+ * @param props.unit - block size in tokens.
+ * @param props.t - locale lookup.
+ * @returns the legend row.
+ */
+export function BlockLegend({ unit, t }) {
+  const compact = compactTokens(unit)
+  return h('div', { className: 'dsu-legend dsu-block-legend' },
+    h('span', { className: 'dsu-block-sample' }, h('i')),
+    h('span', { className: 'dsu-block-legend-text' }, t('blockUnit', { value: `${compact.value}${compact.unit}` })),
+    h('span', { className: 'dsu-block-legend-cap' }, t('blockCap', { count: String(MAX_BLOCKS) })),
+  )
+}
+
+/**
+ * The weekly view: one block column per week.
+ *
+ * @param props.series - `{ row, days }` rows.
+ * @param props.today - the last included day.
+ * @param props.t - locale lookup.
+ * @param props.onHover - receives tooltip coordinates.
+ * @returns the weekly chart.
+ */
+export function WeekBlocks({ series, today, t, onHover }) {
+  const weeks = React.useMemo(() => {
+    const grid = weekGrid(today)
+    return grid.map(column => ({ key: keyOf(column[0]), days: column.map(keyOf) }))
+  }, [today])
+  // Every model's week summed, because the columns answer "how much did I spend
+  // each week", not "which model spent it" — the table below breaks that down.
+  const values = React.useMemo(() => weeks.map(week => week.days.reduce((sum, key) => {
+    let total = 0
+    for (const entry of series) total += entry.days[key]?.total ?? 0
+    return sum + total
+  }, 0)), [weeks, series])
+  const { unit, columns, clipped } = React.useMemo(() => blockColumns(values), [values])
+
+  const rows = weeks.map((week, index) => ({
+    key: week.key,
+    label: `${week.key} ${t('weekRange')}`,
+    axis: week.key.slice(5),
+    weekIndex: index,
+  }))
+  return h(BlockChart, {
+    columns: rows.map(row => ({ ...row, total: values[row.weekIndex], blocks: columns[row.weekIndex].blocks })),
+    unit,
+    clipped,
+    caption: t('weekHint'),
+    ariaLabel: t('weekAria'),
+    t,
+    onHover,
+  })
+}
+
+/**
+ * The cumulative view: one block column per week, each column the running total.
+ *
+ * The running total is what makes this view different from the weekly one: the
+ * same weeks, read as an accumulation rather than as a comparison.
+ *
+ * @param props.series - `{ row, days }` rows.
+ * @param props.today - the last included day.
+ * @param props.t - locale lookup.
+ * @param props.onHover - receives tooltip coordinates.
+ * @returns the cumulative chart.
+ */
+export function CumulativeBlocks({ series, today, t, onHover }) {
+  const weeks = React.useMemo(() => {
+    const grid = weekGrid(today)
+    return grid.map(column => ({ key: keyOf(column[0]), days: column.map(keyOf) }))
+  }, [today])
+  const weekly = React.useMemo(() => weeks.map(week => week.days.reduce((sum, key) => {
+    let total = 0
+    for (const entry of series) total += entry.days[key]?.total ?? 0
+    return sum + total
+  }, 0)), [weeks, series])
+  const running = React.useMemo(() => runningTotal(weekly), [weekly])
+  const { unit, columns, clipped } = React.useMemo(() => blockColumns(running), [running])
+
+  return h(BlockChart, {
+    columns: weeks.map((week, index) => ({
+      key: week.key,
+      label: `${week.key} ${t('weekRange')} · ${t('cumulativeSince')}`,
+      axis: week.key.slice(5),
+      total: running[index],
+      blocks: columns[index].blocks,
+    })),
+    unit,
+    clipped,
+    caption: t('totalHint'),
+    ariaLabel: t('totalAria'),
+    t,
+    onHover,
+  })
 }
 
 /**
@@ -756,27 +795,30 @@ export function Legend({ t }) {
 /**
  * The per-model table.
  *
- * @param props.series - `{ row, days }` rows.
+ * The rows are already scoped to the period in view, so the table, the KPI row
+ * and the cost card all describe the same window; a table of year totals under
+ * a "today" headline would silently contradict it.
+ *
+ * @param props.series - `{ row, days }` rows for the period in view.
  * @param props.totals - summed figures for the share column.
  * @param props.t - locale lookup.
+ * @param props.pricing - pricing state `{ phase, payload }`.
  * @returns the table block.
  */
-export function ModelTable({ series, totals, t, pricing, costKeys }) {
+export function ModelTable({ series, totals, t, pricing }) {
   const priced = pricing?.phase === 'ready' ? pricing.payload : null
   const currency = priced?.currency ?? 'CNY'
   const rows = series
     .map(({ row, days }) => {
       const sum = sumSeries([{ row, days }])
-      // Each row is priced from the same scoped days the total uses, so the
-      // column adds up to the headline figure instead of quietly disagreeing.
-      const scoped = costKeys === null || costKeys === undefined
-        ? { row, days }
-        : restrictSeries([{ row, days }], costKeys)[0]
       const family = pricingFamilyOf(row.model)
       const plan = family === null ? undefined : priced?.models?.[family]
-      const cost = plan === undefined ? null : estimateCost(sumSeries([scoped]), plan)
+      const cost = plan === undefined ? null : estimateCost(sum, plan)
       return { row, sum, cost }
     })
+    // A model with no calls in this period is not a row: the page is answering
+    // "what did this period cost me", and a row of zeroes is noise.
+    .filter(entry => entry.sum.calls > 0)
     .sort((a, b) => b.sum.total - a.sum.total)
 
   return h('div', { className: 'dsu-table-wrap' },
