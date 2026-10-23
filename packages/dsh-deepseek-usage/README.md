@@ -54,13 +54,13 @@ account has already been shown in the product is not in that list, and `getBalan
 totals without any expiry at all. So a missing line can mean either "nothing expires soon" or "the
 platform did not list it here", and the two are indistinguishable from the payload alone.
 
-To tell them apart, run with diagnostics on and read the Host log:
+The sidebar says which case it is in the balance menu: when granted credit exists but Platform
+supplied no date for it, the menu gains a line reading "no expiry date for granted credit (not
+provided by the platform)". Nothing extra appears when a real expiry is shown or when the account
+holds no granted credit.
 
-```bash
-DSH_DEEPSEEK_USAGE_DEBUG_BONUS=1 dsh web    # or your profile's launch command
-```
-
-One line is written per balance read:
+For the raw answers, set `DSH_DEEPSEEK_USAGE_DEBUG_BONUS=1` in the environment; one line is written
+to the Host log per balance read:
 
 ```
 deepseek-usage: bonus sources {"readAt":…,"balanceStatus":"ready",

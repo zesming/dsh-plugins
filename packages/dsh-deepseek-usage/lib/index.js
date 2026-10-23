@@ -69,6 +69,30 @@ function expiringBonuses(bonuses, now) {
   }
   return notices.sort((a, b) => a.expiresAtMs - b.expiresAtMs);
 }
+function expiryDiagnosis(input) {
+  const { bonus, bonuses, now } = input;
+  const funded = bonus !== undefined && bonus !== null && decimalOf(bonus) !== undefined && Number(bonus) > 0;
+  if (bonuses === undefined || bonuses === null) {
+    return { code: funded ? "unnotified-unavailable" : "no-grant", listed: 0, dated: 0, expired: 0 };
+  }
+  const list = Array.isArray(bonuses.bonuses) ? bonuses.bonuses : [];
+  let dated = 0;
+  let expired = 0;
+  for (const row of list) {
+    const raw = typeof row?.expiresAt === "string" ? row.expiresAt.trim() : "";
+    if (raw === "")
+      continue;
+    const at = Date.parse(raw);
+    if (!Number.isFinite(at))
+      continue;
+    dated += 1;
+    if (at <= now)
+      expired += 1;
+  }
+  if (funded && dated === 0)
+    return { code: "grant-without-date", listed: list.length, dated, expired };
+  return { code: dated > 0 ? "dated" : "no-grant", listed: list.length, dated, expired };
+}
 function balanceView(input) {
   const { signedIn, balance, bonuses, now, error } = input;
   if (signedIn !== true)
@@ -91,6 +115,7 @@ function balanceView(input) {
     bonus: bonusText ?? null,
     total: bonusText === undefined ? balanceText : addDecimal(balanceText, bonusText),
     expiring: expiringBonuses(bonuses?.bonuses, now),
+    expiry: expiryDiagnosis({ bonus: bonusText, bonuses, now }),
     readAt: now,
     error: null
   };

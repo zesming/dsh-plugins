@@ -120,3 +120,42 @@ test('bonus diagnostics stay off unless explicitly asked for', async () => {
   assert.equal(bonusDiagnosticsEnabled({ DSH_DEEPSEEK_USAGE_DEBUG_BONUS: '1' }), true)
   assert.equal(bonusDiagnosticsEnabled({ DSH_DEEPSEEK_USAGE_DEBUG_BONUS: 'true' }), true)
 })
+
+test('an expiry is diagnosed as absent only when a grant exists', async () => {
+  const { expiryDiagnosis } = await import('../src/balance.js')
+  const now = Date.now()
+  // The ambiguous case the sidebar cannot otherwise explain: credit is present
+  // but Platform listed no date for it.
+  const funded = expiryDiagnosis({ bonus: '20.00', bonuses: { bonuses: [] }, now })
+  assert.equal(funded.code, 'grant-without-date')
+  assert.equal(funded.dated, 0)
+
+  // A grant row that carries no expiry field is the same ambiguity.
+  const undated = expiryDiagnosis({ bonus: '20.00', bonuses: { bonuses: [{ amount: '20.00', orderId: 'o' }] }, now })
+  assert.equal(undated.code, 'grant-without-date')
+  assert.equal(undated.listed, 1, 'the row exists, it just has no date')
+
+  // A real date is not a problem to report.
+  const dated = expiryDiagnosis({ bonus: '20.00', bonuses: { bonuses: [{ expiresAt: new Date(now + 5 * 864e5).toISOString() }] }, now })
+  assert.equal(dated.code, 'dated')
+  assert.equal(dated.dated, 1)
+
+  // No granted credit at all is simply nothing to show.
+  assert.equal(expiryDiagnosis({ bonus: undefined, bonuses: { bonuses: [] }, now }).code, 'no-grant')
+  assert.equal(expiryDiagnosis({ bonus: '0', bonuses: { bonuses: [] }, now }).code, 'no-grant')
+
+  // A failed call is its own state, not a missing date.
+  assert.equal(expiryDiagnosis({ bonus: '20.00', bonuses: undefined, now }).code, 'unnotified-unavailable')
+})
+
+test('the payload carries the diagnosis alongside the expiring list', async () => {
+  const { balanceView } = await import('../src/balance.js')
+  const view = balanceView({
+    signedIn: true,
+    balance: { status: 'ready', value: [{ currency: 'CNY', balance: '108.42' }], bonusWallets: [{ currency: 'CNY', balance: '20.00' }] },
+    bonuses: { bonuses: [] },
+    now: Date.now(),
+  })
+  assert.deepEqual(view.expiring, [])
+  assert.equal(view.expiry.code, 'grant-without-date')
+})

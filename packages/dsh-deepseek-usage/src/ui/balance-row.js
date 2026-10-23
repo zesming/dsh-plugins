@@ -211,7 +211,17 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives
           label: t('topUp'),
           icon: h(Glyph, { description: PLUS }),
         },
-      ],
+        // Only the ambiguous case gets an entry: granted credit is present but
+        // Platform listed no date for it. Any other state either has a real
+        // expiry line above or has nothing to explain.
+        payload.expiry?.code === 'grant-without-date'
+          ? {
+              id: 'expiry',
+              label: t('expiryExplain'),
+              disabled: true,
+            }
+          : null,
+      ].filter(item => item !== null),
       onClose: () => { setOpen(false) },
       onSelect: id => {
         setOpen(false)

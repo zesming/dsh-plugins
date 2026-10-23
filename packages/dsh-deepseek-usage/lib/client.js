@@ -376,8 +376,13 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
         id: "topup",
         label: t("topUp"),
         icon: h(Glyph, { description: PLUS })
-      }
-    ],
+      },
+      payload.expiry?.code === "grant-without-date" ? {
+        id: "expiry",
+        label: t("expiryExplain"),
+        disabled: true
+      } : null
+    ].filter((item) => item !== null),
     onClose: () => {
       setOpen(false);
     },
@@ -1404,6 +1409,7 @@ var zh = {
   expiresIn: "{amount} 将在 {when}过期",
   usage: "用量",
   topUp: "充值",
+  expiryExplain: "赠送余额暂无到期日（平台未提供）",
   nav: "用量",
   title: "用量",
   calls: "{count} 次调用 · 含缓存读取",
@@ -1473,6 +1479,7 @@ var en = {
   expiresIn: "{amount} expires {when}",
   usage: "Usage",
   topUp: "Top up",
+  expiryExplain: "No expiry date for granted credit (not provided by the platform)",
   nav: "Usage",
   title: "Usage",
   calls: "{count} calls · cache reads included",
