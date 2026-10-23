@@ -71,7 +71,7 @@ export function stylesheet() {
    only needs the inner rhythm. The main area does not: the shell hands the
    panel its full width with no padding, so the view has to provide the whole
    inset itself or the title sits flush against the top and both edges. */
-.dsu-view[data-container=panel]{padding:28px 32px 32px;margin:0 auto;width:100%;max-width:1120px;box-sizing:border-box}
+.dsu-view[data-container=panel]{padding:24px clamp(24px,4vw,48px) 48px;margin:0 auto;width:100%;max-width:960px;box-sizing:border-box}
 .dsu-kpis{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:0;padding:4px 0 18px;border-bottom:1px solid var(--dsw-alias-border-l1)}
 .dsu-kpi{display:flex;flex-direction:column;justify-content:flex-start;gap:3px;min-height:94px;padding-right:18px}
 .dsu-kpi+.dsu-kpi{padding-left:18px;border-left:1px solid var(--dsw-alias-border-l1)}
@@ -158,8 +158,8 @@ export function stylesheet() {
 .dsu-skeleton i:nth-child(3){width:100%;height:120px}
 
 .dsu-panel{display:flex;flex-direction:column;height:100%;min-height:0;background:var(--dsw-alias-bg-layer-1)}
-.dsu-panel-head{display:flex;align-items:center;gap:10px;padding:14px 32px 0;flex:none}
-.dsu-panel-title{margin:0;font-size:16px;font-weight:600;letter-spacing:-.01em}
+.dsu-panel-head{display:flex;align-items:center;gap:10px;flex:none;width:100%;max-width:960px;margin:0 auto;padding:calc(28px + var(--dsh-frame-top-clearance,0px)) clamp(24px,4vw,48px) 0;box-sizing:border-box}
+.dsu-panel-title{margin:0;min-width:0;max-width:100%;font-size:20px;font-weight:500;line-height:28px;letter-spacing:0}
 .dsu-panel-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
 .dsu-icon-btn{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:background-color .12s ease,color .12s ease}
 .dsu-icon-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}

@@ -156,6 +156,9 @@ row's menu, from the sidebar's panel list, and from **Settings → Usage**.
 
 ## Boundaries
 
+- The panel is framed like a host page: a 960px column, a 20px/500 heading on a 28px line, 28px
+  of clearance above it and 24px beneath. The Settings dialog supplies its own inset, so that mount
+  keeps a separate rule; changing the panel frame must not touch it.
 - The row's **Usage** entry opens a **main-area panel**, not the Settings dialog. A third-party
   bundle cannot address a Settings section directly, and a year of heatmap lanes needs the wider
   column anyway. The same view is also registered as a Settings section for people who look there.
