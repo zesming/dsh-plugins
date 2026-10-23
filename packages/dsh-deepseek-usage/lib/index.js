@@ -774,8 +774,22 @@ function intParam(url, name, fallback, max) {
     return;
   return value;
 }
+function bonusDiagnosticsEnabled(env = globalThis.process?.env ?? {}) {
+  const raw = String(env.DSH_DEEPSEEK_USAGE_DEBUG_BONUS ?? "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+function logBonusSources(logger, sources) {
+  const summary = {
+    readAt: new Date(sources.now).toISOString(),
+    balanceStatus: sources.balance?.status ?? null,
+    bonusWallets: sources.balance?.bonusWallets ?? null,
+    unnotified: sources.bonuses === undefined ? "call-failed-or-unavailable" : sources.bonuses === null ? "null" : { accountId: sources.bonuses.accountId ?? null, bonuses: sources.bonuses.bonuses ?? null },
+    shownExpiring: sources.shown ?? null
+  };
+  logger?.info?.(`deepseek-usage: bonus sources ${JSON.stringify(summary)}`);
+}
 async function readBalance(deps) {
-  const { deepseekAccount, client, now } = deps;
+  const { deepseekAccount, client, now, logger } = deps;
   if (deepseekAccount === undefined)
     return { signedIn: false, available: false, error: "account-unavailable" };
   let state;
@@ -786,6 +800,7 @@ async function readBalance(deps) {
   }
   if (state?.status !== "credential-stored")
     return { signedIn: false, available: false, error: null };
+  const diagnostics = bonusDiagnosticsEnabled();
   const [balance, bonuses] = await Promise.all([
     Promise.resolve().then(() => deepseekAccount.getBalance(client)).catch(() => {
       return;
@@ -794,7 +809,11 @@ async function readBalance(deps) {
       return;
     })
   ]);
-  return balanceView({ signedIn: true, balance, bonuses, now });
+  const view = balanceView({ signedIn: true, balance, bonuses, now });
+  if (diagnostics) {
+    logBonusSources(logger, { balance, bonuses, now, shown: view.expiring ?? null });
+  }
+  return view;
 }
 function apply(ctx, config = {}) {
   const balanceCache = new TtlCache(config.balanceTtlMs ?? BALANCE_TTL_MS);
@@ -816,7 +835,8 @@ function apply(ctx, config = {}) {
           const payload = await balanceCache.read("balance", () => readBalance({
             deepseekAccount: account,
             client: clientIdentity(request),
-            now: now()
+            now: now(),
+            logger: ctx.logger
           }), force);
           if (payload.available !== true && payload.error !== null && payload.error !== undefined)
             balanceCache.drop("balance");
@@ -884,6 +904,7 @@ function clientIdentity(request) {
 var name = "deepseek-usage";
 export {
   name,
+  bonusDiagnosticsEnabled,
   apply,
   SERIES_PATH,
   PRICING_PATH,

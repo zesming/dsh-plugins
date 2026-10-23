@@ -109,3 +109,14 @@ test('a wallet list without a usable currency is unavailable', () => {
   assert.equal(view.available, false)
   assert.equal(view.error, 'balance-empty')
 })
+
+test('bonus diagnostics stay off unless explicitly asked for', async () => {
+  const { bonusDiagnosticsEnabled } = await import('../src/index.js')
+  // An unasked diagnostic that writes order ids to the log is noise, and the
+  // payload names campaigns; it has to be opt-in.
+  assert.equal(bonusDiagnosticsEnabled({}), false)
+  assert.equal(bonusDiagnosticsEnabled({ DSH_DEEPSEEK_USAGE_DEBUG_BONUS: '' }), false)
+  assert.equal(bonusDiagnosticsEnabled({ DSH_DEEPSEEK_USAGE_DEBUG_BONUS: '0' }), false)
+  assert.equal(bonusDiagnosticsEnabled({ DSH_DEEPSEEK_USAGE_DEBUG_BONUS: '1' }), true)
+  assert.equal(bonusDiagnosticsEnabled({ DSH_DEEPSEEK_USAGE_DEBUG_BONUS: 'true' }), true)
+})

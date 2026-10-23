@@ -131,6 +131,47 @@ function intParam(url, name, fallback, max) {
 }
 
 /**
+ * Whether the raw bonus payloads are written to the Host log.
+ *
+ * Off by default: a diagnostic that runs unasked is noise, and the payload
+ * names campaign and order ids. It exists because the only way to tell "no
+ * granted credit is near expiry" from "the platform never listed it here" is to
+ * look at what the two calls actually returned.
+ *
+ * @param env - process environment.
+ * @returns whether to log the raw answers.
+ */
+export function bonusDiagnosticsEnabled(env = globalThis.process?.env ?? {}) {
+  const raw = String(env.DSH_DEEPSEEK_USAGE_DEBUG_BONUS ?? '').trim().toLowerCase()
+  return raw === '1' || raw === 'true' || raw === 'yes'
+}
+
+/**
+ * Write the two raw bonus sources, so an absent warning can be explained.
+ *
+ * `getBalance` carries the wallet totals but no expiry; `getUnnotifiedBonuses`
+ * carries expiry but only for grants Platform has not yet marked displayed.
+ * Seeing both is the only way to know which of those two facts is missing.
+ *
+ * @param logger - Host logger.
+ * @param sources - raw answers plus when they were read.
+ */
+function logBonusSources(logger, sources) {
+  const summary = {
+    readAt: new Date(sources.now).toISOString(),
+    balanceStatus: sources.balance?.status ?? null,
+    bonusWallets: sources.balance?.bonusWallets ?? null,
+    unnotified: sources.bonuses === undefined
+      ? 'call-failed-or-unavailable'
+      : sources.bonuses === null
+        ? 'null'
+        : { accountId: sources.bonuses.accountId ?? null, bonuses: sources.bonuses.bonuses ?? null },
+    shownExpiring: sources.shown ?? null,
+  }
+  logger?.info?.(`deepseek-usage: bonus sources ${JSON.stringify(summary)}`)
+}
+
+/**
  * Build the balance payload from the account services.
  *
  * The bonus read is best-effort: a failed bonus query must not hide a balance
@@ -142,7 +183,7 @@ function intParam(url, name, fallback, max) {
  * @returns the Client payload.
  */
 async function readBalance(deps) {
-  const { deepseekAccount, client, now } = deps
+  const { deepseekAccount, client, now, logger } = deps
   if (deepseekAccount === undefined) return { signedIn: false, available: false, error: 'account-unavailable' }
   let state
   try {
@@ -151,6 +192,7 @@ async function readBalance(deps) {
     return { signedIn: false, available: false, error: 'account-unavailable' }
   }
   if (state?.status !== 'credential-stored') return { signedIn: false, available: false, error: null }
+  const diagnostics = bonusDiagnosticsEnabled()
   const [balance, bonuses] = await Promise.all([
     Promise.resolve()
       .then(() => deepseekAccount.getBalance(client))
@@ -159,7 +201,11 @@ async function readBalance(deps) {
       .then(() => deepseekAccount.getUnnotifiedBonuses(client))
       .catch(() => undefined),
   ])
-  return balanceView({ signedIn: true, balance, bonuses, now })
+  const view = balanceView({ signedIn: true, balance, bonuses, now })
+  if (diagnostics) {
+    logBonusSources(logger, { balance, bonuses, now, shown: view.expiring ?? null })
+  }
+  return view
 }
 
 /**
@@ -199,6 +245,7 @@ export function apply(ctx, config = {}) {
             deepseekAccount: account,
             client: clientIdentity(request),
             now: now(),
+            logger: ctx.logger,
           }), force)
           // A failure result is a transient observation, not a cacheable value:
           // keeping it would pin "temporarily unavailable" for the whole TTL.

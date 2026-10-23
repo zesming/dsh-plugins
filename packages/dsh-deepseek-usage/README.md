@@ -46,6 +46,31 @@ Two deliberate choices follow from those sources:
   that can be recomputed at any time, so consuming a one-shot product notification for it would be
   the wrong trade.
 
+### Why no expiry line appears
+
+The expiry line can only come from one place: `getUnnotifiedBonuses`, which reads Platform's
+`get_unnotified_bonuses` — "granted bonuses Platform has not yet recorded as displayed". A grant the
+account has already been shown in the product is not in that list, and `getBalance` carries wallet
+totals without any expiry at all. So a missing line can mean either "nothing expires soon" or "the
+platform did not list it here", and the two are indistinguishable from the payload alone.
+
+To tell them apart, run with diagnostics on and read the Host log:
+
+```bash
+DSH_DEEPSEEK_USAGE_DEBUG_BONUS=1 dsh web    # or your profile's launch command
+```
+
+One line is written per balance read:
+
+```
+deepseek-usage: bonus sources {"readAt":…,"balanceStatus":"ready",
+  "bonusWallets":[{"currency":"CNY","balance":"20.00"}],
+  "unnotified":{"accountId":…,"bonuses":[]},"shownExpiring":[]}
+```
+
+`bonusWallets` non-empty with `bonuses:[]` is the ambiguous case above. The flag is off by default
+because the payload names campaigns and order ids.
+
 ## What "channel" means
 
 Session logs record the provider and model of each call but no DeepSeek account id. The usage page
