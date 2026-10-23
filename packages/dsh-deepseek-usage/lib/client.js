@@ -252,6 +252,7 @@ function shiftDays(date, days) {
 // packages/dsh-deepseek-usage/src/ui/balance-row.js
 var h = React.createElement;
 var POLL_MS = 5 * 60000;
+var SIGNED_OUT_POLL_MS = 15000;
 function Glyph({ description }) {
   const { children, ...attributes } = description;
   return h("svg", attributes, children.map((child, index) => h(child.cx === undefined ? "path" : "circle", { key: index, ...child })));
@@ -266,14 +267,17 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
   const trigger = React.useRef(null);
   const inflight = React.useRef(undefined);
   const mounted = React.useRef(true);
+  const signedIn = React.useRef(false);
   const load = React.useCallback(async (force) => {
     inflight.current?.abort();
     const controller = new AbortController;
     inflight.current = controller;
     try {
       const payload2 = await fetchBalance({ force, signal: controller.signal });
-      if (mounted.current && inflight.current === controller)
+      if (mounted.current && inflight.current === controller) {
         setState({ status: "ready", payload: payload2 });
+        signedIn.current = payload2?.signedIn === true;
+      }
     } catch (error) {
       if (error?.name !== "AbortError" && mounted.current && inflight.current === controller) {
         setState({ status: "ready", payload: { signedIn: false, available: false, error: "network" } });
@@ -291,18 +295,34 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
         return;
       load(false);
     };
-    const timer = window.setInterval(tick, POLL_MS);
-    const onVisible = () => {
-      if (document.visibilityState === "visible")
+    let timer;
+    const schedule = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
         tick();
+        schedule();
+      }, signedIn.current ? POLL_MS : SIGNED_OUT_POLL_MS);
+    };
+    schedule();
+    const onVisible = () => {
+      if (document.visibilityState !== "visible")
+        return;
+      tick();
+      schedule();
+    };
+    const onFocus = () => {
+      tick();
+      schedule();
     };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
     return () => {
       mounted.current = false;
       inflight.current?.abort();
       inflight.current = undefined;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
     };
   }, [load, open]);
   const openMenu = () => {

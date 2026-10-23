@@ -18,6 +18,17 @@ const h = React.createElement
 const POLL_MS = 5 * 60_000
 
 /**
+ * How often to re-check while no account is known yet.
+ *
+ * The row is invisible until a credential exists, and the person may sign in
+ * from another surface (the account menu, the Settings dialog) without this
+ * component ever remounting. Polling the normal five minutes would leave the
+ * sidebar looking signed out for that long, which reads as "the plugin is
+ * broken" rather than "the plugin is waiting".
+ */
+const SIGNED_OUT_POLL_MS = 15_000
+
+/**
  * Render one icon description as an SVG element.
  *
  * @param description - descriptor from `icons.js`.
@@ -60,6 +71,8 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives
   const trigger = React.useRef(null)
   const inflight = React.useRef(undefined)
   const mounted = React.useRef(true)
+  /** Whether the last answer proved a stored credential, i.e. the row has data. */
+  const signedIn = React.useRef(false)
 
   // One in-flight read at a time: an opening menu that fires while a poll is
   // still running must not leave an un-aborted request behind.
@@ -69,7 +82,13 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives
     inflight.current = controller
     try {
       const payload = await fetchBalance({ force, signal: controller.signal })
-      if (mounted.current && inflight.current === controller) setState({ status: 'ready', payload })
+      if (mounted.current && inflight.current === controller) {
+        setState({ status: 'ready', payload })
+        // A successful signed-in read is the only proof the row can act on, so
+        // the interval is chosen from the last answer rather than from a
+        // separate login subscription the plugin has no access to.
+        signedIn.current = payload?.signedIn === true
+      }
     } catch (error) {
       if (error?.name !== 'AbortError' && mounted.current && inflight.current === controller) {
         setState({ status: 'ready', payload: { signedIn: false, available: false, error: 'network' } })
@@ -86,17 +105,39 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives
       if (document.visibilityState !== 'visible' || open) return
       void load(false)
     }
-    const timer = window.setInterval(tick, POLL_MS)
+    // While signed out the row is invisible, so a slow poll would hide a sign-in
+    // that already happened; while signed in, the balance moves slowly and the
+    // expensive Platform call is not worth repeating. The timer re-arms itself
+    // with whichever interval the last answer implies.
+    let timer
+    const schedule = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        tick()
+        schedule()
+      }, signedIn.current ? POLL_MS : SIGNED_OUT_POLL_MS)
+    }
+    schedule()
     const onVisible = () => {
-      if (document.visibilityState === 'visible') tick()
+      if (document.visibilityState !== 'visible') return
+      tick()
+      schedule()
+    }
+    const onFocus = () => {
+      // Signing in usually happens in a browser window, then the person comes
+      // back here; a focus is the moment worth re-reading on.
+      tick()
+      schedule()
     }
     document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
     return () => {
       mounted.current = false
       inflight.current?.abort()
       inflight.current = undefined
-      window.clearInterval(timer)
+      window.clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
     }
   }, [load, open])
 
