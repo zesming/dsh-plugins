@@ -59,11 +59,6 @@ usually no longer in the unnotified feed. The date is the scarce datum here, whi
 expiry window is a year rather than a month: a wide window cannot hide a real date, while a tight
 one can.
 
-The sidebar says which case it is in the balance menu: when granted credit exists but Platform
-supplied no date for it, the menu gains a line reading "no expiry date for granted credit (not
-provided by the platform)". Nothing extra appears when a real expiry is shown or when the account
-holds no granted credit.
-
 For the raw answers, set `DSH_DEEPSEEK_USAGE_DEBUG_BONUS=1` in the environment; one line is written
 to the Host log per balance read:
 

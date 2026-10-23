@@ -376,13 +376,8 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
         id: "topup",
         label: t("topUp"),
         icon: h(Glyph, { description: PLUS })
-      },
-      payload.expiry?.code === "grant-without-date" ? {
-        id: "expiry",
-        label: t("expiryExplain"),
-        disabled: true
-      } : null
-    ].filter((item) => item !== null),
+      }
+    ],
     onClose: () => {
       setOpen(false);
     },
@@ -855,7 +850,11 @@ function stylesheet() {
 .dsu-menu-anchor{width:100%}
 
 .dsu-view{display:flex;flex-direction:column;gap:0;padding:0 24px 28px;min-height:0;overflow-y:auto;height:100%}
-.dsu-view[data-container=panel]{padding:0 32px 32px}
+/* The settings dialog supplies its own inset around this view, so that mount
+   only needs the inner rhythm. The main area does not: the shell hands the
+   panel its full width with no padding, so the view has to provide the whole
+   inset itself or the title sits flush against the top and both edges. */
+.dsu-view[data-container=panel]{padding:28px 32px 32px;margin:0 auto;width:100%;max-width:1120px;box-sizing:border-box}
 .dsu-kpis{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:0;padding:4px 0 18px;border-bottom:1px solid var(--dsw-alias-border-l1)}
 .dsu-kpi{display:flex;flex-direction:column;justify-content:flex-start;gap:3px;min-height:94px;padding-right:18px}
 .dsu-kpi+.dsu-kpi{padding-left:18px;border-left:1px solid var(--dsw-alias-border-l1)}
@@ -1409,7 +1408,6 @@ var zh = {
   expiresIn: "{amount} 将在 {when}过期",
   usage: "用量",
   topUp: "充值",
-  expiryExplain: "赠送余额暂无到期日（平台未提供）",
   nav: "用量",
   title: "用量",
   calls: "{count} 次调用 · 含缓存读取",
@@ -1479,7 +1477,6 @@ var en = {
   expiresIn: "{amount} expires {when}",
   usage: "Usage",
   topUp: "Top up",
-  expiryExplain: "No expiry date for granted credit (not provided by the platform)",
   nav: "Usage",
   title: "Usage",
   calls: "{count} calls · cache reads included",
