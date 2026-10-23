@@ -159,3 +159,24 @@ test('the payload carries the diagnosis alongside the expiring list', async () =
   assert.deepEqual(view.expiring, [])
   assert.equal(view.expiry.code, 'grant-without-date')
 })
+
+test('a real expiry months away is still shown, not filtered out', () => {
+  // Platform reports a date for very few grants, so the date is the scarce
+  // thing: a window that silently discards it is worse than one that is too
+  // generous. The soonest-first sort keeps a distant date from outranking a
+  // near one.
+  const far = expiringBonuses([{ expiresAt: new Date(daysFrom(200)).toISOString(), amount: '5.00' }], NOW)
+  assert.equal(far.length, 1, '200 days out is inside the window')
+  assert.ok(far[0].daysLeft > 100)
+
+  const mixed = expiringBonuses([
+    { expiresAt: new Date(daysFrom(200)).toISOString(), amount: '5.00' },
+    { expiresAt: new Date(daysFrom(3)).toISOString(), amount: '6.00' },
+  ], NOW)
+  assert.deepEqual(mixed.map(row => row.amount), ['6.00', '5.00'], 'soonest first')
+})
+
+test('an already-expired date is not reported as expiring', () => {
+  const past = expiringBonuses([{ expiresAt: new Date(NOW - 86_400_000).toISOString(), amount: '5.00' }], NOW)
+  assert.deepEqual(past, [])
+})

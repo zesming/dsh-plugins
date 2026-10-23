@@ -51,8 +51,13 @@ Two deliberate choices follow from those sources:
 The expiry line can only come from one place: `getUnnotifiedBonuses`, which reads Platform's
 `get_unnotified_bonuses` — "granted bonuses Platform has not yet recorded as displayed". A grant the
 account has already been shown in the product is not in that list, and `getBalance` carries wallet
-totals without any expiry at all. So a missing line can mean either "nothing expires soon" or "the
-platform did not list it here", and the two are indistinguishable from the payload alone.
+totals without any expiry at all. Those are the only two Platform endpoints the harness exposes, so
+there is no second source to fall back on.
+
+In practice this means **Platform often supplies no date at all**, and when it does the grant is
+usually no longer in the unnotified feed. The date is the scarce datum here, which is why the
+expiry window is a year rather than a month: a wide window cannot hide a real date, while a tight
+one can.
 
 The sidebar says which case it is in the balance menu: when granted credit exists but Platform
 supplied no date for it, the menu gains a line reading "no expiry date for granted credit (not

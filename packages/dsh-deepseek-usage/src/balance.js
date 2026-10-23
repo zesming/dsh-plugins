@@ -6,8 +6,16 @@
  * which numbers a person reads and which ones stay hidden.
  */
 
-/** Wallets closer than this to their expiry produce a warning line. */
-export const EXPIRY_WINDOW_DAYS = 30
+/**
+ * How far ahead an expiry is still worth mentioning.
+ *
+ * DeepSeek grants credit in batches and Platform reports a date for very few of
+ * them, so the threshold is not there to filter noise — it exists so a date
+ * years away is not dressed up as an urgent warning. A tighter window was
+ * hiding real dates outright, which is the wrong trade when the date itself is
+ * the scarce thing.
+ */
+export const EXPIRY_WINDOW_DAYS = 365
 
 /** Decimal string grammar Platform's own Web client accepts. */
 const DECIMAL = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i
