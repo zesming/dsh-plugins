@@ -17,6 +17,7 @@ import {
   CELL, DAY_COLUMNS, GAP, GRID_ASPECT, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid,
 } from './heatmap.js'
 import { stylesheet } from './styles.js'
+import { tooltipPosition } from './tooltip.js'
 
 const h = React.createElement
 
@@ -895,11 +896,35 @@ export function ModelTable({ series, totals, t, pricing }) {
  */
 export function Tooltip({ hover, language, t }) {
   const compact = compactTokens(hover.value)
+  const box = React.useRef(null)
+  // Measured rather than assumed: the readout has a variable number of lines
+  // (a date, a total, one line per model) and a hardcoded size would clamp the
+  // wrong edge as soon as a cell carried details.
+  const [placed, setPlaced] = React.useState(undefined)
+  React.useLayoutEffect(() => {
+    const node = box.current
+    if (node === null || node === undefined) return
+    const rect = node.getBoundingClientRect()
+    const next = tooltipPosition({
+      x: hover.x,
+      y: hover.y,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    })
+    setPlaced(current => (current !== undefined && current.left === next.left && current.top === next.top ? current : next))
+  }, [hover.x, hover.y, hover.label, hover.value, hover.detail])
+
   return h('div', {
+    ref: box,
     style: {
       position: 'fixed',
-      left: `${String(hover.x + 12)}px`,
-      top: `${String(hover.y - 34)}px`,
+      // Before the first measurement the box renders hidden, so it can be sized
+      // without a visible jump from an unclamped position.
+      left: `${String(placed?.left ?? 0)}px`,
+      top: `${String(placed?.top ?? 0)}px`,
+      visibility: placed === undefined ? 'hidden' : 'visible',
       zIndex: 80,
       pointerEvents: 'none',
       padding: '6px 8px',

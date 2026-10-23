@@ -950,6 +950,19 @@ function stylesheet() {
 `;
 }
 
+// packages/dsh-deepseek-usage/src/ui/tooltip.js
+function tooltipPosition(input) {
+  const { x, y, width, height, viewportWidth, viewportHeight, gap = 12, margin = 8 } = input;
+  const offsets = { up: 34 };
+  const fitsRight = x + gap + width <= viewportWidth - margin;
+  const fitsAbove = y - offsets.up >= margin;
+  let left = fitsRight ? x + gap : x - gap - width;
+  let top = fitsAbove ? y - offsets.up : y + gap;
+  left = Math.max(margin, Math.min(left, viewportWidth - margin - width));
+  top = Math.max(margin, Math.min(top, viewportHeight - margin - height));
+  return { left, top };
+}
+
 // packages/dsh-deepseek-usage/src/ui/usage-view.js
 var h2 = React.createElement;
 var WEEK_CELL = 20;
@@ -1382,11 +1395,30 @@ function ModelTable({ series, totals, t, pricing }) {
 }
 function Tooltip({ hover, language, t }) {
   const compact = compactTokens(hover.value);
+  const box = React.useRef(null);
+  const [placed, setPlaced] = React.useState(undefined);
+  React.useLayoutEffect(() => {
+    const node = box.current;
+    if (node === null || node === undefined)
+      return;
+    const rect = node.getBoundingClientRect();
+    const next = tooltipPosition({
+      x: hover.x,
+      y: hover.y,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight
+    });
+    setPlaced((current) => current !== undefined && current.left === next.left && current.top === next.top ? current : next);
+  }, [hover.x, hover.y, hover.label, hover.value, hover.detail]);
   return h2("div", {
+    ref: box,
     style: {
       position: "fixed",
-      left: `${String(hover.x + 12)}px`,
-      top: `${String(hover.y - 34)}px`,
+      left: `${String(placed?.left ?? 0)}px`,
+      top: `${String(placed?.top ?? 0)}px`,
+      visibility: placed === undefined ? "hidden" : "visible",
       zIndex: 80,
       pointerEvents: "none",
       padding: "6px 8px",
