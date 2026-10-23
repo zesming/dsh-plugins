@@ -69,10 +69,10 @@ export function stylesheet() {
 .dsu-view{display:flex;flex-direction:column;gap:0;padding:0 24px 28px;min-height:0;overflow-y:auto;height:100%}
 .dsu-view[data-container=panel]{padding:0 32px 32px}
 .dsu-kpis{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:0;padding:4px 0 18px;border-bottom:1px solid var(--dsw-alias-border-l1)}
-.dsu-kpi{display:flex;flex-direction:column;gap:3px;padding-right:18px}
+.dsu-kpi{display:flex;flex-direction:column;justify-content:flex-start;gap:3px;min-height:94px;padding-right:18px}
 .dsu-kpi+.dsu-kpi{padding-left:18px;border-left:1px solid var(--dsw-alias-border-l1)}
 .dsu-kpi-label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dsw-alias-label-caption)}
-.dsu-kpi-value{font-size:26px;font-weight:600;line-height:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.dsu-kpi-value{display:flex;align-items:baseline;height:40px;font-size:26px;font-weight:600;line-height:36px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .dsu-kpi-value .u{margin-left:3px;font-size:13px;font-weight:500;letter-spacing:0;color:var(--dsw-alias-label-tertiary)}
 .dsu-cost{display:flex;flex-direction:column;gap:4px;margin:14px 0 4px;padding:12px 14px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform)}
 .dsu-cost-head{display:flex;align-items:baseline;gap:8px}
@@ -85,7 +85,7 @@ export function stylesheet() {
 .dsu-cost-origin{opacity:.85}
 .dsu-cost-warn{color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-label-caption))}
 .dsu-cost-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
-.dsu-kpi-meta{font-size:11.5px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
+.dsu-kpi-meta{min-height:16px;font-size:11.5px;line-height:16px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
 
 .dsu-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:16px 0 14px}
 .dsu-spacer{flex:1;min-width:8px}
