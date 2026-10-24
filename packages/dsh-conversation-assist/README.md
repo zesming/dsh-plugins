@@ -20,7 +20,8 @@ suggestion into an editable draft and nothing more; the draft is never sent auto
 undo returns to the empty draft. The row exists only while the composer is empty, ordinary, idle and
 free of attachments or reference chips; it disappears as soon as you type, attach something, send,
 switch model, or close the plugin. Switching Session only hides it: coming back shows the same
-suggestion without a second model call.
+suggestion without a second model call. Switching the model consumes that Turn, because the
+suggestion belongs to the route that produced it.
 
 The row is below the composer card, not inside the editor. Inline ghost text needs a host-level
 composer suggestion interface that this plugin does not have; that is tracked separately.

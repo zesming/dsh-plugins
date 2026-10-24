@@ -98,7 +98,7 @@ export function apply(ctx) {
         input.consume()
         return
       }
-      if (entry.accept()) input.consume()
+      if (entry.accept('key')) input.consume()
     }, 'dsh-conversation-assist: fixed input'))
   })
 }

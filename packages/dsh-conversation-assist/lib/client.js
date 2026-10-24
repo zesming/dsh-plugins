@@ -521,7 +521,6 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
   const [candidate, setCandidate] = import_react3.default.useState(null);
   const rowRef = import_react3.default.useRef(null);
   const lastTurn = import_react3.default.useRef(null);
-  const modelChangedAt = import_react3.default.useRef(0);
   const previousModelKey = import_react3.default.useRef(null);
   const wasRunning = import_react3.default.useRef(false);
   const latest = import_react3.default.useRef(null);
@@ -541,7 +540,9 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
           return;
         if (runtime.hidden.isHidden(sessionId, result.turn))
           return;
-        if (typeof result.endTime === "number" && result.endTime < modelChangedAt.current) {
+        const current = projection?.next;
+        const route = result.route;
+        if (current !== null && current !== undefined && route !== null && typeof route === "object" && typeof route.provider === "string" && typeof route.model === "string" && (route.provider !== current.provider || route.model !== current.model)) {
           runtime.hidden.hide(sessionId, result.turn);
           return;
         }
@@ -562,7 +563,6 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     if (previousModelKey.current === modelKey)
       return;
     previousModelKey.current = modelKey;
-    modelChangedAt.current = Date.now();
     if (lastTurn.current !== null)
       runtime.hidden.hide(sessionId, lastTurn.current);
     setCandidate(null);
@@ -1004,7 +1004,7 @@ function apply(ctx) {
         input.consume();
         return;
       }
-      if (entry.accept())
+      if (entry.accept("key"))
         input.consume();
     }, "dsh-conversation-assist: fixed input"));
   });

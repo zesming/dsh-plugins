@@ -23,7 +23,6 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
   const [candidate, setCandidate] = React.useState(null)
   const rowRef = React.useRef(null)
   const lastTurn = React.useRef(null)
-  const modelChangedAt = React.useRef(0)
   const previousModelKey = React.useRef(null)
   const wasRunning = React.useRef(false)
   const latest = React.useRef(null)
@@ -42,7 +41,14 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
         if (controller.signal.aborted) return
         if (result?.state !== 'ready' || typeof result.text !== 'string' || typeof result.turn !== 'number') return
         if (runtime.hidden.isHidden(sessionId, result.turn)) return
-        if (typeof result.endTime === 'number' && result.endTime < modelChangedAt.current) {
+        const current = projection?.next
+        const route = result.route
+        // The candidate was generated for the Turn's logged route. If the user
+        // has switched models since, it belongs to the old route and must not
+        // come back, even after this component re-mounts.
+        if (current !== null && current !== undefined && route !== null && typeof route === 'object'
+          && typeof route.provider === 'string' && typeof route.model === 'string'
+          && (route.provider !== current.provider || route.model !== current.model)) {
           runtime.hidden.hide(sessionId, result.turn)
           return
         }
@@ -63,7 +69,6 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     }
     if (previousModelKey.current === modelKey) return
     previousModelKey.current = modelKey
-    modelChangedAt.current = Date.now()
     if (lastTurn.current !== null) runtime.hidden.hide(sessionId, lastTurn.current)
     setCandidate(null)
   }, [modelKey, sessionId, runtime])
