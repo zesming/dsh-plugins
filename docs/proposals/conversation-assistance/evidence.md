@@ -40,6 +40,10 @@
 | R6 | [UI deliverables](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/client/ui-deliverables/src/client/index.ts)、[Conversation subsystem](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/docs/subsystems/conversation.md) | 已有 turnTail 使用实例与 UI 组成说明；不证明 recap 数据流程已存在 |
 | R7 | [Session title service](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/session/session-title/README.md)、[Session title LLM](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/session/session-title-llm/README.md) | 辅助请求的输入、路由、预算、取消、精确日志与 stream 组装可参考；title provider 唯一，不能占用或伪造事件 |
 
+## 复核补充
+
+对三个方案的关键主张做了一轮独立复核，新增证据 C1–C14 与逐条结论见[评审结论](conclusion.md#新增证据)；与本节旧条目冲突时以复核结果为准。复核确认的三处修正是：搬运只发生在 hero 工作区选择器；附件没有引用计数，随输入壳销毁而释放；外部插件没有合规的辅助请求日志写法，也没有行内 ghost text 入口。
+
 ## 仓库约定与证据边界
 
 已检查目标仓库 [README](../../../README.md) 与 [CONTRIBUTING](../../../CONTRIBUTING.md)。目标基线没有 `AGENTS.md`、`.agents/skills` 或 `SKILL.md`；根级规则以现有两份说明为准。

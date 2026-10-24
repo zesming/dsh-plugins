@@ -2,9 +2,11 @@
 
 ## 最终体验
 
-模型一轮完成、主会话进入可输入状态后，在空输入框中显示一条灰色 hint，预测用户可能想发送的下一条提示词。Tab 或 → 将整条建议接受为可编辑草稿；用户仍需自己发送。接受、关闭或看到建议都不产生用户消息、不执行工具。
+模型一轮完成、主会话进入可输入状态后，在输入框上方显示一条灰色建议，预测用户可能想发送的下一条提示词。点击“接受”或按 Tab / → 把整条建议变成可编辑草稿；用户仍需自己发送。接受、关闭或看到建议都不产生用户消息、不执行工具。
 
-这属于下一步意图预测，不是逐字续写用户正在输入的句子。建议首版只在输入为空、无附件、无语义引用芯片且没有提交锁时显示；用户开始输入即取消。点击接受可作为辅助交互，不能替代 Tab / → 的最终需求。
+基线实现没有公开的行内 ghost text 接口：占位符是内部节点，真正的行内提示由内部变量 `--dsh-composer-hint` 驱动，外部无法稳定写入。`conversation.input.overlay` 是卡片内零高度锚点，想贴到输入文字上只能测量宿主 DOM，插件指南明确要求选择“已经分配空间”的占位。[评审结论](conclusion.md#12-提示词预测能做但不是-ghost-text) 因此首版用 `conversation.input.dock` 在卡片上方渲染一条建议行：左侧建议文字，右侧“接受”按钮与键帽提示。它不等于行内 ghost text；要拿到真正的行内体验，需要上游补一个 composer suggestion 接口，那是后续依赖。
+
+这属于下一步意图预测，不是逐字续写用户正在输入的句子。建议首版只在输入为空、无附件、无语义引用芯片且没有提交锁时显示；用户开始输入即取消。点击接受是主入口，Tab / → 是产品要求的键盘路径，但必须支持退出与不劫持。
 
 ## 产品参考与可借鉴范围
 
@@ -16,11 +18,13 @@ Claude Code 的 [Prompt suggestions](https://code.claude.com/docs/en/interactive
 
 ## DSH 已有能力与缺口
 
-已核实：`useInput` 的 `captureInsertion()` / `insertText(text, span)` 支持基于 draft revision 的异步安全插入，保留引用芯片并形成一个撤销步骤。`ctx.llm.prepareCall` / `stream`、`session.deriveMessages()` 与 `agent.model.current` 可用于准备辅助请求与已发送历史。[P5–P7](evidence.md#提示词预测)
+已核实：`useInput` 的 `captureInsertion()` / `insertText(text, span)` 支持基于 draft revision 的异步安全插入，保留引用芯片并形成一个撤销步骤（CAS 只比较内容版本，接受前必须重新抓取 span）。`ctx.llm.prepareCall` / `stream`、`session.deriveMessages()` 与 `agent.model.current` 可用于准备辅助请求与已发送历史。[P5–P7](evidence.md#提示词预测)
 
-待接口：尚未核实公开的 ghost text 绘制与 Tab / → 仲裁入口。Lexical、`ComposerKeyboard` 和编辑器内部结构不能当成外部插件 API；`conversation.input.activity` 是单占位，不是通用预测扩展点。不要替换整个 composer 或抢占这个 slot。
+也已核实：Tab / → 不需要 ghost text 或宿主 suggestion 接口。`ctx.shortcuts.observeFixedInput` 在 window 冒泡阶段收到按键，`gesture.defaultPrevented` 已反映编辑器与斜杠菜单的消费结果，`consume()` 可以阻止 Tab 的焦点跳转；编辑器根节点有稳定的 `[data-composer-input]` 标记，会话容器有 `[data-conversation-session]`。已发布的 Esc Esc 停止功能用的就是同一套观测方式。不必 `registerFixed`，因此不会把 Tab / → 写进快捷键目录或全局保留。[评审结论](conclusion.md#12-提示词预测能做但不是-ghost-text)
 
-建议先在 DSH 仓库内验证第一方可选插件，核心只增加通用 composer suggestion 接口，分别定义宿主提供者、预测消费者和可释放的注册方式。需要覆盖候选 ID、绑定版本、预览文本、取消、接受与键盘优先级；这里描述的是接口要求，不声明这些 API 已存在。本仓库能否独立实现完整外部插件，取决于这些接口与日志机制是否开放。
+缺口有两个：行内 ghost text 没有公开绘制入口；辅助请求没有公共的 durable 日志写法。后者见下文“成本、日志与配置”。
+
+因此首版可以在本仓库作为插件交付，不必等上游 suggestion 接口；前提是接受建议行（而不是行内 ghost text），并且辅助请求日志的规则选择允许它进首版。后者见下文。
 
 ## 建议数据流程
 
@@ -39,15 +43,17 @@ Claude Code 的 [Prompt suggestions](https://code.claude.com/docs/en/interactive
 | IME composing 或候选窗打开 | 不展示、不接受预测；不截获组合输入按键 |
 | 命令、提及、补全菜单打开 | 菜单优先；预测暂停 |
 | 有选区、光标不在约定的接受位置、非空草稿 | 不接受；保留原光标与选择行为 |
-| 可见候选且 editor 聚焦，单独 Tab / → | 整条接受为一个可撤销的编辑步骤 |
+| 可见候选且 editor 聚焦，单独 Tab / → | 整条接受为一个可撤销的编辑步骤；建议不可见时按键行为完全不变 |
 | Shift+Tab、修饰键组合、候选不可见或已过期 | 保持原焦点导航和按键行为 |
-| 需要跳过建议前往下一控件 | 提供明确的键盘退出方式，例如 Esc 隐藏后 Tab 正常导航；接受建议不能形成焦点陷阱 |
-| 读屏与高对比模式 | 宣告“建议，可接受”，不把未接受文字读成用户已输入；不反复抢读 |
+| 需要跳过建议前往下一控件 | Esc 先隐藏建议，Shift+Tab 始终是焦点导航；接受建议不能形成焦点陷阱。若评审认为在输入框里按 Tab 接受仍会困住键盘用户，降级为可配置快捷键 + 点击入口 |
+| 读屏与高对比模式 | 建议行有可读标签与具名“接受”按钮，焦点不自动移动；不用 assertive live region 打断当前朗读，不把未接受文字读成已输入 |
 
 ## 成本、日志与配置
 
 建议默认关闭并允许用户显式开启；配置模型路由、最大上下文、最大输出、每轮最多一次、超时与会话预算。不同于参考产品的额度政策，DSH 按实际 provider 计费，不能宣传免费。不可用、超时或超预算时不显示候选，不妨碍继续输入。
 
-辅助请求仍受 dsh-llm“model-visible 必须可由日志重建”的规则约束：需要记录输入来源、推理指令、模型路由、结果和 usage，且不把候选注入主历史。`appendPluginRecord` 文档仅允许 deepseek-harness 仓库内 `packages/experimental/`，明确禁止外部插件调用。独立插件的持久化日志接口是开发前置，不能把直接调用 `ctx.llm` 当成已经满足规则。[P7–P8](evidence.md#提示词预测)
+辅助请求仍受 dsh-llm“model-visible 必须可由日志重建”的规则约束：需要记录输入来源、推理指令、模型路由、结果和 usage，且不把候选注入主历史。外部插件目前没有合规写法：`appendPluginRecord` 只允许 deepseek-harness 仓库内 `packages/experimental/`，明确禁止外部插件调用；自行追加新的 `SessionEventMap` 事件能写入，但事件不在 `KNOWN_SESSION_EVENT_TYPES` 里，下次读取会拒绝整份日志。`purpose` 也只接受 `compaction` / `session-title`，辅助调用无法分类。[P7–P8](evidence.md#提示词预测)
 
-验收使用 [P-01 至 P-10](acceptance.md#提示词预测)。待验证：通用 suggestion 接口、独立辅助调用的日志所有权、实际 provider 成本与延迟、接受率与错误建议样本。这些不阻止文档评审，但阻止宣称外部插件已可交付。
+因此首版的处理是：输入由“Session 日志 + 代码内带版本号的固定模板 + 日志中的路由”确定性重建，插件另存审计记录（请求摘要、路由、输出、usage、时间），并在设置页说明。辅助调用不计入 `token-meter`，插件只把 token 数用于本地预算，**不展示、不估算货币成本**，也不声称免费。这是**需要评审确认的合规选择**：如果要求严格满足“所有模型请求都必须可由 Session 日志重建”，预测必须等上游公开日志 seam，插件首版只交付 recap 的 facts。
+
+验收使用 [P-01 至 P-10](acceptance.md#提示词预测)。P-02 的“Tab 接受”需要按 `[data-composer-input]` 定位，同页多 composer 时不得全局接受。待实测：Desktop 原生快捷键与 DOM 观测的先后、斜杠菜单打开时的退让、IME 组合、迟到候选的光标位置。未决项：行内 ghost text 与辅助请求日志是否作为上游接口推进，见[评审结论](conclusion.md#七待决策)。
