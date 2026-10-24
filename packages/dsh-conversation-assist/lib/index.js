@@ -285,6 +285,9 @@ function json(value, status = 200) {
   });
 }
 async function readJson(request) {
+  const length = Number(request.headers.get("content-length") ?? "");
+  if (Number.isFinite(length) && length > 4096)
+    return { ok: false, tooLarge: true };
   try {
     return { ok: true, value: await request.json() };
   } catch {
@@ -299,7 +302,7 @@ function createSettingsHandler({ getSettings, saveSettings }) {
       return json({ state: "error", error: "method" }, 405);
     const body = await readJson(request);
     if (!body.ok)
-      return json({ state: "error", error: "invalid-json" }, 400);
+      return json({ state: "error", error: body.tooLarge === true ? "too-large" : "invalid-json" }, body.tooLarge === true ? 413 : 400);
     const patch = parseSettingsPatch(body.value);
     if (patch === null)
       return json({ state: "error", error: "invalid-patch" }, 400);
@@ -316,7 +319,7 @@ function createSuggestHandler({ getSettings, getSession, getTurn, generate }) {
       return json({ state: "error", error: "method" }, 405);
     const body = await readJson(request);
     if (!body.ok)
-      return json({ state: "error", error: "invalid-json" }, 400);
+      return json({ state: "error", error: body.tooLarge === true ? "too-large" : "invalid-json" }, body.tooLarge === true ? 413 : 400);
     const parsed = parseSuggestBody(body.value);
     if (parsed === null)
       return json({ state: "error", error: "invalid-body" }, 400);
@@ -324,6 +327,8 @@ function createSuggestHandler({ getSettings, getSession, getTurn, generate }) {
       return json({ state: "disabled" });
     const session = getSession(parsed.sessionId);
     if (session === undefined)
+      return json({ state: "none" });
+    if (session.header?.origin === "subagent")
       return json({ state: "none" });
     const turn = getTurn(parsed.sessionId);
     if (turn === undefined || turn.reason?.kind !== "completed" || typeof turn.endSeq !== "number") {
@@ -479,19 +484,27 @@ function apply(ctx) {
     inflight.set(key, task);
     return task;
   }
-  const settingsHandler = createSettingsHandler({
+  const settingsCore = createSettingsHandler({
     getSettings: () => state.getSettings(),
     saveSettings: async (patch) => {
       await ready;
       return state.saveSettings(patch);
     }
   });
-  const suggestHandler = createSuggestHandler({
+  const suggestCore = createSuggestHandler({
     getSettings: () => state.getSettings(),
     getSession: (id) => ctx.sessions.get(id),
     getTurn: (id) => tracker.get(id),
     generate: generateSuggestion
   });
+  const settingsHandler = async (request) => {
+    await ready;
+    return settingsCore(request);
+  };
+  const suggestHandler = async (request) => {
+    await ready;
+    return suggestCore(request);
+  };
   ctx.on("session/event", (session, event) => {
     tracker.observe(session, event);
     if (event.type === "turn/start")

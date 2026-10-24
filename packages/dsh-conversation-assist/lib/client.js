@@ -948,7 +948,7 @@ function apply(ctx) {
   ctx.slots.inject("settings.section", () => ctx.slots.register({
     name: "settings.section",
     id: "conversation-assist",
-    order: 5,
+    order: 6,
     label: () => dictionaryFor(language())["settings.nav"],
     locale: NS,
     inject: () => ({ hooks: { settings }, store: settings })

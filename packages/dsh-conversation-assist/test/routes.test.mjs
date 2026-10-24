@@ -35,6 +35,16 @@ test('settings route rejects malformed writes and reports storage failures', asy
   assert.equal((await handler(post({ prediction: true }))).status, 500)
 })
 
+test('both routes reject an oversized body before parsing', async () => {
+  const handler = createSettingsHandler({ getSettings: () => settings, saveSettings: async () => settings })
+  const response = await handler(new Request('http://host/api/x', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'content-length': '5000' },
+    body: '{}',
+  }))
+  assert.equal(response.status, 413)
+})
+
 test('suggest route is disabled when prediction is off', async () => {
   const handler = createSuggestHandler({
     getSettings: () => ({ recap: true, prediction: false }),
@@ -55,6 +65,16 @@ test('suggest route validates the body and the tracked turn', async () => {
   })
   assert.equal((await handler(post({}))).status, 400)
   assert.equal((await handler(post('{'))).status, 400)
+  assert.deepEqual(await (await handler(post({ sessionId: 's1' }))).json(), { state: 'none' })
+})
+
+test('suggest route refuses a subagent Session', async () => {
+  const handler = createSuggestHandler({
+    getSettings: () => settings,
+    getSession: () => ({ id: 's1', header: { origin: 'subagent' } }),
+    getTurn: () => ({ turn: 2, endSeq: 8, endTime: 100, reason: { kind: 'completed' } }),
+    generate: async () => { throw new Error('must not run') },
+  })
   assert.deepEqual(await (await handler(post({ sessionId: 's1' }))).json(), { state: 'none' })
 })
 

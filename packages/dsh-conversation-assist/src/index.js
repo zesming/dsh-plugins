@@ -91,19 +91,21 @@ export function apply(ctx) {
     return task
   }
 
-  const settingsHandler = createSettingsHandler({
+  const settingsCore = createSettingsHandler({
     getSettings: () => state.getSettings(),
     saveSettings: async (patch) => {
       await ready
       return state.saveSettings(patch)
     },
   })
-  const suggestHandler = createSuggestHandler({
+  const suggestCore = createSuggestHandler({
     getSettings: () => state.getSettings(),
     getSession: id => ctx.sessions.get(id),
     getTurn: id => tracker.get(id),
     generate: generateSuggestion,
   })
+  const settingsHandler = async (request) => { await ready; return settingsCore(request) }
+  const suggestHandler = async (request) => { await ready; return suggestCore(request) }
 
   ctx.on('session/event', (session, event) => {
     tracker.observe(session, event)

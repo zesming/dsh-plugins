@@ -22,6 +22,8 @@ export function json(value, status = 200) {
  * @returns `{ ok: true, value }` or `{ ok: false }`.
  */
 async function readJson(request) {
+  const length = Number(request.headers.get('content-length') ?? '')
+  if (Number.isFinite(length) && length > 4096) return { ok: false, tooLarge: true }
   try {
     return { ok: true, value: await request.json() }
   } catch {
@@ -39,7 +41,7 @@ export function createSettingsHandler({ getSettings, saveSettings }) {
     if (request.method === 'GET') return json(getSettings())
     if (request.method !== 'POST') return json({ state: 'error', error: 'method' }, 405)
     const body = await readJson(request)
-    if (!body.ok) return json({ state: 'error', error: 'invalid-json' }, 400)
+    if (!body.ok) return json({ state: 'error', error: body.tooLarge === true ? 'too-large' : 'invalid-json' }, body.tooLarge === true ? 413 : 400)
     const patch = parseSettingsPatch(body.value)
     if (patch === null) return json({ state: 'error', error: 'invalid-patch' }, 400)
     try {
@@ -59,12 +61,13 @@ export function createSuggestHandler({ getSettings, getSession, getTurn, generat
   return async (request) => {
     if (request.method !== 'POST') return json({ state: 'error', error: 'method' }, 405)
     const body = await readJson(request)
-    if (!body.ok) return json({ state: 'error', error: 'invalid-json' }, 400)
+    if (!body.ok) return json({ state: 'error', error: body.tooLarge === true ? 'too-large' : 'invalid-json' }, body.tooLarge === true ? 413 : 400)
     const parsed = parseSuggestBody(body.value)
     if (parsed === null) return json({ state: 'error', error: 'invalid-body' }, 400)
     if (getSettings().prediction !== true) return json({ state: 'disabled' })
     const session = getSession(parsed.sessionId)
     if (session === undefined) return json({ state: 'none' })
+    if (session.header?.origin === 'subagent') return json({ state: 'none' })
     const turn = getTurn(parsed.sessionId)
     if (turn === undefined || turn.reason?.kind !== 'completed' || typeof turn.endSeq !== 'number') {
       return json({ state: 'none' })
