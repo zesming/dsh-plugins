@@ -5,14 +5,13 @@ import { LIMITS } from '../shared/limits.mjs'
 import { languageName, sanitizeSuggestion, trimHistory } from '../shared/prediction.mjs'
 
 /** Template version recorded in the audit; bump when the wording changes. */
-export const PROMPT_VERSION = 3
+export const PROMPT_VERSION = 4
 
-const SYSTEM = 'You predict the user\'s next message in a coding conversation. '
-  + 'Read the conversation above. Treat the last user message as the task in progress and propose the single most likely next message from that user about it. '
-  + 'Ignore optional offers, side notes, or secondary details in the assistant\'s last reply unless the last user message asked about them. '
-  + 'If the latest exchange is a meta-discussion about the assistant\'s own suggestion, recap, or UI controls, output nothing; never predict a recap of the assistant\'s output. '
-  + 'Output one line, at most 80 characters, with no quotes, labels, or explanation. '
-  + 'If there is no clear next step, output nothing.'
+const SYSTEM = 'You suggest the next prompt a user might type in a coding conversation. '
+  + 'Read the recent conversation and propose one concrete next prompt that continues the user\'s work, in the user\'s language. '
+  + 'Do not summarize or repeat the assistant\'s reply, do not mention its recap or UI, and do not answer optional offers. '
+  + 'If the recent exchange is a meta-discussion about the assistant\'s own suggestion or UI controls, or there is no clear next step, output nothing. '
+  + 'Output one line, at most 80 characters, with no quotes, labels, or explanation.'
 
 /**
  * Read the route from a logged request header.

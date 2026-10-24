@@ -24,7 +24,10 @@ composer is empty again. Switching Session only hides it: coming back shows the 
 suggestion without a second model call. Switching the model consumes that Turn, because the
 suggestion belongs to the route that produced it.
 
-The row is above the composer card, not inside the editor, so it uses a lightbulb marker and an
+The auxiliary request reads the recent conversation, not a generated recap. The prompt asks for one
+concrete next prompt, forbids summarizing or quoting the assistant, and returns nothing when the
+recent exchange is meta (about this suggestion or another UI control), matching the ghost-text
+composer predictions in Claude Code and ChatGPT Codex. The row is above the composer card, not inside the editor, so it uses a lightbulb marker and an
 explicit Send control instead of accepting inline. The public composer contract exposes the dock,
 but not an editor-inline decoration; drawing ghost text over the editor would depend on host
 internals, so that remains an upstream request rather than part of this plugin.
