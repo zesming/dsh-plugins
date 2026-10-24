@@ -66,7 +66,7 @@ export function foldFacts(state, event) {
       hasReply: true,
       // The latest assistant text is the final reply; keep a bounded prefix so
       // the recap can name what the turn actually said without storing a body.
-      lastText: text.replace(/\s+/gu, ' ').trim().slice(0, 240),
+      lastText: text.trim().slice(0, 1200),
     }
   }
   if (event.type === 'turn/end') {

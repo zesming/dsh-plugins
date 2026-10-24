@@ -16,22 +16,23 @@ function cause(t, kind) {
 }
 
 /**
- * First sentence of the final reply, stripped of leading markup and bounded.
+ * Opening paragraph of the final reply, stripped of markdown and bounded.
  * @param value - folded facts.
  * @returns a snippet, or "".
  */
 function snippet(value) {
   if (typeof value.lastText !== 'string' || value.lastText === '') return ''
-  let text = value.lastText
-    .replace(/^[#>*\-\s]+/u, '')
-    .replace(/^```[\s\S]*?```/u, '')
+  const withoutFences = value.lastText.replace(/```[\s\S]*?```/gu, ' ')
+  const paragraphs = withoutFences
+    .split(/\n\s*\n/u)
+    .map(paragraph => paragraph.replace(/^\s*[#>*-]+\s*/gmu, '').trim())
+    .filter(paragraph => paragraph !== '')
+  let text = paragraphs[0] ?? withoutFences
+  text = text
+    .replace(/!?\[([^\]]+)\]\([^)]*\)/gu, '$1')
+    .replace(/[*_`~]/gu, '')
     .replace(/\s+/gu, ' ')
     .trim()
-  if (text === '') return ''
-  const sentence = text.match(/^.*?[。！？.!?]/u)
-  if (sentence !== null) text = sentence[0]
-  const chars = [...text]
-  if (chars.length > 100) text = `${chars.slice(0, 100).join('')}…`
   return text
 }
 

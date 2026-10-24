@@ -24,11 +24,11 @@ test('a completed turn without reply text says so plainly', () => {
   assert.equal(composeRecap(value({ lastText: undefined }), tFor(en)), 'No reply text this turn.')
 })
 
-test('the reply lead is the first sentence, bounded', () => {
-  const text = composeRecap(value({ lastText: '第一句话在这里。第二句话不应该出现。' }), tFor(zh))
-  assert.match(text, /第一句话在这里。/u)
-  assert.doesNotMatch(text, /第二句话/u)
-  const long = composeRecap(value({ lastText: '甲'.repeat(200) }), tFor(zh))
+test('the recap carries the opening paragraph and stops before later ones', () => {
+  const text = composeRecap(value({ lastText: '第一段第一句。第一段第二句。\n\n第二段不应该出现。' }), tFor(zh))
+  assert.match(text, /第一段第一句。第一段第二句。/u)
+  assert.doesNotMatch(text, /第二段不应该出现/u)
+  const long = composeRecap(value({ lastText: '甲'.repeat(600) }), tFor(zh))
   assert.ok([...long].length <= 400)
   assert.match(long, /…$/u)
 })

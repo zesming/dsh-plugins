@@ -111,7 +111,7 @@ var zh = {
   "settings.title": "对话辅助",
   "settings.intro": "两个开关在同一处；改动即时生效，重启 DSH 后保留。",
   "settings.recap.name": "轮次回顾",
-  "settings.recap.desc": "每轮结束后用一句话摘录本轮回复的要点。默认开启，不调用模型；关闭后新轮次不再出现回顾，正文与输入不变。",
+  "settings.recap.desc": "每轮结束后摘录本轮回复的开头一段作为要点。默认开启，不调用模型；关闭后所有回顾隐藏，正文与输入不变。",
   "settings.prediction.name": "下一条建议",
   "settings.prediction.desc": "一轮正常完成后在输入框上方给出下一条可接受为草稿的建议。默认关闭；开启后每轮完成会额外发一次模型请求，关闭后无建议行、无请求，按键行为回到默认。",
   "settings.note.title": "用量说明",
@@ -143,7 +143,7 @@ var en = {
   "settings.title": "Conversation assist",
   "settings.intro": "Both switches live here. Changes apply immediately and survive a restart.",
   "settings.recap.name": "Turn recap",
-  "settings.recap.desc": "After each turn, a sentence carries the start of the final reply. On by default; no model call. When off, new turns show no recap and the transcript and composer are unchanged.",
+  "settings.recap.desc": "After each turn, the opening paragraph of the final reply appears below it. On by default; no model call. When off, every recap is hidden and the transcript and composer are unchanged.",
   "settings.prediction.name": "Next-suggestion",
   "settings.prediction.desc": "After a completed turn, suggests a next message above the composer that you can accept as a draft. Off by default; when on, each completed turn sends one extra model request. When off, there is no row, no request, and keys behave as before.",
   "settings.note.title": "Usage",
@@ -213,7 +213,7 @@ function foldFacts(state, event) {
     return {
       ...state,
       hasReply: true,
-      lastText: text.replace(/\s+/gu, " ").trim().slice(0, 240)
+      lastText: text.trim().slice(0, 1200)
     };
   }
   if (event.type === "turn/end") {
@@ -283,15 +283,10 @@ function cause(t, kind) {
 function snippet(value) {
   if (typeof value.lastText !== "string" || value.lastText === "")
     return "";
-  let text = value.lastText.replace(/^[#>*\-\s]+/u, "").replace(/^```[\s\S]*?```/u, "").replace(/\s+/gu, " ").trim();
-  if (text === "")
-    return "";
-  const sentence = text.match(/^.*?[。！？.!?]/u);
-  if (sentence !== null)
-    text = sentence[0];
-  const chars = [...text];
-  if (chars.length > 100)
-    text = `${chars.slice(0, 100).join("")}…`;
+  const withoutFences = value.lastText.replace(/```[\s\S]*?```/gu, " ");
+  const paragraphs = withoutFences.split(/\n\s*\n/u).map((paragraph) => paragraph.replace(/^\s*[#>*-]+\s*/gmu, "").trim()).filter((paragraph) => paragraph !== "");
+  let text = paragraphs[0] ?? withoutFences;
+  text = text.replace(/!?\[([^\]]+)\]\([^)]*\)/gu, "$1").replace(/[*_`~]/gu, "").replace(/\s+/gu, " ").trim();
   return text;
 }
 function truncateRecap(text, max = LIMITS.maxRecapChars) {

@@ -7,8 +7,8 @@ per completed turn.
 ## What it does
 
 **Turn recap.** After a turn closes, a secondary-ink sentence appears below the last message and above
-the action row. It carries the first sentence of the final reply, so a completed turn reads as work
-rather than a count, and names how the turn ended when it did not complete — stopped, blocked,
+the action row. It carries the opening paragraph of the final reply, so a completed turn reads as
+work rather than a count, and names how the turn ended when it did not complete — stopped, blocked,
 failed, truncated, or closed during recovery. Tool counts and failure tallies are deliberately not
 shown. The copy never claims a task is done, deployed, or published when the turn only closed.
 Recaps are derived in the browser from the loaded Session events, so every loaded Turn carries one,
