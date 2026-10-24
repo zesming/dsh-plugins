@@ -15,7 +15,31 @@ test('completed recaps keep the failure and never claim the task is done', () =>
   assert.match(text, /^本轮已结束/u)
   assert.match(text, /3 个工具调用/u)
   assert.match(text, /1 个失败/u)
+  assert.match(text, /有失败项需要处理/u)
   assert.doesNotMatch(text, /任务完成|全部完成|已上线|已发布成功/u)
+  assert.ok(text.length <= 400)
+})
+
+test('completed recaps name the tools and quote the reply lead', () => {
+  const text = composeRecap(value({
+    failures: 0,
+    toolNames: ['bash', 'read'],
+    lastText: '修复了 finish 契约。补了测试。',
+  }), tFor(zh))
+  assert.match(text, /工具调用（bash、read）/u)
+  assert.match(text, /回复要点：修复了 finish 契约。/u)
+  assert.match(text, /没有失败或未确认项/u)
+  assert.doesNotMatch(text, /下一步由你决定/u)
+})
+
+test('a long reply is reduced to its first sentence and bounded', () => {
+  const text = composeRecap(value({
+    failures: 0,
+    calls: 0,
+    lastText: '第一句话在这里。第二句话不应该出现。',
+  }), tFor(zh))
+  assert.match(text, /回复要点：第一句话在这里。/u)
+  assert.doesNotMatch(text, /第二句话/u)
   assert.ok(text.length <= 400)
 })
 

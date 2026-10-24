@@ -10,10 +10,12 @@ const CSS = `
 }
 .dca-suggest {
   display: flex;
-  flex: 1 1 auto;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
   min-width: 0;
-  padding: 0 12px 0 14px;
+  margin: 0 0 8px;
+  padding: 0 16px;
   color: var(--dsw-alias-label-secondary);
   font: 400 13px/20px var(--dsw-font-family);
   container-type: inline-size;

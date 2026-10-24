@@ -58,10 +58,10 @@ export function apply(ctx) {
     locale: NS,
   }, RecapTail))
 
-  ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
-    name: 'conversation.composer.dock',
+  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+    name: 'conversation.input.dock',
     id: 'dsh-conversation-assist.suggestion',
-    order: 20,
+    order: 30,
     locale: NS,
     inject: () => ({ hooks: { settings }, runtime }),
   }, SuggestionRow))

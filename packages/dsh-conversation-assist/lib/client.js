@@ -87,7 +87,7 @@ module.exports = __toCommonJS(exports_client);
 // packages/dsh-conversation-assist/src/shared/locales.mjs
 var NS = "conversation-assist";
 var zh = {
-  "recap.completed": "本轮已结束。{detail}{next}",
+  "recap.completed": "本轮已结束。{detail}{reply}{ending}",
   "recap.aborted": "已停止（{cause}）。{detail}",
   "recap.blocked": "被阻塞：需要你处理后才能继续。{detail}",
   "recap.error": "本轮失败{code}。{detail}",
@@ -97,11 +97,16 @@ var zh = {
   "recap.unknown": "本轮以未知原因结束；不假定成功或失败。",
   "recap.detail": "已确认 {parts}。",
   "recap.noProgress": "本轮没有可确认的新进展。",
-  "recap.next": "下一步由你决定。",
+  "recap.reply": "回复要点：{snippet}",
+  "recap.parts.toolJoin": "、",
+  "recap.ending.none": "没有失败或未确认项。",
+  "recap.ending.failures": "有失败项需要处理。",
+  "recap.ending.pending": "还有结果未确认，建议先核对。",
   "recap.code": "（{code}）",
   "recap.parts.join": "，",
   "recap.parts.tools": "{n} 个工具调用",
   "recap.parts.tools.one": "{n} 个工具调用",
+  "recap.parts.toolNames": "（{names}）",
   "recap.parts.failures": "{n} 个失败",
   "recap.parts.failures.one": "{n} 个失败",
   "recap.parts.pending": "{n} 个结果未返回",
@@ -123,15 +128,15 @@ var zh = {
   "settings.title": "对话辅助",
   "settings.intro": "两个开关在同一处；改动即时生效，重启 DSH 后保留。",
   "settings.recap.name": "轮次回顾",
-  "settings.recap.desc": "每轮结束后在最后一条消息下方用一两句话说明确认了什么、哪些失败或未确认。默认开启，不调用模型；关闭后新轮次不再出现回顾，正文与输入不变。",
+  "settings.recap.desc": "每轮结束后用一两句话说明工具调用、失败或未确认项，并带一句回复要点。默认开启，不调用模型；关闭后新轮次不再出现回顾，正文与输入不变。",
   "settings.prediction.name": "下一条建议",
-  "settings.prediction.desc": "一轮正常完成后在输入框下方给出下一条可接受为草稿的建议。默认关闭；开启后每轮完成会额外发一次模型请求，关闭后无建议行、无请求，按键行为回到默认。",
+  "settings.prediction.desc": "一轮正常完成后在输入框上方给出下一条可接受为草稿的建议。默认关闭；开启后每轮完成会额外发一次模型请求，关闭后无建议行、无请求，按键行为回到默认。",
   "settings.note.title": "用量说明",
   "settings.note.body": "开启「下一条建议」后，每轮完成会额外发一次模型请求；这次请求不会出现在 DSH 用量页，插件只保留自己的审计记录（请求摘要、模型路由、输出、token 数、时间，位置见 README）。回顾不调用模型，因此不产生这类请求。插件不展示、也不估算任何货币成本。",
   "settings.error": "设置未保存，请重试。"
 };
 var en = {
-  "recap.completed": "Turn ended. {detail}{next}",
+  "recap.completed": "Turn ended. {detail}{reply}{ending}",
   "recap.aborted": "Stopped ({cause}). {detail}",
   "recap.blocked": "Blocked: your action is needed before continuing. {detail}",
   "recap.error": "Turn failed{code}. {detail}",
@@ -141,11 +146,16 @@ var en = {
   "recap.unknown": "This turn ended for an unknown reason; success is not assumed.",
   "recap.detail": "Confirmed {parts}.",
   "recap.noProgress": "No confirmable progress this turn.",
-  "recap.next": "Next step is up to you.",
+  "recap.reply": " Reply: {snippet}",
+  "recap.parts.toolJoin": ", ",
+  "recap.ending.none": " No failures or unconfirmed results.",
+  "recap.ending.failures": " Failures need attention.",
+  "recap.ending.pending": " Some results remain unconfirmed; check them first.",
   "recap.code": " ({code})",
   "recap.parts.join": ", ",
   "recap.parts.tools": "{n} tool calls",
   "recap.parts.tools.one": "{n} tool call",
+  "recap.parts.toolNames": " ({names})",
   "recap.parts.failures": "{n} failed",
   "recap.parts.failures.one": "{n} failed",
   "recap.parts.pending": "{n} pending",
@@ -167,9 +177,9 @@ var en = {
   "settings.title": "Conversation assist",
   "settings.intro": "Both switches live here. Changes apply immediately and survive a restart.",
   "settings.recap.name": "Turn recap",
-  "settings.recap.desc": "After each turn, a sentence under the last message says what was confirmed and what failed or stayed unconfirmed. On by default; no model call. When off, new turns show no recap and the transcript and composer are unchanged.",
+  "settings.recap.desc": "After each turn, a sentence names the tool calls, failures or unconfirmed results, and the start of the reply. On by default; no model call. When off, new turns show no recap and the transcript and composer are unchanged.",
   "settings.prediction.name": "Next-suggestion",
-  "settings.prediction.desc": "After a completed turn, suggests a next message under the composer that you can accept as a draft. Off by default; when on, each completed turn sends one extra model request. When off, there is no row, no request, and keys behave as before.",
+  "settings.prediction.desc": "After a completed turn, suggests a next message above the composer that you can accept as a draft. Off by default; when on, each completed turn sends one extra model request. When off, there is no row, no request, and keys behave as before.",
   "settings.note.title": "Usage",
   "settings.note.body": 'With "Next-suggestion" on, every completed turn sends one extra model request. That request does not appear on the DSH usage page; the plugin keeps its own audit record (request summary, model route, output, token count, time; the README names the path). Recaps make no model calls and therefore no such requests. The plugin never shows or estimates a currency cost.',
   "settings.error": "Settings were not saved. Try again."
@@ -194,7 +204,9 @@ function emptyFacts(turn) {
   return {
     turn,
     calls: new Map,
+    names: new Map,
     hasReply: false,
+    lastText: undefined,
     reasonKind: undefined,
     cancelKind: undefined,
     errorCode: undefined,
@@ -203,7 +215,7 @@ function emptyFacts(turn) {
   };
 }
 function copy(state) {
-  return { ...state, calls: new Map(state.calls) };
+  return { ...state, calls: new Map(state.calls), names: new Map(state.names) };
 }
 function foldFacts(state, event) {
   const turn = event?.data?.turn;
@@ -214,8 +226,11 @@ function foldFacts(state, event) {
     if (callId === "")
       return state;
     const next = copy(state);
-    if (!next.calls.has(callId))
+    if (!next.calls.has(callId)) {
       next.calls.set(callId, "pending");
+      const name = typeof event.data.name === "string" && /^[A-Za-z0-9._-]{1,40}$/u.test(event.data.name) ? event.data.name : "tool";
+      next.names.set(callId, name);
+    }
     return next;
   }
   if (event.type === "tool/result") {
@@ -229,13 +244,15 @@ function foldFacts(state, event) {
     return next;
   }
   if (event.type === "assistant/message") {
-    if (state.hasReply)
-      return state;
     const blocks = event.data.message?.content;
-    const replied = Array.isArray(blocks) && blocks.some((block) => block?.type === "text" && typeof block.text === "string" && block.text.trim() !== "");
-    if (!replied)
+    const text = Array.isArray(blocks) ? blocks.find((block) => block?.type === "text" && typeof block.text === "string" && block.text.trim() !== "")?.text : undefined;
+    if (typeof text !== "string")
       return state;
-    return { ...state, hasReply: true };
+    return {
+      ...state,
+      hasReply: true,
+      lastText: text.replace(/\s+/gu, " ").trim().slice(0, 240)
+    };
   }
   if (event.type === "turn/end") {
     const reason = event.data.reason;
@@ -266,9 +283,18 @@ function factsValue(state) {
     else
       pending += 1;
   }
+  const toolNames = [];
+  for (const name of state.names.values()) {
+    if (!toolNames.includes(name))
+      toolNames.push(name);
+    if (toolNames.length >= 3)
+      break;
+  }
   return {
     turn: state.turn,
     calls: state.calls.size,
+    toolNames,
+    lastText: state.lastText,
     failures,
     unknown,
     pending,
@@ -301,8 +327,11 @@ function counted(t, base, count) {
 }
 function detail(value, t) {
   const parts = [];
-  if (value.calls > 0)
-    parts.push(counted(t, "recap.parts.tools", value.calls));
+  if (value.calls > 0) {
+    const tools = counted(t, "recap.parts.tools", value.calls);
+    const names = Array.isArray(value.toolNames) && value.toolNames.length > 0 ? formatRow(t("recap.parts.toolNames"), { names: value.toolNames.join(t("recap.parts.toolJoin")) }) : "";
+    parts.push(`${tools}${names}`);
+  }
   if (value.failures > 0)
     parts.push(counted(t, "recap.parts.failures", value.failures));
   if (value.unknown > 0)
@@ -324,6 +353,27 @@ function truncateRecap(text, max = LIMITS.maxRecapChars) {
   const chars = [...text];
   return chars.length <= max ? text : `${chars.slice(0, Math.max(0, max - 1)).join("")}…`;
 }
+function reply(value, t) {
+  if (typeof value.lastText !== "string" || value.lastText === "")
+    return "";
+  let text = value.lastText.replace(/^[#>*\-\s]+/u, "").replace(/^```[\s\S]*?```/u, "").trim();
+  if (text === "")
+    return "";
+  const sentence = text.match(/^.*?[。！？.!?]/u);
+  if (sentence !== null)
+    text = sentence[0];
+  const chars = [...text];
+  if (chars.length > 80)
+    text = `${chars.slice(0, 80).join("")}…`;
+  return formatRow(t("recap.reply"), { snippet: text });
+}
+function ending(value, t) {
+  if (value.failures > 0)
+    return t("recap.ending.failures");
+  if (value.pending > 0 || value.unknown > 0)
+    return t("recap.ending.pending");
+  return t("recap.ending.none");
+}
 function composeRecap(value, t) {
   if (typeof value !== "object" || value === null)
     return "";
@@ -336,7 +386,11 @@ function composeRecap(value, t) {
         text = t("recap.noProgress");
         break;
       }
-      text = formatRow(t("recap.completed"), { detail: confirmed, next: t("recap.next") });
+      text = formatRow(t("recap.completed"), {
+        detail: confirmed,
+        reply: reply(value, t),
+        ending: ending(value, t)
+      });
       break;
     }
     case "aborted":
@@ -486,7 +540,7 @@ function canRequest({ prediction, sessionId, input, session }) {
     return false;
   if (session === undefined || session === null)
     return false;
-  if (session.running !== false || session.removed === true)
+  if (session.running === true || session.removed === true)
     return false;
   if (session.subagent !== null && session.subagent !== undefined)
     return false;
@@ -502,9 +556,9 @@ function canRequest({ prediction, sessionId, input, session }) {
     return false;
   if ((input.queue?.length ?? 0) > 0)
     return false;
-  if (input.phase !== "plain")
+  if (input.phase !== undefined && input.phase !== "plain")
     return false;
-  if (input.claim !== undefined)
+  if (input.claim !== undefined && input.claim !== null)
     return false;
   return true;
 }
@@ -656,10 +710,12 @@ var CSS = `
 }
 .dca-suggest {
   display: flex;
-  flex: 1 1 auto;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
   min-width: 0;
-  padding: 0 12px 0 14px;
+  margin: 0 0 8px;
+  padding: 0 16px;
   color: var(--dsw-alias-label-secondary);
   font: 400 13px/20px var(--dsw-font-family);
   container-type: inline-size;
@@ -803,6 +859,7 @@ function createSettingsStore({ language }) {
     pending: { recap: false, prediction: false },
     failed: null
   };
+  let mutations = 0;
   const listeners = new Set;
   const emit = () => {
     for (const listener of [...listeners])
@@ -827,11 +884,16 @@ function createSettingsStore({ language }) {
       };
     },
     async start() {
+      const started = mutations;
       try {
         const response = await fetch(urlOf(SETTINGS_ROUTE), { headers: { accept: "application/json" } });
         if (!response.ok)
           throw new Error(`settings ${response.status}`);
         const value = await response.json();
+        if (mutations !== started) {
+          set({ loaded: true, error: false });
+          return;
+        }
         set({
           recap: typeof value?.recap === "boolean" ? value.recap : true,
           prediction: typeof value?.prediction === "boolean" ? value.prediction : false,
@@ -840,12 +902,14 @@ function createSettingsStore({ language }) {
           failed: null
         });
       } catch {
-        set({ loaded: true, error: true });
+        if (mutations === started)
+          set({ loaded: true, error: true });
       }
     },
     async update(patch) {
       const previous = state;
       const keys = Object.keys(patch).filter((key) => typeof patch[key] === "boolean");
+      mutations += 1;
       set({ ...patch, failed: null, pending: pendingFor(keys, true) });
       try {
         const response = await fetch(urlOf(SETTINGS_ROUTE), {
@@ -964,10 +1028,10 @@ function apply(ctx) {
     order: 20,
     locale: NS
   }, RecapTail));
-  ctx.slots.inject("conversation.composer.dock", () => ctx.slots.register({
-    name: "conversation.composer.dock",
+  ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
+    name: "conversation.input.dock",
     id: "dsh-conversation-assist.suggestion",
-    order: 20,
+    order: 30,
     locale: NS,
     inject: () => ({ hooks: { settings }, runtime })
   }, SuggestionRow));

@@ -99,6 +99,8 @@ export function apply(ctx) {
     getSession: id => ctx.sessions.get(id),
     getTurn: id => tracker.get(id),
     generate: generateSuggestion,
+    // Temporary verification aid; remove before the merge.
+    onRequest: info => { void state.appendDebug({ at: Date.now(), kind: 'request', ...info }) },
   })
   const settingsHandler = async (request) => { await ready; return settingsCore(request) }
   const suggestHandler = async (request) => { await ready; return suggestCore(request) }

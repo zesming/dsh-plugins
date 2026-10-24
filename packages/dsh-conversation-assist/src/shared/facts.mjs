@@ -15,7 +15,9 @@ export function emptyFacts(turn) {
   return {
     turn,
     calls: new Map(),
+    names: new Map(),
     hasReply: false,
+    lastText: undefined,
     reasonKind: undefined,
     cancelKind: undefined,
     errorCode: undefined,
@@ -26,7 +28,7 @@ export function emptyFacts(turn) {
 
 /** @param state - fold state. @returns a copy whose call map is independent. */
 function copy(state) {
-  return { ...state, calls: new Map(state.calls) }
+  return { ...state, calls: new Map(state.calls), names: new Map(state.names) }
 }
 
 /**
@@ -42,7 +44,13 @@ export function foldFacts(state, event) {
     const callId = String(event.data.callId ?? '')
     if (callId === '') return state
     const next = copy(state)
-    if (!next.calls.has(callId)) next.calls.set(callId, 'pending')
+    if (!next.calls.has(callId)) {
+      next.calls.set(callId, 'pending')
+      const name = typeof event.data.name === 'string' && /^[A-Za-z0-9._-]{1,40}$/u.test(event.data.name)
+        ? event.data.name
+        : 'tool'
+      next.names.set(callId, name)
+    }
     return next
   }
   if (event.type === 'tool/result') {
@@ -55,12 +63,18 @@ export function foldFacts(state, event) {
     return next
   }
   if (event.type === 'assistant/message') {
-    if (state.hasReply) return state
     const blocks = event.data.message?.content
-    const replied = Array.isArray(blocks) && blocks.some(block =>
-      block?.type === 'text' && typeof block.text === 'string' && block.text.trim() !== '')
-    if (!replied) return state
-    return { ...state, hasReply: true }
+    const text = Array.isArray(blocks)
+      ? blocks.find(block => block?.type === 'text' && typeof block.text === 'string' && block.text.trim() !== '')?.text
+      : undefined
+    if (typeof text !== 'string') return state
+    return {
+      ...state,
+      hasReply: true,
+      // The latest assistant text is the final reply; keep a bounded prefix so
+      // the recap can name what the turn actually said without storing a body.
+      lastText: text.replace(/\s+/gu, ' ').trim().slice(0, 240),
+    }
   }
   if (event.type === 'turn/end') {
     const reason = event.data.reason
@@ -94,9 +108,16 @@ export function factsValue(state) {
     else if (status === 'unknown') unknown += 1
     else pending += 1
   }
+  const toolNames = []
+  for (const name of state.names.values()) {
+    if (!toolNames.includes(name)) toolNames.push(name)
+    if (toolNames.length >= 3) break
+  }
   return {
     turn: state.turn,
     calls: state.calls.size,
+    toolNames,
+    lastText: state.lastText,
     failures,
     unknown,
     pending,

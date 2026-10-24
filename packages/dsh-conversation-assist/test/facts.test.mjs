@@ -19,6 +19,8 @@ test('facts count calls, failures, unknown outcomes and pending results', () => 
   assert.deepEqual(factsValue(state), {
     turn: 1,
     calls: 3,
+    toolNames: ['bash', 'edit', 'web'],
+    lastText: undefined,
     failures: 1,
     unknown: 1,
     pending: 0,
@@ -46,6 +48,7 @@ test('assistant text marks the reply and only for this turn', () => {
   assert.equal(factsValue(state).hasReply, false)
   state = foldFacts(state, event('assistant/message', { turn: 3, message: { content: [{ type: 'text', text: 'done' }] } }))
   assert.equal(factsValue(state).hasReply, true)
+  assert.equal(factsValue(state).lastText, 'done')
   assert.equal(foldFacts(state, event('assistant/message', { turn: 4, message: { content: [{ type: 'text', text: 'x' }] } })), state)
 })
 

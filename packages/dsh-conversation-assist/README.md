@@ -7,15 +7,15 @@ per completed turn.
 ## What it does
 
 **Turn recap.** After a turn closes, one or two secondary-ink sentences appear below the last message
-and above the action row. They name what was confirmed, what failed or stayed unconfirmed, and what
-the turn actually ended with — completed, stopped, blocked, failed, truncated, or closed during
-recovery. A tool result is only "confirmed" when a non-error result arrived; a call with no result
+and above the action row. They name the tool calls and their outcomes, how the turn ended — completed,
+stopped, blocked, failed, truncated, or closed during recovery — and the first sentence of the final
+reply, so a completed turn reads as work rather than a count. A tool result is only "confirmed" when a non-error result arrived; a call with no result
 stays pending. The copy never claims a task is done, deployed, or published when the turn only
 closed. Recaps are derived in the browser from the loaded Session events, so they need no network and
 make no model request, and they are not backfilled for turns that ended before the plugin started.
 
-**Next suggestion.** When enabled, a completed turn may place one suggestion under the composer: the
-text, the `Tab` / `→` hint, an **Accept** control, and a dismiss control. Accepting turns the whole
+**Next suggestion.** When enabled, a completed turn may place one suggestion above the composer, in
+the input zone: the text, the `Tab` / `→` hint, an **Accept** control, and a dismiss control. Accepting turns the whole
 suggestion into an editable draft and nothing more; the draft is never sent automatically, and one
 undo returns to the empty draft. The row exists only while the composer is empty, ordinary, idle and
 free of attachments or reference chips; it disappears as soon as you type, attach something, send,
@@ -23,7 +23,7 @@ switch model, or close the plugin. Switching Session only hides it: coming back 
 suggestion without a second model call. Switching the model consumes that Turn, because the
 suggestion belongs to the route that produced it.
 
-The row is below the composer card, not inside the editor. Inline ghost text needs a host-level
+The row is above the composer card, not inside the editor. Inline ghost text needs a host-level
 composer suggestion interface that this plugin does not have; that is tracked separately.
 
 ## Install

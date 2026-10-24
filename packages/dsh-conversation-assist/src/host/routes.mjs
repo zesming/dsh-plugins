@@ -57,13 +57,14 @@ export function createSettingsHandler({ getSettings, saveSettings }) {
  * @param deps - settings, Session/Turn lookup, and the generator.
  * @returns a fetch-compatible handler.
  */
-export function createSuggestHandler({ getSettings, getSession, getTurn, generate }) {
+export function createSuggestHandler({ getSettings, getSession, getTurn, generate, onRequest }) {
   return async (request) => {
     if (request.method !== 'POST') return json({ state: 'error', error: 'method' }, 405)
     const body = await readJson(request)
     if (!body.ok) return json({ state: 'error', error: body.tooLarge === true ? 'too-large' : 'invalid-json' }, body.tooLarge === true ? 413 : 400)
     const parsed = parseSuggestBody(body.value)
     if (parsed === null) return json({ state: 'error', error: 'invalid-body' }, 400)
+    onRequest?.({ sessionId: parsed.sessionId, language: parsed.language, notBefore: parsed.notBefore ?? null })
     if (getSettings().prediction !== true) return json({ state: 'disabled' })
     const session = getSession(parsed.sessionId)
     if (session === undefined) return json({ state: 'none' })

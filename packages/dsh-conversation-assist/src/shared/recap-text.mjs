@@ -23,7 +23,13 @@ function counted(t, base, count) {
  */
 function detail(value, t) {
   const parts = []
-  if (value.calls > 0) parts.push(counted(t, 'recap.parts.tools', value.calls))
+  if (value.calls > 0) {
+    const tools = counted(t, 'recap.parts.tools', value.calls)
+    const names = Array.isArray(value.toolNames) && value.toolNames.length > 0
+      ? formatRow(t('recap.parts.toolNames'), { names: value.toolNames.join(t('recap.parts.toolJoin')) })
+      : ''
+    parts.push(`${tools}${names}`)
+  }
   if (value.failures > 0) parts.push(counted(t, 'recap.parts.failures', value.failures))
   if (value.unknown > 0) parts.push(counted(t, 'recap.parts.unknown', value.unknown))
   if (value.pending > 0) parts.push(counted(t, 'recap.parts.pending', value.pending))
@@ -56,6 +62,37 @@ export function truncateRecap(text, max = LIMITS.maxRecapChars) {
 }
 
 /**
+ * First sentence of the final reply, bounded for a recap.
+ * @param value - folded facts.
+ * @returns a snippet, or "".
+ */
+function reply(value, t) {
+  if (typeof value.lastText !== 'string' || value.lastText === '') return ''
+  let text = value.lastText
+    .replace(/^[#>*\-\s]+/u, '')
+    .replace(/^```[\s\S]*?```/u, '')
+    .trim()
+  if (text === '') return ''
+  const sentence = text.match(/^.*?[。！？.!?]/u)
+  if (sentence !== null) text = sentence[0]
+  const chars = [...text]
+  if (chars.length > 80) text = `${chars.slice(0, 80).join('')}…`
+  return formatRow(t('recap.reply'), { snippet: text })
+}
+
+/**
+ * A factual closing clause instead of "next step is up to you".
+ * @param value - folded facts.
+ * @param t - dictionary lookup.
+ * @returns the ending sentence.
+ */
+function ending(value, t) {
+  if (value.failures > 0) return t('recap.ending.failures')
+  if (value.pending > 0 || value.unknown > 0) return t('recap.ending.pending')
+  return t('recap.ending.none')
+}
+
+/**
  * Compose the recap for one closed Turn.
  * @param value - facts published by the definition.
  * @param t - dictionary lookup returning localized rows.
@@ -72,7 +109,11 @@ export function composeRecap(value, t) {
         text = t('recap.noProgress')
         break
       }
-      text = formatRow(t('recap.completed'), { detail: confirmed, next: t('recap.next') })
+      text = formatRow(t('recap.completed'), {
+        detail: confirmed,
+        reply: reply(value, t),
+        ending: ending(value, t),
+      })
       break
     }
     case 'aborted':

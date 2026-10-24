@@ -14,7 +14,7 @@ export function canRequest({ prediction, sessionId, input, session }) {
   if (prediction !== true) return false
   if (typeof sessionId !== 'string' || sessionId === '') return false
   if (session === undefined || session === null) return false
-  if (session.running !== false || session.removed === true) return false
+  if (session.running === true || session.removed === true) return false
   if (session.subagent !== null && session.subagent !== undefined) return false
   if ((session.pendingSubmissions?.length ?? 0) > 0) return false
   if (input === undefined || input === null) return false
@@ -22,8 +22,8 @@ export function canRequest({ prediction, sessionId, input, session }) {
   if ((input.attachmentIds?.length ?? 0) > 0) return false
   if ((input.occurrences?.length ?? 0) > 0) return false
   if ((input.queue?.length ?? 0) > 0) return false
-  if (input.phase !== 'plain') return false
-  if (input.claim !== undefined) return false
+  if (input.phase !== undefined && input.phase !== 'plain') return false
+  if (input.claim !== undefined && input.claim !== null) return false
   return true
 }
 

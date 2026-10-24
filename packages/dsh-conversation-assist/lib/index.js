@@ -379,7 +379,7 @@ function createSettingsHandler({ getSettings, saveSettings }) {
     }
   };
 }
-function createSuggestHandler({ getSettings, getSession, getTurn, generate }) {
+function createSuggestHandler({ getSettings, getSession, getTurn, generate, onRequest }) {
   return async (request) => {
     if (request.method !== "POST")
       return json({ state: "error", error: "method" }, 405);
@@ -389,6 +389,7 @@ function createSuggestHandler({ getSettings, getSession, getTurn, generate }) {
     const parsed = parseSuggestBody(body.value);
     if (parsed === null)
       return json({ state: "error", error: "invalid-body" }, 400);
+    onRequest?.({ sessionId: parsed.sessionId, language: parsed.language, notBefore: parsed.notBefore ?? null });
     if (getSettings().prediction !== true)
       return json({ state: "disabled" });
     const session = getSession(parsed.sessionId);
@@ -557,7 +558,10 @@ function apply(ctx) {
     getSettings: () => state.getSettings(),
     getSession: (id) => ctx.sessions.get(id),
     getTurn: (id) => tracker.get(id),
-    generate: generateSuggestion
+    generate: generateSuggestion,
+    onRequest: (info) => {
+      state.appendDebug({ at: Date.now(), kind: "request", ...info });
+    }
   });
   const settingsHandler = async (request) => {
     await ready;

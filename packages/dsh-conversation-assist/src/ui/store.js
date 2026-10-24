@@ -41,6 +41,7 @@ export function createSettingsStore({ language }) {
     pending: { recap: false, prediction: false },
     failed: null,
   }
+  let mutations = 0
   const listeners = new Set()
   const emit = () => {
     for (const listener of [...listeners]) listener()
@@ -68,10 +69,17 @@ export function createSettingsStore({ language }) {
     },
     /** Load the Host document once. */
     async start() {
+      const started = mutations
       try {
         const response = await fetch(urlOf(SETTINGS_ROUTE), { headers: { accept: 'application/json' } })
         if (!response.ok) throw new Error(`settings ${response.status}`)
         const value = await response.json()
+        // A toggle that landed while this read was in flight is authoritative;
+        // do not overwrite it with an older document.
+        if (mutations !== started) {
+          set({ loaded: true, error: false })
+          return
+        }
         set({
           recap: typeof value?.recap === 'boolean' ? value.recap : true,
           prediction: typeof value?.prediction === 'boolean' ? value.prediction : false,
@@ -80,7 +88,7 @@ export function createSettingsStore({ language }) {
           failed: null,
         })
       } catch {
-        set({ loaded: true, error: true })
+        if (mutations === started) set({ loaded: true, error: true })
       }
     },
     /**
@@ -91,6 +99,7 @@ export function createSettingsStore({ language }) {
     async update(patch) {
       const previous = state
       const keys = Object.keys(patch).filter(key => typeof patch[key] === 'boolean')
+      mutations += 1
       set({ ...patch, failed: null, pending: pendingFor(keys, true) })
       try {
         const response = await fetch(urlOf(SETTINGS_ROUTE), {
