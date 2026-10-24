@@ -134,6 +134,12 @@ export function apply(ctx) {
           requestBody: 'buffered',
           fetch: suggestHandler,
         }),
+        scope.connection.fetch.register({
+          path: DEBUG_PATH,
+          methods: ['POST'],
+          requestBody: 'buffered',
+          fetch: debugHandler,
+        }),
       ]
       return () => {
         for (const dispose of disposers) dispose()
