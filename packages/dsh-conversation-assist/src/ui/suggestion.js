@@ -64,7 +64,14 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     }
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
+      void runtime.reportEligibility({ stage: 'timer', sessionId })
       void runtime.requestSuggestion(sessionId, runtime.language(), runtime.armedAt(), controller.signal).then((result) => {
+        void runtime.reportEligibility({
+          stage: 'fetch',
+          sessionId,
+          state: typeof result?.state === 'string' ? result.state : null,
+          turn: typeof result?.turn === 'number' ? result.turn : null,
+        })
         if (controller.signal.aborted) return
         if (result?.state !== 'ready' || typeof result.text !== 'string' || typeof result.turn !== 'number') return
         if (runtime.hidden.isHidden(sessionId, result.turn)) return
@@ -81,7 +88,9 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
         }
         lastTurn.current = result.turn
         setCandidate({ text: result.text, turn: result.turn })
-      }).catch(() => {})
+      }).catch(error => {
+        void runtime.reportEligibility({ stage: 'error', sessionId, message: String(error) })
+      })
     }, ASK_DELAY_MS)
     return () => {
       window.clearTimeout(timer)
