@@ -21,7 +21,6 @@ test('canRequest rejects every disqualifying condition', () => {
     [{ session: { ...base.session, running: true } }, 'running'],
     [{ session: { ...base.session, removed: true } }, 'removed'],
     [{ session: { ...base.session, subagent: { address: {} } } }, 'subagent'],
-    [{ session: { ...base.session, pendingSubmissions: [{}] } }, 'pending echo'],
     [{ input: { ...base.input, draft: 'x' } }, 'draft'],
     [{ input: { ...base.input, attachmentIds: ['a'] } }, 'attachment'],
     [{ input: { ...base.input, occurrences: [{}] } }, 'chip'],

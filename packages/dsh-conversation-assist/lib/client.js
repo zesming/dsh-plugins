@@ -459,8 +459,6 @@ function canRequest({ prediction, sessionId, input, session }) {
     return false;
   if (session.subagent !== null && session.subagent !== undefined)
     return false;
-  if ((session.pendingSubmissions?.length ?? 0) > 0)
-    return false;
   if (input === undefined || input === null)
     return false;
   if (input.draft !== "")

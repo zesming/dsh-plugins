@@ -16,7 +16,6 @@ export function canRequest({ prediction, sessionId, input, session }) {
   if (session === undefined || session === null) return false
   if (session.running === true || session.removed === true) return false
   if (session.subagent !== null && session.subagent !== undefined) return false
-  if ((session.pendingSubmissions?.length ?? 0) > 0) return false
   if (input === undefined || input === null) return false
   if (input.draft !== '') return false
   if ((input.attachmentIds?.length ?? 0) > 0) return false
