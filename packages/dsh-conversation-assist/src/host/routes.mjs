@@ -79,7 +79,23 @@ export function createSuggestHandler({ getSettings, getSession, getTurn, generat
     if (!body.ok) return json({ state: 'error', error: body.tooLarge === true ? 'too-large' : 'invalid-json' }, body.tooLarge === true ? 413 : 400)
     const parsed = parseSuggestBody(body.value)
     if (parsed === null) return json({ state: 'error', error: 'invalid-body' }, 400)
-    onRequest?.({ sessionId: parsed.sessionId, language: parsed.language, notBefore: parsed.notBefore ?? null })
+    const tracked = getTurn(parsed.sessionId)
+    onRequest?.({
+      stage: 'request',
+      sessionId: parsed.sessionId,
+      language: parsed.language,
+      notBefore: parsed.notBefore ?? null,
+      prediction: getSettings().prediction === true,
+      hasSession: getSession(parsed.sessionId) !== undefined,
+      tracked: tracked === undefined
+        ? null
+        : {
+          turn: tracked.turn,
+          endSeq: tracked.endSeq ?? null,
+          endTime: tracked.endTime ?? null,
+          reason: tracked.reason?.kind ?? null,
+        },
+    })
     if (getSettings().prediction !== true) return json({ state: 'disabled' })
     const session = getSession(parsed.sessionId)
     if (session === undefined) return json({ state: 'none' })
