@@ -51,6 +51,6 @@ Claude Code 官方 [Session recap](https://code.claude.com/docs/en/interactive-m
 
 切换项目、修改历史、重试、恢复或新轮次开始时取消不再需要的待生成请求；已有摘要留在原轮次，历史被替换时失效。取消的语义请求不能因刷新马上自动补发而突破预算。插件卸载释放订阅、请求和 UI 注册；Session 删除清理关联缓存。
 
-v0 采用纯派生事实或插件自有缓存；缓存记录应有版本与来源关联，不能冒充可回放的 Session 事件。外部插件禁止调用 `appendPluginRecord`；若要 Session log 持久化，需正式支持的事件、schema、读取和迁移规则，不能凭类型扩展就保证可回放。语义辅助调用还需满足 dsh-llm 的请求可追溯规则；外部插件缺少公开日志接口时，它是明确的上游依赖，`semantic` 是否进首版取决于[评审结论](conclusion.md#七待决策)第 1 条。[P7–P8](evidence.md#提示词预测)
+v0 采用纯派生事实或插件自有缓存；缓存记录应有版本与来源关联，不能冒充可回放的 Session 事件。外部插件禁止调用 `appendPluginRecord`；若要 Session log 持久化，需正式支持的事件、schema、读取和迁移规则，不能凭类型扩展就保证可回放。语义辅助调用还需满足 dsh-llm 的请求可追溯规则；外部插件缺少公开日志接口时，按[评审结论](conclusion.md#七已定方向与后续)的宽松解读处理：请求可由日志 + code 重建，插件另存审计记录，Session 日志与用量页不含这次调用。[P7–P8](evidence.md#提示词预测)
 
 验收使用 [R-01 至 R-12](acceptance.md#轮次-recap)。仍待实测：事实提取与 evidence IDs 的映射、无正文 / 异常终态在 tail 的实际布局、缓存清理与多客户端去重、实际成本与时延。客户端增量读取与 `TurnLocation.end` 已核实可用；`semantic` 的请求日志仍是明确缺口，不能用现有 slot 的展示能力替代这个结论。

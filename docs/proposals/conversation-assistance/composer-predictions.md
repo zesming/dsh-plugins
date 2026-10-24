@@ -2,9 +2,9 @@
 
 ## 最终体验
 
-模型一轮完成、主会话进入可输入状态后，在输入框上方显示一条灰色建议，预测用户可能想发送的下一条提示词。点击“接受”或按 Tab / → 把整条建议变成可编辑草稿；用户仍需自己发送。接受、关闭或看到建议都不产生用户消息、不执行工具。
+模型一轮完成、主会话进入可输入状态后，在输入框正下方显示一条灰色建议，预测用户可能想发送的下一条提示词。点击“接受”或按 Tab / → 把整条建议变成可编辑草稿；用户仍需自己发送。接受、关闭或看到建议都不产生用户消息、不执行工具。
 
-基线实现没有公开的行内 ghost text 接口：占位符是内部节点，真正的行内提示由内部变量 `--dsh-composer-hint` 驱动，外部无法稳定写入。`conversation.input.overlay` 是卡片内零高度锚点，想贴到输入文字上只能测量宿主 DOM，插件指南明确要求选择“已经分配空间”的占位。[评审结论](conclusion.md#12-提示词预测能做但不是-ghost-text) 因此首版用 `conversation.input.dock` 在卡片上方渲染一条建议行：左侧建议文字，右侧“接受”按钮与键帽提示。它不等于行内 ghost text；要拿到真正的行内体验，需要上游补一个 composer suggestion 接口，那是后续依赖。
+基线实现没有公开的行内 ghost text 接口：占位符是内部节点，真正的行内提示由内部变量 `--dsh-composer-hint` 驱动，外部无法稳定写入。`conversation.input.overlay` 是卡片内零高度锚点，想贴到输入文字上只能测量宿主 DOM，插件指南明确要求选择“已经分配空间”的占位。[评审结论](conclusion.md#12-提示词预测能做但不是-ghost-text) 因此首版用 `conversation.composer.dock` 在卡片正下方渲染一条建议：左侧建议文字（限宽省略），右侧“接受”按钮与键帽提示。它紧贴输入框但不进入编辑区，不等于行内 ghost text；要拿到真正的行内体验，需要上游补一个 composer suggestion 接口，那是后续事项。
 
 这属于下一步意图预测，不是逐字续写用户正在输入的句子。建议首版只在输入为空、无附件、无语义引用芯片且没有提交锁时显示；用户开始输入即取消。点击接受是主入口，Tab / → 是产品要求的键盘路径，但必须支持退出与不劫持。
 
@@ -45,7 +45,7 @@ Claude Code 的 [Prompt suggestions](https://code.claude.com/docs/en/interactive
 | 有选区、光标不在约定的接受位置、非空草稿 | 不接受；保留原光标与选择行为 |
 | 可见候选且 editor 聚焦，单独 Tab / → | 整条接受为一个可撤销的编辑步骤；建议不可见时按键行为完全不变 |
 | Shift+Tab、修饰键组合、候选不可见或已过期 | 保持原焦点导航和按键行为 |
-| 需要跳过建议前往下一控件 | Esc 先隐藏建议，Shift+Tab 始终是焦点导航；接受建议不能形成焦点陷阱。若评审认为在输入框里按 Tab 接受仍会困住键盘用户，降级为可配置快捷键 + 点击入口 |
+| 需要跳过建议前往下一控件 | Esc 先隐藏建议，Shift+Tab 始终是焦点导航；接受建议不能形成焦点陷阱 |
 | 读屏与高对比模式 | 建议行有可读标签与具名“接受”按钮，焦点不自动移动；不用 assertive live region 打断当前朗读，不把未接受文字读成已输入 |
 
 ## 成本、日志与配置
@@ -54,6 +54,6 @@ Claude Code 的 [Prompt suggestions](https://code.claude.com/docs/en/interactive
 
 辅助请求仍受 dsh-llm“model-visible 必须可由日志重建”的规则约束：需要记录输入来源、推理指令、模型路由、结果和 usage，且不把候选注入主历史。外部插件目前没有合规写法：`appendPluginRecord` 只允许 deepseek-harness 仓库内 `packages/experimental/`，明确禁止外部插件调用；自行追加新的 `SessionEventMap` 事件能写入，但事件不在 `KNOWN_SESSION_EVENT_TYPES` 里，下次读取会拒绝整份日志。`purpose` 也只接受 `compaction` / `session-title`，辅助调用无法分类。[P7–P8](evidence.md#提示词预测)
 
-因此首版的处理是：输入由“Session 日志 + 代码内带版本号的固定模板 + 日志中的路由”确定性重建，插件另存审计记录（请求摘要、路由、输出、usage、时间），并在设置页说明。辅助调用不计入 `token-meter`，插件只把 token 数用于本地预算，**不展示、不估算货币成本**，也不声称免费。这是**需要评审确认的合规选择**：如果要求严格满足“所有模型请求都必须可由 Session 日志重建”，预测必须等上游公开日志 seam，插件首版只交付 recap 的 facts。
+因此首版的处理是：输入由“Session 日志 + 代码内带版本号的固定模板 + 日志中的路由”确定性重建，插件另存审计记录（请求摘要、路由、输出、usage、时间），并在设置页说明。辅助调用不计入 `token-meter`，插件只把 token 数用于本地预算，**不展示、不估算货币成本**，也不声称免费。本轮已按宽松解读定稿：预测与 `semantic` 可以进首版（默认关闭），但 Session 日志与 DSH 用量页看不到这次辅助调用；完整的记录能力列为后续上游事项。
 
-验收使用 [P-01 至 P-10](acceptance.md#提示词预测)。P-02 的“Tab 接受”需要按 `[data-composer-input]` 定位，同页多 composer 时不得全局接受。待实测：Desktop 原生快捷键与 DOM 观测的先后、斜杠菜单打开时的退让、IME 组合、迟到候选的光标位置。未决项：行内 ghost text 与辅助请求日志是否作为上游接口推进，见[评审结论](conclusion.md#七待决策)。
+验收使用 [P-01 至 P-10](acceptance.md#提示词预测)。P-02 的“Tab 接受”需要按 `[data-composer-input]` 定位，同页多 composer 时不得全局接受。待实测：Desktop 原生快捷键与 DOM 观测的先后、斜杠菜单打开时的退让、IME 组合、迟到候选的光标位置。后续上游事项：行内 ghost text 与完整的辅助请求记录能力，见[评审结论](conclusion.md#七已定方向与后续)。
