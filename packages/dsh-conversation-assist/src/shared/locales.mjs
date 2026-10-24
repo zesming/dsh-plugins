@@ -5,7 +5,7 @@ export const NS = 'conversation-assist'
 
 /** Chinese copy. */
 export const zh = {
-  'recap.completed': '本轮主要做了：{snippet}',
+  'recap.completed': '回顾：{snippet}',
   'recap.aborted': '已停止（{cause}）。{snippet}',
   'recap.blocked': '被阻塞：需要你处理后才能继续。{snippet}',
   'recap.error': '本轮失败{code}。{snippet}',
@@ -39,7 +39,7 @@ export const zh = {
 
 /** English copy. */
 export const en = {
-  'recap.completed': 'This turn: {snippet}',
+  'recap.completed': 'Recap: {snippet}',
   'recap.aborted': 'Stopped ({cause}). {snippet}',
   'recap.blocked': 'Blocked: your action is needed before continuing. {snippet}',
   'recap.error': 'Turn failed{code}. {snippet}',

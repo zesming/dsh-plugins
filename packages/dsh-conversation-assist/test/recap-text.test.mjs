@@ -12,7 +12,7 @@ const value = (overrides = {}) => ({
 
 test('a completed recap carries the reply lead and no tool counts', () => {
   const text = composeRecap(value({ lastText: '修复了 finish 契约。补了测试。' }), tFor(zh))
-  assert.match(text, /^本轮主要做了：/u)
+  assert.match(text, /^回顾：/u)
   assert.match(text, /修复了 finish 契约。/u)
   assert.doesNotMatch(text, /工具调用|个失败|未确认|下一步由你决定/u)
   assert.doesNotMatch(text, /任务完成|全部完成|已上线|已发布成功/u)

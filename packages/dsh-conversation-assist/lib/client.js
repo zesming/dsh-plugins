@@ -87,7 +87,7 @@ module.exports = __toCommonJS(exports_client);
 // packages/dsh-conversation-assist/src/shared/locales.mjs
 var NS = "conversation-assist";
 var zh = {
-  "recap.completed": "本轮主要做了：{snippet}",
+  "recap.completed": "回顾：{snippet}",
   "recap.aborted": "已停止（{cause}）。{snippet}",
   "recap.blocked": "被阻塞：需要你处理后才能继续。{snippet}",
   "recap.error": "本轮失败{code}。{snippet}",
@@ -119,7 +119,7 @@ var zh = {
   "settings.error": "设置未保存，请重试。"
 };
 var en = {
-  "recap.completed": "This turn: {snippet}",
+  "recap.completed": "Recap: {snippet}",
   "recap.aborted": "Stopped ({cause}). {snippet}",
   "recap.blocked": "Blocked: your action is needed before continuing. {snippet}",
   "recap.error": "Turn failed{code}. {snippet}",
