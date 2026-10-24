@@ -41,16 +41,24 @@ export function trimHistory(messages, maxBytes = LIMITS.maxContextBytes, maxMess
   let bytes = 0
   for (let index = messages.length - 1; index >= 0 && out.length < maxMessages; index -= 1) {
     const message = messages[index]
+    // The auxiliary call has its own system instruction; the agent's system and
+    // developer messages would duplicate that role and eat the byte budget.
+    if (message?.role === 'system' || message?.role === 'developer') continue
     let size = 0
     try {
       size = encoder.encode(JSON.stringify(message)).length
     } catch {
       continue
     }
+    // A single oversized message is skipped rather than breaking the cap; an
+    // empty result simply means no suggestion.
+    if (size > maxBytes) continue
     if (out.length > 0 && bytes + size > maxBytes) break
     out.unshift(message)
     bytes += size
   }
+  // A tail that opens on a tool result would be rejected as an orphaned result.
+  while (out.length > 0 && out[0]?.role === 'tool') out.shift()
   return out
 }
 

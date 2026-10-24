@@ -54,9 +54,5 @@ export function createTracker() {
     forget(sessionId) {
       entries.delete(sessionId)
     },
-    /** Drop every Session; used by tests and plugin disposal. */
-    reset() {
-      entries.clear()
-    },
   }
 }

@@ -130,8 +130,8 @@ export function createPredictor({ getLlm, resolveRoute, audit, now = Date.now, l
         record({ ...base, finish: finish ?? null, outputChars: text.length, usage, error: errorCode })
         return { state: 'none' }
       }
-      const suggestion = finish === 'stop' ? sanitizeSuggestion(text) : null
-      record({ ...base, finish: finish ?? null, outputChars: text.length, usage, error: suggestion === null ? 'invalid-output' : null })
+      const suggestion = finish?.kind === 'stop' ? sanitizeSuggestion(text) : null
+      record({ ...base, finish: finish?.kind ?? null, outputChars: text.length, usage, error: suggestion === null ? 'invalid-output' : null })
       if (suggestion === null) return { state: 'none' }
       return { state: 'ready', text: suggestion, turn: turn.turn, endSeq: turn.endSeq }
     },

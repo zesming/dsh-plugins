@@ -33,7 +33,8 @@ dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-conversa
 
 Restart DSH after installing or rebuilding; a profile applies its bundle list at startup. The plugin
 adds one row to the plugin list and one **Conversation assist** page in Settings. It does not replace
-a shipped component or occupy another package's single-occupant slot.
+a shipped component or occupy another package's single-occupant slot. Both plugin routes are served
+only to the profile owner; another viewer receives 403 and simply sees no suggestions.
 
 To remove it, use `dsh plugin --profile <profile> remove dsh-conversation-assist`, then restart. The
 settings and audit files described below are plugin-owned state and are left in place; delete that

@@ -35,10 +35,11 @@ export function statePaths(home) {
  * @param options - home, logger, clock, and injectable fs for tests.
  * @returns load/save/audit operations.
  */
-export function createStateStore({ home = resolveHome(), logger, now = Date.now, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
+export function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
   const paths = statePaths(home)
   let settings = { ...DEFAULT_SETTINGS }
   let warned = false
+  let saveQueue = Promise.resolve()
   const warn = (message, error) => {
     if (warned) return
     warned = true
@@ -73,14 +74,18 @@ export function createStateStore({ home = resolveHome(), logger, now = Date.now,
      * @param patch - validated partial settings.
      * @returns the next settings.
      */
-    async saveSettings(patch) {
-      const next = applySettingsPatch(settings, patch)
-      await fs.mkdir(paths.dir, { recursive: true })
-      const temporary = `${paths.settings}.tmp`
-      await fs.writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
-      await fs.rename(temporary, paths.settings)
-      settings = next
-      return { ...settings }
+    saveSettings(patch) {
+      const run = saveQueue.then(async () => {
+        const next = applySettingsPatch(settings, patch)
+        await fs.mkdir(paths.dir, { recursive: true })
+        const temporary = `${paths.settings}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
+        await fs.writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
+        await fs.rename(temporary, paths.settings)
+        settings = next
+        return { ...settings }
+      })
+      saveQueue = run.catch(() => {})
+      return run
     },
     /**
      * Append one audit row, rotating the file once it reaches the cap.
@@ -104,7 +109,5 @@ export function createStateStore({ home = resolveHome(), logger, now = Date.now,
         warn('dsh-conversation-assist: audit write failed', error)
       }
     },
-    /** Timestamp helper kept for symmetry with injected clocks. */
-    now,
   }
 }

@@ -21,17 +21,23 @@ function trimHistory(messages, maxBytes = LIMITS.maxContextBytes, maxMessages = 
   let bytes = 0;
   for (let index = messages.length - 1;index >= 0 && out.length < maxMessages; index -= 1) {
     const message = messages[index];
+    if (message?.role === "system" || message?.role === "developer")
+      continue;
     let size = 0;
     try {
       size = encoder.encode(JSON.stringify(message)).length;
     } catch {
       continue;
     }
+    if (size > maxBytes)
+      continue;
     if (out.length > 0 && bytes + size > maxBytes)
       break;
     out.unshift(message);
     bytes += size;
   }
+  while (out.length > 0 && out[0]?.role === "tool")
+    out.shift();
   return out;
 }
 function sanitizeSuggestion(raw) {
@@ -65,6 +71,57 @@ function languageName(language) {
 }
 function candidateKey(sessionId, turn) {
   return `${sessionId}:${turn}`;
+}
+
+// packages/dsh-conversation-assist/src/host/gate.mjs
+function localDayKey(now = Date.now()) {
+  const date = new Date(now);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+function createSuggestionGate({ limits = LIMITS, now = Date.now } = {}) {
+  const cache = new Map;
+  const budget = new Map;
+  let active = 0;
+  return {
+    check(sessionId, turn) {
+      const entry = cache.get(sessionId);
+      if (entry === undefined || entry.turn !== turn)
+        return { hit: false };
+      return entry.text === undefined ? { hit: true, none: true } : { hit: true, text: entry.text };
+    },
+    take(sessionId) {
+      const day = localDayKey(now());
+      const spent = budget.get(sessionId);
+      if (spent === undefined || spent.day !== day)
+        budget.set(sessionId, { day, count: 0 });
+      const slot = budget.get(sessionId);
+      if (slot.count >= limits.dailyPerSession)
+        return false;
+      if (active >= limits.maxConcurrent)
+        return false;
+      slot.count += 1;
+      active += 1;
+      return true;
+    },
+    release() {
+      active = Math.max(0, active - 1);
+    },
+    remember(sessionId, turn, text) {
+      cache.set(sessionId, text === undefined ? { turn, none: true } : { turn, text });
+    },
+    forgetCandidate(sessionId) {
+      cache.delete(sessionId);
+    },
+    clear(sessionId) {
+      cache.delete(sessionId);
+      budget.delete(sessionId);
+    },
+    active() {
+      return active;
+    }
+  };
 }
 
 // packages/dsh-conversation-assist/src/host/tracker.mjs
@@ -105,9 +162,6 @@ function createTracker() {
     },
     forget(sessionId) {
       entries.delete(sessionId);
-    },
-    reset() {
-      entries.clear();
     }
   };
 }
@@ -238,8 +292,8 @@ Write the suggestion in ${languageName(language)}.`,
         record({ ...base, finish: finish ?? null, outputChars: text.length, usage, error: errorCode });
         return { state: "none" };
       }
-      const suggestion = finish === "stop" ? sanitizeSuggestion(text) : null;
-      record({ ...base, finish: finish ?? null, outputChars: text.length, usage, error: suggestion === null ? "invalid-output" : null });
+      const suggestion = finish?.kind === "stop" ? sanitizeSuggestion(text) : null;
+      record({ ...base, finish: finish?.kind ?? null, outputChars: text.length, usage, error: suggestion === null ? "invalid-output" : null });
       if (suggestion === null)
         return { state: "none" };
       return { state: "ready", text: suggestion, turn: turn.turn, endSeq: turn.endSeq };
@@ -358,10 +412,11 @@ function statePaths(home) {
   const dir = join(home, "dsh-conversation-assist");
   return { dir, settings: join(dir, "settings.json"), audit: join(dir, "audit.jsonl") };
 }
-function createStateStore({ home = resolveHome(), logger, now = Date.now, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
+function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
   const paths = statePaths(home);
   let settings = { ...DEFAULT_SETTINGS };
   let warned = false;
+  let saveQueue = Promise.resolve();
   const warn = (message, error) => {
     if (warned)
       return;
@@ -384,15 +439,19 @@ function createStateStore({ home = resolveHome(), logger, now = Date.now, fs = {
     getSettings() {
       return { ...settings };
     },
-    async saveSettings(patch) {
-      const next = applySettingsPatch(settings, patch);
-      await fs.mkdir(paths.dir, { recursive: true });
-      const temporary = `${paths.settings}.tmp`;
-      await fs.writeFile(temporary, `${JSON.stringify(next, null, 2)}
+    saveSettings(patch) {
+      const run = saveQueue.then(async () => {
+        const next = applySettingsPatch(settings, patch);
+        await fs.mkdir(paths.dir, { recursive: true });
+        const temporary = `${paths.settings}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+        await fs.writeFile(temporary, `${JSON.stringify(next, null, 2)}
 `, "utf8");
-      await fs.rename(temporary, paths.settings);
-      settings = next;
-      return { ...settings };
+        await fs.rename(temporary, paths.settings);
+        settings = next;
+        return { ...settings };
+      });
+      saveQueue = run.catch(() => {});
+      return run;
     },
     async appendAudit(record) {
       try {
@@ -410,17 +469,13 @@ function createStateStore({ home = resolveHome(), logger, now = Date.now, fs = {
       } catch (error) {
         warn("dsh-conversation-assist: audit write failed", error);
       }
-    },
-    now
+    }
   };
 }
 
 // packages/dsh-conversation-assist/src/index.js
 var SETTINGS_PATH = "/api/dsh-conversation-assist.settings";
 var SUGGEST_PATH = "/api/dsh-conversation-assist.suggest";
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
 function apply(ctx) {
   const tracker = createTracker();
   const home = (() => {
@@ -433,10 +488,10 @@ function apply(ctx) {
   })();
   const state = createStateStore({ home, logger: ctx.logger });
   const ready = state.load().catch(() => state.getSettings());
-  const cache = new Map;
+  const gate = createSuggestionGate();
   const inflight = new Map;
-  const budget = new Map;
-  let active = 0;
+  const lifetime = new AbortController;
+  ctx.effect(() => () => lifetime.abort(), "dsh-conversation-assist: lifetime");
   const resolveRoute = (session, turn) => {
     const fromHeader = routeFromHeader(turn.header);
     if (fromHeader !== undefined)
@@ -453,32 +508,25 @@ function apply(ctx) {
     resolveRoute,
     audit: (record) => state.appendAudit(record)
   });
-  async function generateSuggestion({ session, turn, language, signal }) {
-    const key = candidateKey(session.id, turn.turn);
-    const cached = cache.get(session.id);
-    if (cached !== undefined && cached.turn === turn.turn) {
-      return { state: "ready", text: cached.text, turn: turn.turn, endSeq: turn.endSeq };
+  async function generateSuggestion({ session, turn, language }) {
+    const remembered = gate.check(session.id, turn.turn);
+    if (remembered.hit) {
+      return remembered.none === true ? { state: "none" } : { state: "ready", text: remembered.text, turn: turn.turn, endSeq: turn.endSeq };
     }
+    const key = candidateKey(session.id, turn.turn);
     const pending = inflight.get(key);
     if (pending !== undefined)
       return pending;
-    const day = today();
-    const spent = budget.get(session.id);
-    if (spent === undefined || spent.day !== day)
-      budget.set(session.id, { day, count: 0 });
-    const slot = budget.get(session.id);
-    if (slot.count >= LIMITS.dailyPerSession)
+    if (!gate.take(session.id))
       return { state: "none" };
-    if (active >= LIMITS.maxConcurrent)
-      return { state: "none" };
-    slot.count += 1;
-    active += 1;
-    const task = predictor.generate({ session, turn, language, signal }).then((result) => {
-      if (result.state === "ready")
-        cache.set(session.id, { turn: turn.turn, text: result.text });
+    const task = predictor.generate({ session, turn, language, signal: lifetime.signal }).then((result) => {
+      gate.remember(session.id, turn.turn, result.state === "ready" ? result.text : undefined);
       return result;
-    }).catch(() => ({ state: "none" })).finally(() => {
-      active -= 1;
+    }).catch(() => {
+      gate.remember(session.id, turn.turn, undefined);
+      return { state: "none" };
+    }).finally(() => {
+      gate.release();
       inflight.delete(key);
     });
     inflight.set(key, task);
@@ -508,12 +556,11 @@ function apply(ctx) {
   ctx.on("session/event", (session, event) => {
     tracker.observe(session, event);
     if (event.type === "turn/start")
-      cache.delete(session.id);
+      gate.forgetCandidate(session.id);
   });
   ctx.on("session/disposed", (session) => {
     tracker.forget(session.id);
-    cache.delete(session.id);
-    budget.delete(session.id);
+    gate.clear(session.id);
   });
   ctx.inject(["connection"], (scope) => {
     scope.effect(() => {

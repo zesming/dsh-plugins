@@ -1,7 +1,7 @@
 /** Host half: the live Turn tracker, owned settings, and the two exact routes. */
 
 import { candidateKey } from './shared/prediction.mjs'
-import { LIMITS } from './shared/limits.mjs'
+import { createSuggestionGate } from './host/gate.mjs'
 import { createTracker } from './host/tracker.mjs'
 import { createPredictor, routeFromHeader, routeFromProjection } from './host/predict.mjs'
 import { createSettingsHandler, createSuggestHandler } from './host/routes.mjs'
@@ -11,11 +11,6 @@ import { createStateStore, resolveHome } from './host/state.mjs'
 export const SETTINGS_PATH = '/api/dsh-conversation-assist.settings'
 /** Suggestion route. */
 export const SUGGEST_PATH = '/api/dsh-conversation-assist.suggest'
-
-/** Day key for the per-session daily budget. */
-function today() {
-  return new Date().toISOString().slice(0, 10)
-}
 
 /**
  * Mount the Host half.
@@ -34,10 +29,10 @@ export function apply(ctx) {
   const state = createStateStore({ home, logger: ctx.logger })
   const ready = state.load().catch(() => state.getSettings())
 
-  const cache = new Map()
+  const gate = createSuggestionGate()
   const inflight = new Map()
-  const budget = new Map()
-  let active = 0
+  const lifetime = new AbortController()
+  ctx.effect(() => () => lifetime.abort(), 'dsh-conversation-assist: lifetime')
 
   const resolveRoute = (session, turn) => {
     const fromHeader = routeFromHeader(turn.header)
@@ -61,30 +56,28 @@ export function apply(ctx) {
    * @param request - Session, tracked Turn, language, caller signal.
    * @returns a ready/none result.
    */
-  async function generateSuggestion({ session, turn, language, signal }) {
-    const key = candidateKey(session.id, turn.turn)
-    const cached = cache.get(session.id)
-    if (cached !== undefined && cached.turn === turn.turn) {
-      return { state: 'ready', text: cached.text, turn: turn.turn, endSeq: turn.endSeq }
+  async function generateSuggestion({ session, turn, language }) {
+    const remembered = gate.check(session.id, turn.turn)
+    if (remembered.hit) {
+      return remembered.none === true
+        ? { state: 'none' }
+        : { state: 'ready', text: remembered.text, turn: turn.turn, endSeq: turn.endSeq }
     }
+    const key = candidateKey(session.id, turn.turn)
     const pending = inflight.get(key)
     if (pending !== undefined) return pending
-    const day = today()
-    const spent = budget.get(session.id)
-    if (spent === undefined || spent.day !== day) budget.set(session.id, { day, count: 0 })
-    const slot = budget.get(session.id)
-    if (slot.count >= LIMITS.dailyPerSession) return { state: 'none' }
-    if (active >= LIMITS.maxConcurrent) return { state: 'none' }
-    slot.count += 1
-    active += 1
-    const task = predictor.generate({ session, turn, language, signal })
+    if (!gate.take(session.id)) return { state: 'none' }
+    const task = predictor.generate({ session, turn, language, signal: lifetime.signal })
       .then((result) => {
-        if (result.state === 'ready') cache.set(session.id, { turn: turn.turn, text: result.text })
+        gate.remember(session.id, turn.turn, result.state === 'ready' ? result.text : undefined)
         return result
       })
-      .catch(() => ({ state: 'none' }))
+      .catch(() => {
+        gate.remember(session.id, turn.turn, undefined)
+        return { state: 'none' }
+      })
       .finally(() => {
-        active -= 1
+        gate.release()
         inflight.delete(key)
       })
     inflight.set(key, task)
@@ -109,12 +102,11 @@ export function apply(ctx) {
 
   ctx.on('session/event', (session, event) => {
     tracker.observe(session, event)
-    if (event.type === 'turn/start') cache.delete(session.id)
+    if (event.type === 'turn/start') gate.forgetCandidate(session.id)
   })
   ctx.on('session/disposed', (session) => {
     tracker.forget(session.id)
-    cache.delete(session.id)
-    budget.delete(session.id)
+    gate.clear(session.id)
   })
 
   ctx.inject(['connection'], (scope) => {

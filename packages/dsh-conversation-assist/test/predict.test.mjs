@@ -18,7 +18,7 @@ const chunks = [
   { type: 'text-delta', index: 0, text: '补一个 ' },
   { type: 'text-delta', index: 0, text: 'hover 测试' },
   { type: 'usage', usage: { inputTokens: 10, outputTokens: 3 } },
-  { type: 'finish', reason: 'stop' },
+  { type: 'finish', reason: { kind: 'stop' } },
 ]
 
 function fakeLlm({ result = chunks, wait = null } = {}) {
@@ -67,7 +67,7 @@ test('predictor prepares one bounded call and sanitizes the stream', async () =>
 })
 
 test('predictor rejects a stream that did not finish with stop', async () => {
-  const llm = fakeLlm({ result: [{ type: 'text-delta', index: 0, text: 'x' }, { type: 'finish', reason: 'length' }] })
+  const llm = fakeLlm({ result: [{ type: 'text-delta', index: 0, text: 'x' }, { type: 'finish', reason: { kind: 'max-tokens' } }] })
   const audit = []
   const predictor = createPredictor({ getLlm: () => llm, resolveRoute: () => ({ provider: 'p', model: 'm' }), audit: r => audit.push(r) })
   assert.deepEqual(await predictor.generate({ session, turn, language: 'en' }), { state: 'none' })

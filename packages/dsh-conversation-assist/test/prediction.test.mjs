@@ -38,8 +38,22 @@ test('trimHistory keeps the newest messages under both caps', () => {
   assert.equal(short.length, 5)
   assert.match(short.at(-1).content[0].text, /message 29/u)
   const tiny = trimHistory([{ role: 'user', content: 'a' }, { role: 'assistant', content: 'b' }], 20)
-  assert.equal(tiny.length, 1)
+  assert.equal(tiny.length, 0)
   assert.equal(trimHistory([], 100, 10).length, 0)
+})
+
+test('trimHistory drops the agent system prompt, oversized messages and orphan tool results', () => {
+  const messages = [
+    { role: 'system', content: 'agent instructions' },
+    { role: 'developer', content: 'dev' },
+    { role: 'tool', content: 'orphan' },
+    { role: 'user', content: 'hello' },
+    { role: 'assistant', content: 'x'.repeat(5000) },
+    { role: 'tool', content: 'y'.repeat(5000) },
+  ]
+  const tail = trimHistory(messages, 100, 24)
+  assert.deepEqual(tail.map(message => message.role), ['user'])
+  assert.equal(tail[0].content, 'hello')
 })
 
 test('sanitizeSuggestion returns one clean line or null', () => {
