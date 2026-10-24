@@ -8,7 +8,7 @@ const CSS = `
   overflow-wrap: anywhere;
   white-space: normal;
 }
-'.dca-suggest {
+.dca-suggest {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -19,21 +19,21 @@ const CSS = `
   max-width: 100%;
   width: calc(
     100% -
-    var(--dsh-composer-side-clearance) -
-    var(--dsh-composer-side-clearance) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset)
+    var(--dsh-composer-side-clearance, 0px) -
+    var(--dsh-composer-side-clearance, 0px) -
+    var(--dsh-composer-dock-inset, 0px) -
+    var(--dsh-composer-dock-inset, 0px) -
+    var(--dsh-composer-dock-inset, 0px) -
+    var(--dsh-composer-dock-inset, 0px)
   );
   max-width: calc(
-    var(--dsh-composer-card-max-width) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset)
+    var(--dsh-composer-card-max-width, 760px) -
+    var(--dsh-composer-dock-inset, 0px) -
+    var(--dsh-composer-dock-inset, 0px) -
+    var(--dsh-composer-dock-inset, 0px) -
+    var(--dsh-composer-dock-inset, 0px)
   );
-  margin: 0 auto calc(0px - var(--dsh-composer-stack-gap) - 3px);
+  margin: 0 auto calc(0px - var(--dsh-composer-stack-gap, 0px) - 3px);
   padding: 0 12px;
   min-height: 36px;
   border: 0.5px solid var(--dsw-alias-border-l1);
