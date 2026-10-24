@@ -62,7 +62,7 @@ Both are generated — edit `src/`, never `lib/`.
 ## Test
 
 ```bash
-npm test               # node --test packages/*/test/*.test.mjs
+npm test               # node scripts/test.mjs
 npm run check          # build, then test
 ```
 

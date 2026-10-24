@@ -511,7 +511,7 @@ function apply(ctx) {
   async function generateSuggestion({ session, turn, language }) {
     const remembered = gate.check(session.id, turn.turn);
     if (remembered.hit) {
-      return remembered.none === true ? { state: "none" } : { state: "ready", text: remembered.text, turn: turn.turn, endSeq: turn.endSeq };
+      return remembered.none === true ? { state: "none" } : { state: "ready", text: remembered.text, turn: turn.turn, endSeq: turn.endSeq, endTime: turn.endTime };
     }
     const key = candidateKey(session.id, turn.turn);
     const pending = inflight.get(key);
@@ -521,7 +521,7 @@ function apply(ctx) {
       return { state: "none" };
     const task = predictor.generate({ session, turn, language, signal: lifetime.signal }).then((result) => {
       gate.remember(session.id, turn.turn, result.state === "ready" ? result.text : undefined);
-      return result;
+      return result.state === "ready" ? { ...result, endTime: turn.endTime } : result;
     }).catch(() => {
       gate.remember(session.id, turn.turn, undefined);
       return { state: "none" };

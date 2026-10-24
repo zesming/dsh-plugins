@@ -51,39 +51,20 @@ export function createRecapDefinition({ startedAt, isRecapEnabled }) {
 }
 
 /**
- * Minimal facts when the Definition has no data for a loaded Turn.
- * @param end - durable turn/end event.
- * @returns recap facts.
- */
-function fallbackValue(end) {
-  const reason = end?.data?.reason ?? {}
-  return {
-    calls: 0,
-    failures: 0,
-    unknown: 0,
-    pending: 0,
-    hasReply: true,
-    reasonKind: typeof reason.kind === 'string' ? reason.kind : 'unknown',
-    cancelKind: typeof reason.reason?.kind === 'string' ? reason.reason.kind : undefined,
-    errorCode: typeof reason.error?.code === 'string' ? reason.error.code : undefined,
-    endTime: end.time,
-    recapEnabledAtEnd: true,
-  }
-}
-
-/**
  * Render one Turn's recap inside `conversation.chat.turnTail`.
  * @param props - Turn owner, translator, and standard session hooks.
  * @returns a plain paragraph, or null.
  */
-export function RecapTail({ turn, t, useSession, startedAt }) {
+export function RecapTail({ turn, t, useSession }) {
   const subagent = useSession(state => state.subagent)
   if (subagent !== null && subagent !== undefined) return null
   const end = turn.end
   if (end === undefined || typeof end.time !== 'number') return null
   const data = turn.data.get(RECAP_KIND)
-  if (data === undefined && typeof startedAt === 'number' && end.time < startedAt) return null
-  const value = data ?? fallbackValue(end)
+  // No data means the window did not include this Turn's start, or the Turn
+  // ended before this client started. Do not fabricate a recap in either case.
+  if (data === undefined) return null
+  const value = data
   if (value.recapEnabledAtEnd !== true) return null
   const text = composeRecap(value, t)
   if (text === '') return null

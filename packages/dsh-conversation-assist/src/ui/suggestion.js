@@ -23,6 +23,9 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
   const [candidate, setCandidate] = React.useState(null)
   const rowRef = React.useRef(null)
   const lastTurn = React.useRef(null)
+  const modelChangedAt = React.useRef(0)
+  const previousModelKey = React.useRef(null)
+  const wasRunning = React.useRef(false)
   const latest = React.useRef(null)
   latest.current = { candidate, inputActions, sessionId, runtime }
 
@@ -39,6 +42,10 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
         if (controller.signal.aborted) return
         if (result?.state !== 'ready' || typeof result.text !== 'string' || typeof result.turn !== 'number') return
         if (runtime.hidden.isHidden(sessionId, result.turn)) return
+        if (typeof result.endTime === 'number' && result.endTime < modelChangedAt.current) {
+          runtime.hidden.hide(sessionId, result.turn)
+          return
+        }
         lastTurn.current = result.turn
         setCandidate({ text: result.text, turn: result.turn })
       }).catch(() => {})
@@ -50,16 +57,43 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
   }, [canAsk, sessionId, settings.prediction, modelKey, runtime])
 
   React.useEffect(() => {
-    if (lastTurn.current === null) return
-    runtime.hidden.hide(sessionId, lastTurn.current)
+    if (previousModelKey.current === null) {
+      previousModelKey.current = modelKey
+      return
+    }
+    if (previousModelKey.current === modelKey) return
+    previousModelKey.current = modelKey
+    modelChangedAt.current = Date.now()
+    if (lastTurn.current !== null) runtime.hidden.hide(sessionId, lastTurn.current)
     setCandidate(null)
   }, [modelKey, sessionId, runtime])
 
-  const accept = React.useCallback(() => {
+  React.useEffect(() => {
+    const running = session.running === true
+    if (running && !wasRunning.current && lastTurn.current !== null) {
+      runtime.hidden.hide(sessionId, lastTurn.current)
+      setCandidate(null)
+    }
+    wasRunning.current = running
+  }, [session.running, sessionId, runtime])
+
+  React.useEffect(() => {
+    // Entering a submission or command claim consumes this Turn even if the
+    // send fails and the composer returns to plain with an empty draft.
+    if (input.phase === 'plain') return
+    if (lastTurn.current !== null) runtime.hidden.hide(sessionId, lastTurn.current)
+    setCandidate(null)
+  }, [input.phase, sessionId, runtime])
+
+  const accept = React.useCallback((source = 'click') => {
     const current = latest.current
     if (current === null || current.candidate === null) return false
-    const selection = document.getSelection()
-    if (selection !== null && !selection.isCollapsed) return false
+    // A page selection only matters for the keyboard gestures; clicking Accept
+    // while text is selected elsewhere in the transcript must still work.
+    if (source === 'key') {
+      const selection = document.getSelection()
+      if (selection !== null && !selection.isCollapsed) return false
+    }
     const span = current.inputActions.captureInsertion()
     if (!current.inputActions.insertText(current.candidate.text, span)) return false
     current.runtime.hidden.hide(current.sessionId, current.candidate.turn)
@@ -103,7 +137,7 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     'aria-keyshortcuts': 'Tab ArrowRight',
     title: t('suggestion.hint'),
     onMouseDown: event => { event.preventDefault() },
-    onClick: accept,
+    onClick: () => { accept('click') },
   }, t('suggestion.accept')),
   h('button', {
     type: 'button',

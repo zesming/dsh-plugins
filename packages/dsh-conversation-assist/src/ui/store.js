@@ -77,6 +77,7 @@ export function createSettingsStore({ language }) {
           prediction: typeof value?.prediction === 'boolean' ? value.prediction : false,
           loaded: true,
           error: false,
+          failed: null,
         })
       } catch {
         set({ loaded: true, error: true })
@@ -99,9 +100,13 @@ export function createSettingsStore({ language }) {
         })
         if (!response.ok) throw new Error(`settings ${response.status}`)
         const value = await response.json()
+        const applied = {}
+        for (const key of keys) {
+          if (typeof value?.[key] === 'boolean') applied[key] = value[key]
+          else applied[key] = previous[key]
+        }
         set({
-          recap: typeof value?.recap === 'boolean' ? value.recap : previous.recap,
-          prediction: typeof value?.prediction === 'boolean' ? value.prediction : previous.prediction,
+          ...applied,
           loaded: true,
           error: false,
           failed: null,
@@ -109,9 +114,10 @@ export function createSettingsStore({ language }) {
         })
         return true
       } catch {
+        const reverted = {}
+        for (const key of keys) reverted[key] = previous[key]
         set({
-          recap: previous.recap,
-          prediction: previous.prediction,
+          ...reverted,
           error: previous.error,
           failed: keys[0] ?? null,
           pending: pendingFor(keys, false),

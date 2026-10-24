@@ -9,7 +9,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test packages/*/test/*.test.mjs",
+    "test": "node scripts/test.mjs",
     "build": "node scripts/build.mjs",
     "check": "npm run build && npm test"
   },

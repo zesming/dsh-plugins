@@ -402,22 +402,7 @@ function createRecapDefinition({ startedAt, isRecapEnabled }) {
     }
   };
 }
-function fallbackValue(end) {
-  const reason = end?.data?.reason ?? {};
-  return {
-    calls: 0,
-    failures: 0,
-    unknown: 0,
-    pending: 0,
-    hasReply: true,
-    reasonKind: typeof reason.kind === "string" ? reason.kind : "unknown",
-    cancelKind: typeof reason.reason?.kind === "string" ? reason.reason.kind : undefined,
-    errorCode: typeof reason.error?.code === "string" ? reason.error.code : undefined,
-    endTime: end.time,
-    recapEnabledAtEnd: true
-  };
-}
-function RecapTail({ turn, t, useSession, startedAt }) {
+function RecapTail({ turn, t, useSession }) {
   const subagent = useSession((state) => state.subagent);
   if (subagent !== null && subagent !== undefined)
     return null;
@@ -425,9 +410,9 @@ function RecapTail({ turn, t, useSession, startedAt }) {
   if (end === undefined || typeof end.time !== "number")
     return null;
   const data = turn.data.get(RECAP_KIND);
-  if (data === undefined && typeof startedAt === "number" && end.time < startedAt)
+  if (data === undefined)
     return null;
-  const value = data ?? fallbackValue(end);
+  const value = data;
   if (value.recapEnabledAtEnd !== true)
     return null;
   const text = composeRecap(value, t);
@@ -536,6 +521,9 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
   const [candidate, setCandidate] = import_react3.default.useState(null);
   const rowRef = import_react3.default.useRef(null);
   const lastTurn = import_react3.default.useRef(null);
+  const modelChangedAt = import_react3.default.useRef(0);
+  const previousModelKey = import_react3.default.useRef(null);
+  const wasRunning = import_react3.default.useRef(false);
   const latest = import_react3.default.useRef(null);
   latest.current = { candidate, inputActions, sessionId, runtime };
   const canAsk = canRequest({ prediction: settings.prediction, sessionId, input, session });
@@ -553,6 +541,10 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
           return;
         if (runtime.hidden.isHidden(sessionId, result.turn))
           return;
+        if (typeof result.endTime === "number" && result.endTime < modelChangedAt.current) {
+          runtime.hidden.hide(sessionId, result.turn);
+          return;
+        }
         lastTurn.current = result.turn;
         setCandidate({ text: result.text, turn: result.turn });
       }).catch(() => {});
@@ -563,18 +555,42 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     };
   }, [canAsk, sessionId, settings.prediction, modelKey, runtime]);
   import_react3.default.useEffect(() => {
-    if (lastTurn.current === null)
+    if (previousModelKey.current === null) {
+      previousModelKey.current = modelKey;
       return;
-    runtime.hidden.hide(sessionId, lastTurn.current);
+    }
+    if (previousModelKey.current === modelKey)
+      return;
+    previousModelKey.current = modelKey;
+    modelChangedAt.current = Date.now();
+    if (lastTurn.current !== null)
+      runtime.hidden.hide(sessionId, lastTurn.current);
     setCandidate(null);
   }, [modelKey, sessionId, runtime]);
-  const accept = import_react3.default.useCallback(() => {
+  import_react3.default.useEffect(() => {
+    const running = session.running === true;
+    if (running && !wasRunning.current && lastTurn.current !== null) {
+      runtime.hidden.hide(sessionId, lastTurn.current);
+      setCandidate(null);
+    }
+    wasRunning.current = running;
+  }, [session.running, sessionId, runtime]);
+  import_react3.default.useEffect(() => {
+    if (input.phase === "plain")
+      return;
+    if (lastTurn.current !== null)
+      runtime.hidden.hide(sessionId, lastTurn.current);
+    setCandidate(null);
+  }, [input.phase, sessionId, runtime]);
+  const accept = import_react3.default.useCallback((source = "click") => {
     const current = latest.current;
     if (current === null || current.candidate === null)
       return false;
-    const selection = document.getSelection();
-    if (selection !== null && !selection.isCollapsed)
-      return false;
+    if (source === "key") {
+      const selection = document.getSelection();
+      if (selection !== null && !selection.isCollapsed)
+        return false;
+    }
     const span = current.inputActions.captureInsertion();
     if (!current.inputActions.insertText(current.candidate.text, span))
       return false;
@@ -615,7 +631,9 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     onMouseDown: (event) => {
       event.preventDefault();
     },
-    onClick: accept
+    onClick: () => {
+      accept("click");
+    }
   }, t("suggestion.accept")), h3("button", {
     type: "button",
     className: "dca-dismiss",
@@ -818,7 +836,8 @@ function createSettingsStore({ language }) {
           recap: typeof value?.recap === "boolean" ? value.recap : true,
           prediction: typeof value?.prediction === "boolean" ? value.prediction : false,
           loaded: true,
-          error: false
+          error: false,
+          failed: null
         });
       } catch {
         set({ loaded: true, error: true });
@@ -837,9 +856,15 @@ function createSettingsStore({ language }) {
         if (!response.ok)
           throw new Error(`settings ${response.status}`);
         const value = await response.json();
+        const applied = {};
+        for (const key of keys) {
+          if (typeof value?.[key] === "boolean")
+            applied[key] = value[key];
+          else
+            applied[key] = previous[key];
+        }
         set({
-          recap: typeof value?.recap === "boolean" ? value.recap : previous.recap,
-          prediction: typeof value?.prediction === "boolean" ? value.prediction : previous.prediction,
+          ...applied,
           loaded: true,
           error: false,
           failed: null,
@@ -847,9 +872,11 @@ function createSettingsStore({ language }) {
         });
         return true;
       } catch {
+        const reverted = {};
+        for (const key of keys)
+          reverted[key] = previous[key];
         set({
-          recap: previous.recap,
-          prediction: previous.prediction,
+          ...reverted,
           error: previous.error,
           failed: keys[0] ?? null,
           pending: pendingFor(keys, false)
@@ -935,8 +962,7 @@ function apply(ctx) {
     name: "conversation.chat.turnTail",
     id: "dsh-conversation-assist.recap",
     order: 20,
-    locale: NS,
-    inject: () => ({ startedAt })
+    locale: NS
   }, RecapTail));
   ctx.slots.inject("conversation.composer.dock", () => ctx.slots.register({
     name: "conversation.composer.dock",

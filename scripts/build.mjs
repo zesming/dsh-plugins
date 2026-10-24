@@ -116,6 +116,13 @@ for (const { dir, manifest } of packages) {
     // focus ring. Every package declares its own extra externals.
     const external = ['react', ...(manifest?.dsh?.client?.external ?? [])]
     const body = await bundle(bun, clientEntry, 'cjs', 'browser', external)
+    // A second copy of a shared module would lose theme tokens and focus rings;
+    // fail the build instead of shipping it when a package forgets an external.
+    const required = new Set([...body.matchAll(/require\((['"])([^'"]+)\1\)/gu)].map(match => match[2]))
+    for (const specifier of required) {
+      if (specifier === 'react' || external.includes(specifier)) continue
+      throw new Error(`${name}: client bundle requires "${specifier}" outside react and dsh.client.external`)
+    }
     await writeFile(path.join(dir, 'lib', 'client.js'), wrapFactory(name, body))
   }
 

@@ -67,9 +67,10 @@ $DSH_HOME/dsh-conversation-assist/audit.jsonl
 Each line carries the time, Session, turn, `endSeq`, provider/model, message count and input bytes,
 the output-token cap, the finish reason, the output length, duration, token usage and an error code.
 It never contains prompts, drafts, tool output, or the suggestion text. The file rotates once at 1
-MiB, keeping `audit.jsonl` and one previous file. If the directory is not writable the audit row is
-dropped with a single warning and the feature keeps working; settings fall back to in-memory values
-for the current run.
+MiB, keeping `audit.jsonl` and one previous file. If the audit directory is not writable the audit row is
+dropped with a single warning and suggestions keep working. A failed settings write returns an
+error, the toggle rolls back, and the page shows an inline error; only an unreadable settings
+document falls back to the in-memory defaults.
 
 Settings live next to it in `settings.json`. Both files are shared by every browser connected to this
 Host.

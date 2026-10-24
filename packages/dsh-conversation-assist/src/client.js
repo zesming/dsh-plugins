@@ -56,7 +56,6 @@ export function apply(ctx) {
     id: 'dsh-conversation-assist.recap',
     order: 20,
     locale: NS,
-    inject: () => ({ startedAt }),
   }, RecapTail))
 
   ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({

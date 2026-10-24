@@ -61,7 +61,7 @@ export function apply(ctx) {
     if (remembered.hit) {
       return remembered.none === true
         ? { state: 'none' }
-        : { state: 'ready', text: remembered.text, turn: turn.turn, endSeq: turn.endSeq }
+        : { state: 'ready', text: remembered.text, turn: turn.turn, endSeq: turn.endSeq, endTime: turn.endTime }
     }
     const key = candidateKey(session.id, turn.turn)
     const pending = inflight.get(key)
@@ -70,7 +70,7 @@ export function apply(ctx) {
     const task = predictor.generate({ session, turn, language, signal: lifetime.signal })
       .then((result) => {
         gate.remember(session.id, turn.turn, result.state === 'ready' ? result.text : undefined)
-        return result
+        return result.state === 'ready' ? { ...result, endTime: turn.endTime } : result
       })
       .catch(() => {
         gate.remember(session.id, turn.turn, undefined)
