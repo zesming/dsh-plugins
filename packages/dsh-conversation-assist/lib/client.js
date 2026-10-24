@@ -114,9 +114,9 @@ var zh = {
   "settings.recap.name": "轮次回顾",
   "settings.recap.desc": "每轮结束后摘录本轮回复的开头一段作为要点。默认开启，不调用模型；关闭后所有回顾隐藏，正文与输入不变。",
   "settings.prediction.name": "下一条建议",
-  "settings.prediction.desc": "一轮正常完成后在输入框上方给出下一条可接受为草稿的建议。默认关闭；开启后每轮完成会额外发一次模型请求，关闭后无建议行、无请求，按键行为回到默认。",
+  "settings.prediction.desc": "一轮正常完成后在输入框上方给出一条下一条提示词，可填入草稿或直接发送。默认关闭；开启后每轮最多一次模型请求，受每日/并发上限约束，可能不发；关闭后无建议行、无请求。",
   "settings.note.title": "用量说明",
-  "settings.note.body": "开启「下一条建议」后，每轮完成会额外发一次模型请求；这次请求不会出现在 DSH 用量页，插件只保留自己的审计记录（请求摘要、模型路由、输出、token 数、时间，位置见 README）。回顾不调用模型，因此不产生这类请求。插件不展示、也不估算任何货币成本。",
+  "settings.note.body": "开启「下一条建议」后每轮最多产生一次辅助模型请求（受每日/并发上限约束），该请求不显示在 DSH 用量页，只写入插件审计（尽力而为）。",
   "settings.error": "设置未保存，请重试。"
 };
 var en = {
@@ -147,9 +147,9 @@ var en = {
   "settings.recap.name": "Turn recap",
   "settings.recap.desc": "After each turn, the opening paragraph of the final reply appears below it. On by default; no model call. When off, every recap is hidden and the transcript and composer are unchanged.",
   "settings.prediction.name": "Next-suggestion",
-  "settings.prediction.desc": "After a completed turn, suggests a next message above the composer that you can accept as a draft. Off by default; when on, each completed turn sends one extra model request. When off, there is no row, no request, and keys behave as before.",
+  "settings.prediction.desc": "After a completed turn, suggests a next prompt above the composer that you can insert as a draft or send. Off by default; when on, at most one model request per completed turn, subject to the daily and concurrency caps, so it may not fire. When off, there is no row and no request.",
   "settings.note.title": "Usage",
-  "settings.note.body": 'With "Next-suggestion" on, every completed turn sends one extra model request. That request does not appear on the DSH usage page; the plugin keeps its own audit record (request summary, model route, output, token count, time; the README names the path). Recaps make no model calls and therefore no such requests. The plugin never shows or estimates a currency cost.',
+  "settings.note.body": "With next-suggestion on, each turn makes at most one auxiliary model request (subject to the daily and concurrency caps); it is not shown on the DSH usage page and is recorded only in the plugin audit (best effort).",
   "settings.error": "Settings were not saved. Try again."
 };
 function dictionaryFor(language) {
@@ -455,7 +455,7 @@ function SettingsSection({ t, useSettings, store }) {
     errorText: t("settings.error"),
     t,
     onChange: change
-  }), h3("div", { className: "dca-note" }, h3("div", { className: "dca-note-title" }, t("settings.note.title")), h3("div", null, t("settings.note.body"))), h3("div", { className: "dca-debug" }, `诊断：row=${typeof window !== "undefined" && window.__dcaAssist?.mounted === true ? "mounted" : "absent"}` + ` · prediction=${String(state.prediction)}` + ` · canAsk=${String(typeof window !== "undefined" && window.__dcaAssist?.canAsk === true)}` + ` · running=${String(typeof window !== "undefined" ? window.__dcaAssist?.running : "-")}` + ` · draft=${String(typeof window !== "undefined" ? window.__dcaAssist?.draftLength : "-")}`));
+  }), h3("div", { className: "dca-note" }, h3("div", { className: "dca-note-title" }, t("settings.note.title")), h3("div", null, t("settings.note.body"))));
 }
 
 // packages/dsh-conversation-assist/src/ui/nav-label.js
@@ -500,6 +500,14 @@ function canRequest({ prediction, sessionId, input, session }) {
 // packages/dsh-conversation-assist/src/ui/suggestion.js
 var h5 = import_react5.default.createElement;
 var ASK_DELAY_MS = 400;
+function focusComposer(row) {
+  if (typeof document === "undefined")
+    return;
+  const scope = row?.parentElement ?? document;
+  const input = scope.querySelector("[data-composer-input]");
+  if (input instanceof HTMLElement)
+    input.focus();
+}
 function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSettings, inputActions, t, runtime }) {
   const settings = useSettings((state) => state);
   const session = useSession((state) => state);
@@ -507,50 +515,25 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
   const projection = useProjection("modelSelection");
   const modelKey = `${projection?.next?.provider ?? ""}/${projection?.next?.model ?? ""}`;
   const [candidate, setCandidate] = import_react5.default.useState(null);
-  const rowRef = import_react5.default.useRef(null);
   const lastTurn = import_react5.default.useRef(null);
   const previousModelKey = import_react5.default.useRef(null);
   const wasRunning = import_react5.default.useRef(false);
   const latest = import_react5.default.useRef(null);
+  const rowRef = import_react5.default.useRef(null);
   latest.current = { candidate, inputActions, sessionId, runtime };
   const canAsk = canRequest({ prediction: settings.prediction, sessionId, input, session });
-  const debugKey = JSON.stringify({
-    sessionId,
-    canAsk,
-    prediction: settings.prediction,
-    running: session.running ?? null,
-    draftLength: typeof input.draft === "string" ? input.draft.length : null,
-    attachments: input.attachmentIds?.length ?? null,
-    occurrences: input.occurrences?.length ?? null,
-    queue: input.queue?.length ?? null,
-    phase: input.phase ?? null,
-    claim: input.claim === undefined || input.claim === null ? null : "present",
-    pending: session.pendingSubmissions?.length ?? null,
-    subagent: session.subagent !== null && session.subagent !== undefined,
-    removed: session.removed === true,
-    modelKey
-  });
   import_react5.default.useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.__dcaAssist = { mounted: true, canAsk, ...JSON.parse(debugKey) };
-    }
-    if (settings.prediction !== true)
-      return;
-    runtime.reportEligibility(JSON.parse(debugKey));
-  }, [debugKey, runtime, settings.prediction, canAsk]);
+    setCandidate(null);
+    lastTurn.current = null;
+    previousModelKey.current = null;
+    wasRunning.current = false;
+  }, [sessionId]);
   import_react5.default.useEffect(() => {
     if (!canAsk)
       return;
     const controller = new AbortController;
     const timer = window.setTimeout(() => {
-      runtime.reportEligibility({ stage: "timer", sessionId });
       runtime.requestSuggestion(sessionId, runtime.language(), runtime.armedAt(), controller.signal).then((result) => {
-        runtime.reportEligibility({
-          stage: "fetch",
-          sessionId,
-          state: typeof result?.state === "string" ? result.state : null,
-          turn: typeof result?.turn === "number" ? result.turn : null
-        });
         if (controller.signal.aborted)
           return;
         if (result?.state !== "ready" || typeof result.text !== "string" || typeof result.turn !== "number")
@@ -565,9 +548,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
         }
         lastTurn.current = result.turn;
         setCandidate({ text: result.text, turn: result.turn });
-      }).catch((error) => {
-        runtime.reportEligibility({ stage: "error", sessionId, message: String(error) });
-      });
+      }).catch(() => {});
     }, ASK_DELAY_MS);
     return () => {
       window.clearTimeout(timer);
@@ -606,6 +587,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     if (current === null || current.candidate === null)
       return false;
     const span = current.inputActions.captureInsertion();
+    focusComposer(rowRef.current);
     if (!current.inputActions.insertText(current.candidate.text, span))
       return false;
     current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
@@ -619,6 +601,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     current.inputActions.setDraft(current.candidate.text);
     current.inputActions.submit();
     current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
+    focusComposer(rowRef.current);
     setCandidate(null);
     return true;
   }, []);
@@ -627,6 +610,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     if (current !== null && current.candidate !== null) {
       current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
     }
+    focusComposer(rowRef.current);
     setCandidate(null);
   }, []);
   import_react5.default.useEffect(() => {
@@ -694,7 +678,7 @@ button:has(> [data-dca-navmark]) > svg { display: none; }
 button:has(> span > [data-dca-navmark]) > svg { display: none; }
 button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
 [data-dca-navmark] { display: inline-flex; flex: none; width: 16px; height: 16px; color: currentColor; }
-[data-dca-navtext] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-dca-navtext] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dca-recap {
   margin: 12px 0 0;
   color: var(--dsw-alias-label-secondary);
@@ -831,7 +815,6 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
   font-size: 12px;
   line-height: 18px;
 }
-.dca-debug { margin-top: 10px; color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 16px; }
 .dca-note-title { margin-bottom: 2px; color: var(--dsw-alias-label-primary); font-weight: 500; }
 `;
 function installStyles() {
@@ -846,8 +829,7 @@ function installStyles() {
 
 // packages/dsh-conversation-assist/src/ui/store.js
 var SETTINGS_ROUTE = "api/dsh-conversation-assist.settings";
-var SUGGEST_ROUTE = "api/dsh-conversation-assist.debug";
-var DEBUG_ROUTE = "api/dsh-conversation-assist.debug";
+var SUGGEST_ROUTE = "api/dsh-conversation-assist.rpc";
 function urlOf(route) {
   return new URL(route, document.baseURI);
 }
@@ -974,21 +956,12 @@ function createHiddenTurns() {
     }
   };
 }
-async function reportEligibility(report) {
-  try {
-    await fetch(urlOf(DEBUG_ROUTE), {
-      method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify(report)
-    });
-  } catch {}
-}
 async function requestSuggestion(sessionId, language, notBefore, signal) {
   try {
     const response = await fetch(urlOf(SUGGEST_ROUTE), {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ action: "suggest", sessionId, language, ...typeof notBefore === "number" ? { notBefore } : {} }),
+      body: JSON.stringify({ sessionId, language, ...typeof notBefore === "number" ? { notBefore } : {} }),
       signal
     });
     if (!response.ok)
@@ -1016,7 +989,7 @@ function apply(ctx) {
   const hidden = createHiddenTurns();
   let armedAt = startedAt;
   let wasPrediction = false;
-  const runtime = { hidden, language, requestSuggestion, reportEligibility, armedAt: () => armedAt };
+  const runtime = { hidden, language, requestSuggestion, armedAt: () => armedAt };
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor("zh"), en: dictionaryFor("en") }), "dsh-conversation-assist: dictionaries");
   ctx.effect(() => installStyles(), "dsh-conversation-assist: stylesheet");
   ctx.effect(() => settings.subscribe(() => {

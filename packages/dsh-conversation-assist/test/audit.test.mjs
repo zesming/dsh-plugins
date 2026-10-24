@@ -17,10 +17,12 @@ test('an audit row carries attribution and counts, never content', () => {
     finish: 'stop',
     outputChars: 12,
     durationMs: 800,
+    promptVersion: 4,
     usage: { inputTokens: 10, outputTokens: 3 },
   })
   assert.equal(record.sessionId, 's1')
   assert.equal(record.outputChars, 12)
+  assert.equal(record.promptVersion, 4)
   assert.deepEqual(record.usage, { inputTokens: 10, outputTokens: 3 })
   assert.equal('text' in record, false)
   assert.equal('messages' in record, false)

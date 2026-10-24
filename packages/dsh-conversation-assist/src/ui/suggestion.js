@@ -11,7 +11,20 @@ const h = React.createElement
 const ASK_DELAY_MS = 400
 
 /**
- * Render the next-suggestion row inside `conversation.composer.dock`.
+ * Return focus to the composer seat that owns this row, before the row unmounts.
+ * A bare DOM focus only works after the row's own card; scoping avoids the wrong
+ * composer when several are mounted.
+ * @param row - the suggestion row, or null.
+ */
+function focusComposer(row) {
+  if (typeof document === 'undefined') return
+  const scope = row?.parentElement ?? document
+  const input = scope.querySelector('[data-composer-input]')
+  if (input instanceof HTMLElement) input.focus()
+}
+
+/**
+ * Render the next-suggestion row inside `conversation.input.dock`.
  * @param props - Session id, standard hooks, input actions, translator, runtime.
  * @returns the row, or null when no candidate should show.
  */
@@ -22,54 +35,29 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
   const projection = useProjection('modelSelection')
   const modelKey = `${projection?.next?.provider ?? ''}/${projection?.next?.model ?? ''}`
   const [candidate, setCandidate] = React.useState(null)
-  const rowRef = React.useRef(null)
   const lastTurn = React.useRef(null)
   const previousModelKey = React.useRef(null)
   const wasRunning = React.useRef(false)
   const latest = React.useRef(null)
+  const rowRef = React.useRef(null)
   latest.current = { candidate, inputActions, sessionId, runtime }
 
   const canAsk = canRequest({ prediction: settings.prediction, sessionId, input, session })
 
-  const debugKey = JSON.stringify({
-    sessionId,
-    canAsk,
-    prediction: settings.prediction,
-    running: session.running ?? null,
-    draftLength: typeof input.draft === 'string' ? input.draft.length : null,
-    attachments: input.attachmentIds?.length ?? null,
-    occurrences: input.occurrences?.length ?? null,
-    queue: input.queue?.length ?? null,
-    phase: input.phase ?? null,
-    claim: input.claim === undefined || input.claim === null ? null : 'present',
-    pending: session.pendingSubmissions?.length ?? null,
-    subagent: session.subagent !== null && session.subagent !== undefined,
-    removed: session.removed === true,
-    modelKey,
-  })
-
   React.useEffect(() => {
-    // Temporary verification marker: the settings page reads the last mounted
-    // state even after this entry unmounts.
-    if (typeof window !== 'undefined') {
-      window.__dcaAssist = { mounted: true, canAsk, ...JSON.parse(debugKey) }
-    }
-    if (settings.prediction !== true) return
-    void runtime.reportEligibility(JSON.parse(debugKey))
-  }, [debugKey, runtime, settings.prediction, canAsk])
+    // The dock is normally remounted on a Session switch; keep a defensive
+    // reset for a retained entry so an old Turn cannot leak into the new one.
+    setCandidate(null)
+    lastTurn.current = null
+    previousModelKey.current = null
+    wasRunning.current = false
+  }, [sessionId])
 
   React.useEffect(() => {
     if (!canAsk) return undefined
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
-      void runtime.reportEligibility({ stage: 'timer', sessionId })
       void runtime.requestSuggestion(sessionId, runtime.language(), runtime.armedAt(), controller.signal).then((result) => {
-        void runtime.reportEligibility({
-          stage: 'fetch',
-          sessionId,
-          state: typeof result?.state === 'string' ? result.state : null,
-          turn: typeof result?.turn === 'number' ? result.turn : null,
-        })
         if (controller.signal.aborted) return
         if (result?.state !== 'ready' || typeof result.text !== 'string' || typeof result.turn !== 'number') return
         if (runtime.hidden.isHidden(sessionId, result.turn)) return
@@ -86,9 +74,7 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
         }
         lastTurn.current = result.turn
         setCandidate({ text: result.text, turn: result.turn })
-      }).catch(error => {
-        void runtime.reportEligibility({ stage: 'error', sessionId, message: String(error) })
-      })
+      }).catch(() => {})
     }, ASK_DELAY_MS)
     return () => {
       window.clearTimeout(timer)
@@ -128,6 +114,9 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     const current = latest.current
     if (current === null || current.candidate === null) return false
     const span = current.inputActions.captureInsertion()
+    // Focus first: Lexical only commits the post-insert caret to the DOM while
+    // the editor is focused; a bare focus afterwards lands at offset 0.
+    focusComposer(rowRef.current)
     if (!current.inputActions.insertText(current.candidate.text, span)) return false
     current.runtime.hidden.hide(current.sessionId, current.candidate.turn)
     setCandidate(null)
@@ -140,6 +129,7 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     current.inputActions.setDraft(current.candidate.text)
     current.inputActions.submit()
     current.runtime.hidden.hide(current.sessionId, current.candidate.turn)
+    focusComposer(rowRef.current)
     setCandidate(null)
     return true
   }, [])
@@ -149,6 +139,7 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     if (current !== null && current.candidate !== null) {
       current.runtime.hidden.hide(current.sessionId, current.candidate.turn)
     }
+    focusComposer(rowRef.current)
     setCandidate(null)
   }, [])
 

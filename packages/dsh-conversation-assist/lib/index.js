@@ -121,6 +121,9 @@ function createSuggestionGate({ limits = LIMITS, now = Date.now } = {}) {
       active = Math.max(0, active - 1);
     },
     remember(sessionId, turn, text) {
+      const previous = cache.get(sessionId);
+      if (previous !== undefined && previous.turn > turn)
+        return;
       cache.set(sessionId, text === undefined ? { turn, none: true } : { turn, text });
     },
     forgetCandidate(sessionId) {
@@ -193,6 +196,7 @@ function createAuditRecord(fields) {
     finish: typeof fields.finish === "string" ? fields.finish : null,
     outputChars: Number.isFinite(fields.outputChars) ? fields.outputChars : 0,
     durationMs: Number.isFinite(fields.durationMs) ? fields.durationMs : null,
+    promptVersion: Number.isFinite(fields.promptVersion) ? fields.promptVersion : null,
     error: typeof fields.error === "string" ? fields.error : null
   };
   if (fields.usage !== undefined && typeof fields.usage === "object" && fields.usage !== null) {
@@ -205,6 +209,7 @@ function createAuditRecord(fields) {
 }
 
 // packages/dsh-conversation-assist/src/host/predict.mjs
+var PROMPT_VERSION = 4;
 var SYSTEM = "You suggest the next prompt a user might type in a coding conversation. " + "Read the recent conversation and propose one concrete next prompt that continues the user's work, in the user's language. " + "Do not summarize or repeat the assistant's reply, do not mention its recap or UI, and do not answer optional offers. " + "If the recent exchange is a meta-discussion about the assistant's own suggestion or UI controls, or there is no clear next step, output nothing. " + "Output one line, at most 80 characters, with no quotes, labels, or explanation.";
 function routeFromHeader(header) {
   if (typeof header !== "object" || header === null)
@@ -245,6 +250,7 @@ function createPredictor({ getLlm, resolveRoute, audit, now = Date.now, limits =
           turn: turn?.turn,
           endSeq: turn?.endSeq,
           durationMs: now() - startedAt,
+          promptVersion: PROMPT_VERSION,
           ...fields
         });
         audit?.(row);
@@ -360,7 +366,7 @@ async function readJson(request) {
     return { ok: false };
   }
 }
-function createSettingsHandler({ getSettings, saveSettings, onSuggest }) {
+function createSettingsHandler({ getSettings, saveSettings }) {
   return async (request) => {
     if (request.method === "GET")
       return json(getSettings());
@@ -369,9 +375,6 @@ function createSettingsHandler({ getSettings, saveSettings, onSuggest }) {
     const body = await readJson(request);
     if (!body.ok)
       return json({ state: "error", error: body.tooLarge === true ? "too-large" : "invalid-json" }, body.tooLarge === true ? 413 : 400);
-    if (body.value?.action === "suggest" && typeof onSuggest === "function") {
-      return onSuggest(body.value);
-    }
     const patch = parseSettingsPatch(body.value);
     if (patch === null)
       return json({ state: "error", error: "invalid-patch" }, 400);
@@ -382,45 +385,11 @@ function createSettingsHandler({ getSettings, saveSettings, onSuggest }) {
     }
   };
 }
-function createDebugHandler({ onReport, onSuggest }) {
-  return async (request) => {
-    const body = await readJson(request);
-    if (!body.ok)
-      return json({ error: body.tooLarge === true ? "too-large" : "invalid-body" }, body.tooLarge === true ? 413 : 400);
-    if (typeof body.value !== "object" || body.value === null)
-      return json({ error: "invalid-body" }, 400);
-    if (body.value.action === "suggest" && typeof onSuggest === "function") {
-      try {
-        return await onSuggest(body.value);
-      } catch (error) {
-        onReport?.({ stage: "suggest-error", message: error instanceof Error ? error.message : String(error) });
-        return json({ state: "none" });
-      }
-    }
-    onReport?.(body.value);
-    return json({ ok: true });
-  };
-}
-function createSuggestValueHandler({ getSettings, getSession, getTurn, generate, onRequest }) {
+function createSuggestValueHandler({ getSettings, getSession, getTurn, generate }) {
   return async (value) => {
     const parsed = parseSuggestBody(value);
     if (parsed === null)
       return json({ state: "error", error: "invalid-body" }, 400);
-    const tracked = getTurn(parsed.sessionId);
-    onRequest?.({
-      stage: "request",
-      sessionId: parsed.sessionId,
-      language: parsed.language,
-      notBefore: parsed.notBefore ?? null,
-      prediction: getSettings().prediction === true,
-      hasSession: getSession(parsed.sessionId) !== undefined,
-      tracked: tracked === undefined ? null : {
-        turn: tracked.turn,
-        endSeq: tracked.endSeq ?? null,
-        endTime: tracked.endTime ?? null,
-        reason: tracked.reason?.kind ?? null
-      }
-    });
     if (getSettings().prediction !== true)
       return json({ state: "disabled" });
     const session = getSession(parsed.sessionId);
@@ -465,13 +434,14 @@ function resolveHome(env = process.env, home = homedir()) {
 }
 function statePaths(home) {
   const dir = join(home, "dsh-conversation-assist");
-  return { dir, settings: join(dir, "settings.json"), audit: join(dir, "audit.jsonl"), debug: join(dir, "debug.jsonl") };
+  return { dir, settings: join(dir, "settings.json"), audit: join(dir, "audit.jsonl") };
 }
 function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
   const paths = statePaths(home);
   let settings = { ...DEFAULT_SETTINGS };
   let warned = false;
   let saveQueue = Promise.resolve();
+  let auditQueue = Promise.resolve();
   const warn = (message, error) => {
     if (warned)
       return;
@@ -508,37 +478,33 @@ function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkd
       saveQueue = run.catch(() => {});
       return run;
     },
-    async appendDebug(record) {
-      try {
-        await fs.mkdir(paths.dir, { recursive: true });
-        await fs.appendFile(paths.debug, `${JSON.stringify(record)}
-`, "utf8");
-      } catch {}
-    },
-    async appendAudit(record) {
-      try {
-        await fs.mkdir(paths.dir, { recursive: true });
-        let size = 0;
+    appendAudit(record) {
+      const run = auditQueue.then(async () => {
         try {
-          size = (await fs.stat(paths.audit)).size;
-        } catch {}
-        if (size >= LIMITS.auditMaxBytes) {
-          await fs.rm(`${paths.audit}.1`, { force: true });
-          await fs.rename(paths.audit, `${paths.audit}.1`);
-        }
-        await fs.appendFile(paths.audit, `${JSON.stringify(record)}
+          await fs.mkdir(paths.dir, { recursive: true });
+          let size = 0;
+          try {
+            size = (await fs.stat(paths.audit)).size;
+          } catch {}
+          if (size >= LIMITS.auditMaxBytes) {
+            await fs.rm(`${paths.audit}.1`, { force: true });
+            await fs.rename(paths.audit, `${paths.audit}.1`);
+          }
+          await fs.appendFile(paths.audit, `${JSON.stringify(record)}
 `, "utf8");
-      } catch (error) {
-        warn("dsh-conversation-assist: audit write failed", error);
-      }
+        } catch (error) {
+          warn("dsh-conversation-assist: audit write failed", error);
+        }
+      });
+      auditQueue = run.catch(() => {});
+      return run;
     }
   };
 }
 
 // packages/dsh-conversation-assist/src/index.js
 var SETTINGS_PATH = "/api/dsh-conversation-assist.settings";
-var SUGGEST_PATH = "/api/dsh-conversation-assist.next";
-var DEBUG_PATH = "/api/dsh-conversation-assist.debug";
+var SUGGEST_PATH = "/api/dsh-conversation-assist.rpc";
 function apply(ctx) {
   const tracker = createTracker();
   const home = (() => {
@@ -580,10 +546,8 @@ function apply(ctx) {
     const pending = inflight.get(key);
     if (pending !== undefined)
       return pending;
-    if (!gate.take(session.id)) {
-      gate.remember(session.id, turn.turn, undefined);
+    if (!gate.take(session.id))
       return { state: "none" };
-    }
     const task = predictor.generate({ session, turn, language, signal: lifetime.signal }).then((result) => {
       gate.remember(session.id, turn.turn, result.state === "ready" ? result.text : undefined);
       return result.state === "ready" ? { ...result, route: turn.header ?? null } : result;
@@ -597,17 +561,12 @@ function apply(ctx) {
     inflight.set(key, task);
     return task;
   }
-  const suggestDeps = {
+  const suggestCore = createSuggestHandler({
     getSettings: () => state.getSettings(),
     getSession: (id) => ctx.get("sessions")?.get?.(id),
     getTurn: (id) => tracker.get(id),
-    generate: generateSuggestion,
-    onRequest: (info) => {
-      state.appendDebug({ at: Date.now(), kind: "request", ...info });
-    }
-  };
-  const suggestValue = createSuggestValueHandler(suggestDeps);
-  const suggestCore = createSuggestHandler(suggestDeps);
+    generate: generateSuggestion
+  });
   const suggestHandler = async (request) => {
     await ready;
     return suggestCore(request);
@@ -617,19 +576,12 @@ function apply(ctx) {
     saveSettings: async (patch) => {
       await ready;
       return state.saveSettings(patch);
-    },
-    onSuggest: suggestValue
+    }
   });
   const settingsHandler = async (request) => {
     await ready;
     return settingsCore(request);
   };
-  const debugHandler = createDebugHandler({
-    onReport: (report) => {
-      state.appendDebug({ at: Date.now(), kind: "eligibility", ...report });
-    },
-    onSuggest: suggestValue
-  });
   ctx.on("session/event", (session, event) => {
     tracker.observe(session, event);
     if (event.type === "turn/start")
@@ -643,22 +595,9 @@ function apply(ctx) {
     scope.effect(() => {
       const routes = [
         { path: SETTINGS_PATH, methods: ["GET", "POST"], requestBody: "buffered", fetch: settingsHandler },
-        { path: SUGGEST_PATH, methods: ["POST"], requestBody: "buffered", fetch: suggestHandler },
-        { path: DEBUG_PATH, methods: ["POST"], requestBody: "buffered", fetch: debugHandler }
+        { path: SUGGEST_PATH, methods: ["POST"], requestBody: "buffered", fetch: suggestHandler }
       ];
-      const disposers = [];
-      for (const route of routes) {
-        try {
-          disposers.push(scope.connection.fetch.register(route));
-        } catch (error) {
-          state.appendDebug({
-            at: Date.now(),
-            kind: "route-error",
-            path: route.path,
-            message: error instanceof Error ? error.message : String(error)
-          });
-        }
-      }
+      const disposers = routes.map((route) => scope.connection.fetch.register(route));
       return () => {
         for (const dispose of disposers)
           dispose();
@@ -667,7 +606,6 @@ function apply(ctx) {
   });
 }
 export {
-  DEBUG_PATH,
   SETTINGS_PATH,
   SUGGEST_PATH,
   apply

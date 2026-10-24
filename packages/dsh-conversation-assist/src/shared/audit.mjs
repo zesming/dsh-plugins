@@ -21,6 +21,7 @@ export function createAuditRecord(fields) {
     finish: typeof fields.finish === 'string' ? fields.finish : null,
     outputChars: Number.isFinite(fields.outputChars) ? fields.outputChars : 0,
     durationMs: Number.isFinite(fields.durationMs) ? fields.durationMs : null,
+    promptVersion: Number.isFinite(fields.promptVersion) ? fields.promptVersion : null,
     error: typeof fields.error === 'string' ? fields.error : null,
   }
   if (fields.usage !== undefined && typeof fields.usage === 'object' && fields.usage !== null) {

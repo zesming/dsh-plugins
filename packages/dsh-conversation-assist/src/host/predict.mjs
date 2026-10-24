@@ -79,6 +79,7 @@ export function createPredictor({ getLlm, resolveRoute, audit, now = Date.now, l
           turn: turn?.turn,
           endSeq: turn?.endSeq,
           durationMs: now() - startedAt,
+          promptVersion: PROMPT_VERSION,
           ...fields,
         })
         void audit?.(row)

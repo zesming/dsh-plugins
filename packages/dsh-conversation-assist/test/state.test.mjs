@@ -16,7 +16,6 @@ test('state paths live under the package directory', () => {
   assert.equal(paths.dir, '/tmp/harness/dsh-conversation-assist')
   assert.match(paths.settings, /settings\.json$/u)
   assert.match(paths.audit, /audit\.jsonl$/u)
-  assert.match(paths.debug, /debug\.jsonl$/u)
 })
 
 test('concurrent saves serialize instead of overwriting each other', async () => {
@@ -48,8 +47,6 @@ test('settings round-trip through the document and fall back on a bad file', asy
     const lines = (await readFile(statePaths(home).audit, 'utf8')).trim().split('\n')
     assert.equal(lines.length, 1)
     assert.equal(JSON.parse(lines[0]).session, 's1')
-    await store.appendDebug({ probe: true })
-    assert.deepEqual(JSON.parse((await readFile(statePaths(home).debug, 'utf8')).trim()), { probe: true })
     await writeFile(statePaths(home).settings, '{not json', 'utf8')
     const broken = createStateStore({ home })
     assert.deepEqual(await broken.load(), { recap: true, prediction: false })

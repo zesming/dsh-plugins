@@ -4,15 +4,13 @@ import { candidateKey } from './shared/prediction.mjs'
 import { createSuggestionGate } from './host/gate.mjs'
 import { createTracker } from './host/tracker.mjs'
 import { createPredictor, routeFromHeader, routeFromProjection } from './host/predict.mjs'
-import { createDebugHandler, createSettingsHandler, createSuggestHandler, createSuggestValueHandler } from './host/routes.mjs'
+import { createSettingsHandler, createSuggestHandler } from './host/routes.mjs'
 import { createStateStore, resolveHome } from './host/state.mjs'
 
 /** Settings route. */
 export const SETTINGS_PATH = '/api/dsh-conversation-assist.settings'
 /** Suggestion route. */
-export const SUGGEST_PATH = '/api/dsh-conversation-assist.next'
-/** Temporary eligibility-report route used during verification. */
-export const DEBUG_PATH = '/api/dsh-conversation-assist.debug'
+export const SUGGEST_PATH = '/api/dsh-conversation-assist.rpc'
 
 /**
  * Mount the Host half.
@@ -68,10 +66,14 @@ export function apply(ctx) {
     const key = candidateKey(session.id, turn.turn)
     const pending = inflight.get(key)
     if (pending !== undefined) return pending
-    if (!gate.take(session.id)) {
-      gate.remember(session.id, turn.turn, undefined)
-      return { state: 'none' }
-    }
+    // A cap rejection never reached the model: leave the Turn unremembered so
+    // a released concurrency slot can still serve it. Only a real attempt is
+    // negatively cached below.
+    if (!gate.take(session.id)) return { state: 'none' }
+    // Deliberately use the plugin lifetime, not the browser request signal: a
+    // draft edit cancels the fetch but the Host still finishes this Turn so the
+    // retained candidate can reappear without a second model call. The 8s
+    // prediction timeout bounds the attempt.
     const task = predictor.generate({ session, turn, language, signal: lifetime.signal })
       .then((result) => {
         gate.remember(session.id, turn.turn, result.state === 'ready' ? result.text : undefined)
@@ -89,16 +91,12 @@ export function apply(ctx) {
     return task
   }
 
-  const suggestDeps = {
+  const suggestCore = createSuggestHandler({
     getSettings: () => state.getSettings(),
     getSession: id => ctx.get('sessions')?.get?.(id),
     getTurn: id => tracker.get(id),
     generate: generateSuggestion,
-    // Temporary verification aid; remove before the merge.
-    onRequest: info => { void state.appendDebug({ at: Date.now(), kind: 'request', ...info }) },
-  }
-  const suggestValue = createSuggestValueHandler(suggestDeps)
-  const suggestCore = createSuggestHandler(suggestDeps)
+  })
   const suggestHandler = async (request) => { await ready; return suggestCore(request) }
   const settingsCore = createSettingsHandler({
     getSettings: () => state.getSettings(),
@@ -106,15 +104,8 @@ export function apply(ctx) {
       await ready
       return state.saveSettings(patch)
     },
-    // The app protocol intercepts the standalone suggestion path before our
-    // handler runs, so the proven settings path carries the suggestion action.
-    onSuggest: suggestValue,
   })
   const settingsHandler = async (request) => { await ready; return settingsCore(request) }
-  const debugHandler = createDebugHandler({
-    onReport: report => { void state.appendDebug({ at: Date.now(), kind: 'eligibility', ...report }) },
-    onSuggest: suggestValue,
-  })
 
   ctx.on('session/event', (session, event) => {
     tracker.observe(session, event)
@@ -130,23 +121,8 @@ export function apply(ctx) {
       const routes = [
         { path: SETTINGS_PATH, methods: ['GET', 'POST'], requestBody: 'buffered', fetch: settingsHandler },
         { path: SUGGEST_PATH, methods: ['POST'], requestBody: 'buffered', fetch: suggestHandler },
-        { path: DEBUG_PATH, methods: ['POST'], requestBody: 'buffered', fetch: debugHandler },
       ]
-      const disposers = []
-      // One bad route must not take the other two down; record why it failed in
-      // the verification log instead of losing the whole Host half.
-      for (const route of routes) {
-        try {
-          disposers.push(scope.connection.fetch.register(route))
-        } catch (error) {
-          void state.appendDebug({
-            at: Date.now(),
-            kind: 'route-error',
-            path: route.path,
-            message: error instanceof Error ? error.message : String(error),
-          })
-        }
-      }
+      const disposers = routes.map(route => scope.connection.fetch.register(route))
       return () => {
         for (const dispose of disposers) dispose()
       }

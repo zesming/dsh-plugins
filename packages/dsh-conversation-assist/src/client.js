@@ -6,7 +6,7 @@ import { SettingsSection } from './ui/settings.js'
 import { navLabel } from './ui/nav-label.js'
 import { SuggestionRow } from './ui/suggestion.js'
 import { installStyles } from './ui/styles.js'
-import { createHiddenTurns, createSettingsStore, reportEligibility, requestSuggestion, translate } from './ui/store.js'
+import { createHiddenTurns, createSettingsStore, requestSuggestion, translate } from './ui/store.js'
 
 /** Services this client plugin requires. */
 export const inject = ['slots', 'locale', 'uiConversation']
@@ -29,7 +29,7 @@ export function apply(ctx) {
   const hidden = createHiddenTurns()
   let armedAt = startedAt
   let wasPrediction = false
-  const runtime = { hidden, language, requestSuggestion, reportEligibility, armedAt: () => armedAt }
+  const runtime = { hidden, language, requestSuggestion, armedAt: () => armedAt }
 
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor('zh'), en: dictionaryFor('en') }), 'dsh-conversation-assist: dictionaries')
   ctx.effect(() => installStyles(), 'dsh-conversation-assist: stylesheet')

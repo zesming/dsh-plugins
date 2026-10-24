@@ -66,6 +66,9 @@ export function createSuggestionGate({ limits = LIMITS, now = Date.now } = {}) {
      * @param text - suggestion text, or undefined for an empty/failed attempt.
      */
     remember(sessionId, turn, text) {
+      const previous = cache.get(sessionId)
+      // A slow old Turn must not overwrite a newer Turn's cached outcome.
+      if (previous !== undefined && previous.turn > turn) return
       cache.set(sessionId, text === undefined ? { turn, none: true } : { turn, text })
     },
     /** @param sessionId - Session to forget the candidate for. */

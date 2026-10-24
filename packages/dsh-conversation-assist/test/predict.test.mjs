@@ -4,7 +4,7 @@ import test from 'node:test'
 import { LIMITS } from '../src/shared/limits.mjs'
 import { zh } from '../src/shared/locales.mjs'
 import { composeRecap } from '../src/shared/recap-text.mjs'
-import { createPredictor, routeFromHeader, routeFromProjection } from '../src/host/predict.mjs'
+import { PROMPT_VERSION, createPredictor, routeFromHeader, routeFromProjection } from '../src/host/predict.mjs'
 
 const session = {
   id: 's1',
@@ -63,6 +63,7 @@ test('predictor prepares one bounded call and sanitizes the stream', async () =>
   assert.equal(audit.length, 1)
   assert.equal(audit[0].outputChars, 12)
   assert.equal(audit[0].error, null)
+  assert.equal(audit[0].promptVersion, PROMPT_VERSION)
   assert.equal('text' in audit[0], false)
 })
 

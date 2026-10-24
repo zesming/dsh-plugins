@@ -8,7 +8,7 @@ button:has(> [data-dca-navmark]) > svg { display: none; }
 button:has(> span > [data-dca-navmark]) > svg { display: none; }
 button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
 [data-dca-navmark] { display: inline-flex; flex: none; width: 16px; height: 16px; color: currentColor; }
-[data-dca-navtext] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-dca-navtext] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dca-recap {
   margin: 12px 0 0;
   color: var(--dsw-alias-label-secondary);
@@ -145,7 +145,6 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
   font-size: 12px;
   line-height: 18px;
 }
-.dca-debug { margin-top: 10px; color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 16px; }
 .dca-note-title { margin-bottom: 2px; color: var(--dsw-alias-label-primary); font-weight: 500; }
 `
 

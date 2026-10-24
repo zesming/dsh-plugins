@@ -32,9 +32,9 @@ export const zh = {
   'settings.recap.name': '轮次回顾',
   'settings.recap.desc': '每轮结束后摘录本轮回复的开头一段作为要点。默认开启，不调用模型；关闭后所有回顾隐藏，正文与输入不变。',
   'settings.prediction.name': '下一条建议',
-  'settings.prediction.desc': '一轮正常完成后在输入框上方给出下一条可接受为草稿的建议。默认关闭；开启后每轮完成会额外发一次模型请求，关闭后无建议行、无请求，按键行为回到默认。',
+  'settings.prediction.desc': '一轮正常完成后在输入框上方给出一条下一条提示词，可填入草稿或直接发送。默认关闭；开启后每轮最多一次模型请求，受每日/并发上限约束，可能不发；关闭后无建议行、无请求。',
   'settings.note.title': '用量说明',
-  'settings.note.body': '开启「下一条建议」后，每轮完成会额外发一次模型请求；这次请求不会出现在 DSH 用量页，插件只保留自己的审计记录（请求摘要、模型路由、输出、token 数、时间，位置见 README）。回顾不调用模型，因此不产生这类请求。插件不展示、也不估算任何货币成本。',
+  'settings.note.body': '开启「下一条建议」后每轮最多产生一次辅助模型请求（受每日/并发上限约束），该请求不显示在 DSH 用量页，只写入插件审计（尽力而为）。',
   'settings.error': '设置未保存，请重试。',
 }
 
@@ -67,9 +67,9 @@ export const en = {
   'settings.recap.name': 'Turn recap',
   'settings.recap.desc': 'After each turn, the opening paragraph of the final reply appears below it. On by default; no model call. When off, every recap is hidden and the transcript and composer are unchanged.',
   'settings.prediction.name': 'Next-suggestion',
-  'settings.prediction.desc': 'After a completed turn, suggests a next message above the composer that you can accept as a draft. Off by default; when on, each completed turn sends one extra model request. When off, there is no row, no request, and keys behave as before.',
+  'settings.prediction.desc': 'After a completed turn, suggests a next prompt above the composer that you can insert as a draft or send. Off by default; when on, at most one model request per completed turn, subject to the daily and concurrency caps, so it may not fire. When off, there is no row and no request.',
   'settings.note.title': 'Usage',
-  'settings.note.body': 'With "Next-suggestion" on, every completed turn sends one extra model request. That request does not appear on the DSH usage page; the plugin keeps its own audit record (request summary, model route, output, token count, time; the README names the path). Recaps make no model calls and therefore no such requests. The plugin never shows or estimates a currency cost.',
+  'settings.note.body': 'With next-suggestion on, each turn makes at most one auxiliary model request (subject to the daily and concurrency caps); it is not shown on the DSH usage page and is recorded only in the plugin audit (best effort).',
   'settings.error': 'Settings were not saved. Try again.',
 }
 

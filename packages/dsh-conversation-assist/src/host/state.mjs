@@ -25,7 +25,7 @@ export function resolveHome(env = process.env, home = homedir()) {
  */
 export function statePaths(home) {
   const dir = join(home, 'dsh-conversation-assist')
-  return { dir, settings: join(dir, 'settings.json'), audit: join(dir, 'audit.jsonl'), debug: join(dir, 'debug.jsonl') }
+  return { dir, settings: join(dir, 'settings.json'), audit: join(dir, 'audit.jsonl') }
 }
 
 /**
@@ -40,6 +40,7 @@ export function createStateStore({ home = resolveHome(), logger, fs = { appendFi
   let settings = { ...DEFAULT_SETTINGS }
   let warned = false
   let saveQueue = Promise.resolve()
+  let auditQueue = Promise.resolve()
   const warn = (message, error) => {
     if (warned) return
     warned = true
@@ -88,38 +89,32 @@ export function createStateStore({ home = resolveHome(), logger, fs = { appendFi
       return run
     },
     /**
-     * Append one best-effort diagnostic row (temporary verification aid).
-     * @param record - small JSON-serializable object.
-     */
-    async appendDebug(record) {
-      try {
-        await fs.mkdir(paths.dir, { recursive: true })
-        await fs.appendFile(paths.debug, `${JSON.stringify(record)}\n`, 'utf8')
-      } catch {
-        // Diagnostics never affect the feature.
-      }
-    },
-    /**
      * Append one audit row, rotating the file once it reaches the cap.
      * @param record - JSON-serializable summary without message content.
      */
-    async appendAudit(record) {
-      try {
-        await fs.mkdir(paths.dir, { recursive: true })
-        let size = 0
+    appendAudit(record) {
+      // Serialize stat → rotate → append: two Sessions writing across the cap
+      // must not delete or rename each other's just-rotated file.
+      const run = auditQueue.then(async () => {
         try {
-          size = (await fs.stat(paths.audit)).size
-        } catch {
-          // A missing audit file is the normal first-write case.
+          await fs.mkdir(paths.dir, { recursive: true })
+          let size = 0
+          try {
+            size = (await fs.stat(paths.audit)).size
+          } catch {
+            // A missing audit file is the normal first-write case.
+          }
+          if (size >= LIMITS.auditMaxBytes) {
+            await fs.rm(`${paths.audit}.1`, { force: true })
+            await fs.rename(paths.audit, `${paths.audit}.1`)
+          }
+          await fs.appendFile(paths.audit, `${JSON.stringify(record)}\n`, 'utf8')
+        } catch (error) {
+          warn('dsh-conversation-assist: audit write failed', error)
         }
-        if (size >= LIMITS.auditMaxBytes) {
-          await fs.rm(`${paths.audit}.1`, { force: true })
-          await fs.rename(paths.audit, `${paths.audit}.1`)
-        }
-        await fs.appendFile(paths.audit, `${JSON.stringify(record)}\n`, 'utf8')
-      } catch (error) {
-        warn('dsh-conversation-assist: audit write failed', error)
-      }
+      })
+      auditQueue = run.catch(() => {})
+      return run
     },
   }
 }

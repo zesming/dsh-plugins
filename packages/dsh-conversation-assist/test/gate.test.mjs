@@ -15,6 +15,13 @@ test('a Turn is remembered with its outcome and forgotten on the next Turn', () 
   assert.deepEqual(gate.check('s1', 2), { hit: false })
 })
 
+test('a late old attempt cannot overwrite a newer Turn', () => {
+  const gate = createSuggestionGate()
+  gate.remember('s1', 2, 'newer')
+  gate.remember('s1', 1, 'older')
+  assert.deepEqual(gate.check('s1', 2), { hit: true, text: 'newer' })
+})
+
 test('the daily budget counts attempts per Session and survives a candidate reset', () => {
   const gate = createSuggestionGate({ limits: { dailyPerSession: 1, maxConcurrent: 2 } })
   assert.equal(gate.take('s1'), true)

@@ -36,15 +36,12 @@ async function readJson(request) {
  * @param deps - settings access and persistence.
  * @returns a fetch-compatible handler.
  */
-export function createSettingsHandler({ getSettings, saveSettings, onSuggest }) {
+export function createSettingsHandler({ getSettings, saveSettings }) {
   return async (request) => {
     if (request.method === 'GET') return json(getSettings())
     if (request.method !== 'POST') return json({ state: 'error', error: 'method' }, 405)
     const body = await readJson(request)
     if (!body.ok) return json({ state: 'error', error: body.tooLarge === true ? 'too-large' : 'invalid-json' }, body.tooLarge === true ? 413 : 400)
-    if (body.value?.action === 'suggest' && typeof onSuggest === 'function') {
-      return onSuggest(body.value)
-    }
     const patch = parseSettingsPatch(body.value)
     if (patch === null) return json({ state: 'error', error: 'invalid-patch' }, 400)
     try {
@@ -56,56 +53,14 @@ export function createSettingsHandler({ getSettings, saveSettings, onSuggest }) 
 }
 
 /**
- * Temporary eligibility-report route used during verification.
- * @param options.onReport - receives the small, content-free report.
- * @returns a fetch-compatible handler.
- */
-export function createDebugHandler({ onReport, onSuggest }) {
-  return async (request) => {
-    const body = await readJson(request)
-    if (!body.ok) return json({ error: body.tooLarge === true ? 'too-large' : 'invalid-body' }, body.tooLarge === true ? 413 : 400)
-    if (typeof body.value !== 'object' || body.value === null) return json({ error: 'invalid-body' }, 400)
-    if (body.value.action === 'suggest' && typeof onSuggest === 'function') {
-      try {
-        return await onSuggest(body.value)
-      } catch (error) {
-        onReport?.({ stage: 'suggest-error', message: error instanceof Error ? error.message : String(error) })
-        return json({ state: 'none' })
-      }
-    }
-    onReport?.(body.value)
-    return json({ ok: true })
-  }
-}
-
-/**
- * Suggestion core over an already-parsed body. The debug/settings dispatch can
- * call it without inventing a Request, which keeps the Host fetch primitive out
- * of the shared path.
+ * Suggestion core over an already-parsed body.
  * @param deps - settings, Session/Turn lookup, and the generator.
  * @returns a handler over the decoded object.
  */
-export function createSuggestValueHandler({ getSettings, getSession, getTurn, generate, onRequest }) {
+export function createSuggestValueHandler({ getSettings, getSession, getTurn, generate }) {
   return async (value) => {
     const parsed = parseSuggestBody(value)
     if (parsed === null) return json({ state: 'error', error: 'invalid-body' }, 400)
-    const tracked = getTurn(parsed.sessionId)
-    onRequest?.({
-      stage: 'request',
-      sessionId: parsed.sessionId,
-      language: parsed.language,
-      notBefore: parsed.notBefore ?? null,
-      prediction: getSettings().prediction === true,
-      hasSession: getSession(parsed.sessionId) !== undefined,
-      tracked: tracked === undefined
-        ? null
-        : {
-          turn: tracked.turn,
-          endSeq: tracked.endSeq ?? null,
-          endTime: tracked.endTime ?? null,
-          reason: tracked.reason?.kind ?? null,
-        },
-    })
     if (getSettings().prediction !== true) return json({ state: 'disabled' })
     const session = getSession(parsed.sessionId)
     if (session === undefined) return json({ state: 'none' })

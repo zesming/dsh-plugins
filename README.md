@@ -9,7 +9,7 @@ conventions.
 ```
 packages/
   dsh-deepseek-usage/     DeepSeek account balance and a token-usage heatmap
-  dsh-conversation-assist/ per-turn recap and optional next-message suggestions
+  dsh-conversation-assist/ per-turn recap and optional next-prompt suggestions
 scripts/
   build.mjs               builds every package's Host entry and browser bundle
 docs/images/              screenshots referenced by the READMEs
@@ -20,7 +20,7 @@ docs/images/              screenshots referenced by the READMEs
 | Package | What it does |
 |---|---|
 | [`dsh-deepseek-usage`](packages/dsh-deepseek-usage/) | Account balance and expiring credit in the sidebar; a token-usage heatmap by day, week, or weekly stack, split per model, with a peak/off-peak cost estimate |
-| [`dsh-conversation-assist`](packages/dsh-conversation-assist/) | A factual recap after each turn and an optional next-message suggestion you can accept as a draft; suggestions are off by default |
+| [`dsh-conversation-assist`](packages/dsh-conversation-assist/) | A factual recap after each turn and an optional next-prompt suggestion you can insert as a draft or send; suggestions are off by default |
 
 <p align="center">
   <img src="docs/images/usage-daily.png" alt="Usage page: KPI row, cost estimate, a daily token heatmap with one lane per model, and a per-model table" width="760">

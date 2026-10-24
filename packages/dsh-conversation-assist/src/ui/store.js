@@ -3,11 +3,9 @@
 import { NS, dictionaryFor, formatRow } from '../shared/locales.mjs'
 
 /** Settings route, addressed document-relative. */
-const SETTINGS_ROUTE = 'api/dsh-conversation-assist.settings'
+export const SETTINGS_ROUTE = 'api/dsh-conversation-assist.settings'
 /** Suggestion route, addressed document-relative. */
-const SUGGEST_ROUTE = 'api/dsh-conversation-assist.debug'
-/** Temporary eligibility-report route used during verification. */
-const DEBUG_ROUTE = 'api/dsh-conversation-assist.debug'
+export const SUGGEST_ROUTE = 'api/dsh-conversation-assist.rpc'
 
 /**
  * Resolve a document-relative route against the current page.
@@ -149,8 +147,8 @@ export function createSettingsStore({ language }) {
 }
 
 /**
- * Per-Session hidden markers: a Turn is consumed by Esc, close, accept, undo,
- * send, or a model switch; switching Session only hides temporarily.
+ * Per-Session hidden markers: a Turn is consumed by close, Send, ↙ insert, or a model switch; a
+ * Session switch remounts the row and the Host cache supplies the same Turn.
  * @returns hide/check/clear operations.
  */
 export function createHiddenTurns() {
@@ -176,22 +174,6 @@ export function createHiddenTurns() {
 }
 
 /**
- * Send one content-free eligibility snapshot to the verification log.
- * @param report - small plain object.
- */
-export async function reportEligibility(report) {
-  try {
-    await fetch(urlOf(DEBUG_ROUTE), {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify(report),
-    })
-  } catch {
-    // Diagnostics only.
-  }
-}
-
-/**
  * Ask the Host for the latest completed Turn's suggestion.
  * @param sessionId - Session identity.
  * @param language - active language.
@@ -203,7 +185,7 @@ export async function requestSuggestion(sessionId, language, notBefore, signal) 
     const response = await fetch(urlOf(SUGGEST_ROUTE), {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ action: 'suggest', sessionId, language, ...(typeof notBefore === 'number' ? { notBefore } : {}) }),
+      body: JSON.stringify({ sessionId, language, ...(typeof notBefore === 'number' ? { notBefore } : {}) }),
       signal,
     })
     if (!response.ok) return { state: 'none' }
