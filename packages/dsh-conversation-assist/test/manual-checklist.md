@@ -5,7 +5,8 @@ automated suite cannot cover focus, the real keyboard layer, theme tokens, or a
 resident Host.
 
 1. Install into a profile, restart, open the plugin list. A `dsh-conversation-assist`
-   row appears, and Settings has a **Conversation assist** page with two switches.
+   row appears, and Settings has a **Conversation assist** page with two switches. Its nav row
+   shows a lightbulb, not the gear; the rest of the Settings rows keep their shipped icons.
 2. With the defaults (recap on, suggestion off), complete a short turn. A recap
    appears below the last message, in secondary ink, with no suggestion row. No
    extra request is made.

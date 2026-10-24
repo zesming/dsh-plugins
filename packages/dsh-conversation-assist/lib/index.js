@@ -3,7 +3,7 @@
 var LIMITS = Object.freeze({
   maxOutputTokens: 1024,
   timeoutMs: 8000,
-  maxContextBytes: 8192,
+  maxContextBytes: 24576,
   maxMessages: 24,
   dailyPerSession: 50,
   maxConcurrent: 2,
@@ -205,7 +205,7 @@ function createAuditRecord(fields) {
 }
 
 // packages/dsh-conversation-assist/src/host/predict.mjs
-var SYSTEM = "You predict the user's next message in a coding conversation. " + "Read the conversation above and propose the single most likely next message from the user. " + "Output one line, at most 80 characters, with no quotes, labels, or explanation. " + "If there is no clear next step, output nothing.";
+var SYSTEM = "You predict the user's next message in a coding conversation. " + "Read the conversation above. Treat the last user message as the task in progress and propose the single most likely next message from that user about it. " + "Ignore optional offers, side notes, or secondary details in the assistant's last reply unless the last user message asked about them. " + "Output one line, at most 80 characters, with no quotes, labels, or explanation. " + "If there is no clear next step, output nothing.";
 function routeFromHeader(header) {
   if (typeof header !== "object" || header === null)
     return;

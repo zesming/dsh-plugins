@@ -3,6 +3,7 @@
 import { NS, dictionaryFor } from './shared/locales.mjs'
 import { createRecapDefinition, RecapTail } from './ui/recap.js'
 import { SettingsSection } from './ui/settings.js'
+import { navLabel } from './ui/nav-label.js'
 import { SuggestionRow } from './ui/suggestion.js'
 import { installStyles } from './ui/styles.js'
 import { createHiddenTurns, createSettingsStore, reportEligibility, requestSuggestion, translate } from './ui/store.js'
@@ -66,7 +67,7 @@ export function apply(ctx) {
     name: 'settings.section',
     id: 'conversation-assist',
     order: 6,
-    label: () => dictionaryFor(language())['settings.nav'],
+    label: () => navLabel(dictionaryFor(language())['settings.nav']),
     locale: NS,
     inject: () => ({ hooks: { settings }, store: settings }),
   }, SettingsSection))

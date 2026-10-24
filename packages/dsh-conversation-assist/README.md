@@ -24,13 +24,14 @@ suggestion without a second model call. Switching the model consumes that Turn, 
 suggestion belongs to the route that produced it.
 
 The row is above the composer card, not inside the editor, so it uses a lightbulb marker and an
-explicit Send control instead of accepting inline. Inline ghost text needs a host-level composer
-suggestion interface that this plugin does not have; that is tracked separately.
+explicit Send control instead of accepting inline. The public composer contract exposes the dock,
+but not an editor-inline decoration; drawing ghost text over the editor would depend on host
+internals, so that remains an upstream request rather than part of this plugin.
 
-The Settings navigation glyph is host-owned: `ui-settings-general`'s `SettingsRoot.tsx` maps known
-section ids and falls back to the settings gear for every other id. `settings.section` has no icon
-field, so this plugin cannot change the gear in the menu; its own page and the suggestion row use the
-lightbulb. Tracked for an upstream host change.
+The Settings row's label carries the plugin's lightbulb marker. The shell renders `label` as React
+children and falls back to the settings gear per section id; the plugin's stylesheet hides that
+glyph only in its own row and lays the marker in the gear's seat, so every other row keeps the
+shipped icon.
 
 ## Install
 

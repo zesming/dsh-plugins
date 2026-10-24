@@ -265,7 +265,7 @@ function factsValue(state) {
 var LIMITS = Object.freeze({
   maxOutputTokens: 1024,
   timeoutMs: 8000,
-  maxContextBytes: 8192,
+  maxContextBytes: 24576,
   maxMessages: 24,
   dailyPerSession: 50,
   maxConcurrent: 2,
@@ -456,8 +456,15 @@ function SettingsSection({ t, useSettings, store }) {
   }), h3("div", { className: "dca-note" }, h3("div", { className: "dca-note-title" }, t("settings.note.title")), h3("div", null, t("settings.note.body"))), h3("div", { className: "dca-debug" }, `诊断：row=${typeof window !== "undefined" && window.__dcaAssist?.mounted === true ? "mounted" : "absent"}` + ` · prediction=${String(state.prediction)}` + ` · canAsk=${String(typeof window !== "undefined" && window.__dcaAssist?.canAsk === true)}` + ` · running=${String(typeof window !== "undefined" ? window.__dcaAssist?.running : "-")}` + ` · draft=${String(typeof window !== "undefined" ? window.__dcaAssist?.draftLength : "-")}`));
 }
 
-// packages/dsh-conversation-assist/src/ui/suggestion.js
+// packages/dsh-conversation-assist/src/ui/nav-label.js
 var import_react4 = __toESM(require("react"), 1);
+var h4 = import_react4.default.createElement;
+function navLabel(text) {
+  return h4(import_react4.default.Fragment, null, h4("span", { "data-dca-navmark": "", "aria-hidden": "true" }, h4(HintIcon, { size: 16 })), h4("span", { "data-dca-navtext": "" }, text));
+}
+
+// packages/dsh-conversation-assist/src/ui/suggestion.js
+var import_react5 = __toESM(require("react"), 1);
 
 // packages/dsh-conversation-assist/src/shared/prediction.mjs
 function canRequest({ prediction, sessionId, input, session }) {
@@ -489,7 +496,7 @@ function canRequest({ prediction, sessionId, input, session }) {
 }
 
 // packages/dsh-conversation-assist/src/ui/suggestion.js
-var h4 = import_react4.default.createElement;
+var h5 = import_react5.default.createElement;
 var ASK_DELAY_MS = 400;
 function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSettings, inputActions, t, runtime }) {
   const settings = useSettings((state) => state);
@@ -497,12 +504,12 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
   const input = useInput((state) => state);
   const projection = useProjection("modelSelection");
   const modelKey = `${projection?.next?.provider ?? ""}/${projection?.next?.model ?? ""}`;
-  const [candidate, setCandidate] = import_react4.default.useState(null);
-  const rowRef = import_react4.default.useRef(null);
-  const lastTurn = import_react4.default.useRef(null);
-  const previousModelKey = import_react4.default.useRef(null);
-  const wasRunning = import_react4.default.useRef(false);
-  const latest = import_react4.default.useRef(null);
+  const [candidate, setCandidate] = import_react5.default.useState(null);
+  const rowRef = import_react5.default.useRef(null);
+  const lastTurn = import_react5.default.useRef(null);
+  const previousModelKey = import_react5.default.useRef(null);
+  const wasRunning = import_react5.default.useRef(false);
+  const latest = import_react5.default.useRef(null);
   latest.current = { candidate, inputActions, sessionId, runtime };
   const canAsk = canRequest({ prediction: settings.prediction, sessionId, input, session });
   const debugKey = JSON.stringify({
@@ -521,7 +528,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     removed: session.removed === true,
     modelKey
   });
-  import_react4.default.useEffect(() => {
+  import_react5.default.useEffect(() => {
     if (typeof window !== "undefined") {
       window.__dcaAssist = { mounted: true, canAsk, ...JSON.parse(debugKey) };
     }
@@ -529,7 +536,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
       return;
     runtime.reportEligibility(JSON.parse(debugKey));
   }, [debugKey, runtime, settings.prediction, canAsk]);
-  import_react4.default.useEffect(() => {
+  import_react5.default.useEffect(() => {
     if (!canAsk)
       return;
     const controller = new AbortController;
@@ -565,7 +572,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
       controller.abort();
     };
   }, [canAsk, sessionId, settings.prediction, modelKey, runtime]);
-  import_react4.default.useEffect(() => {
+  import_react5.default.useEffect(() => {
     if (previousModelKey.current === null) {
       previousModelKey.current = modelKey;
       return;
@@ -577,7 +584,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
       runtime.hidden.hide(sessionId, lastTurn.current);
     setCandidate(null);
   }, [modelKey, sessionId, runtime]);
-  import_react4.default.useEffect(() => {
+  import_react5.default.useEffect(() => {
     const running = session.running === true;
     if (running && !wasRunning.current && lastTurn.current !== null) {
       runtime.hidden.hide(sessionId, lastTurn.current);
@@ -585,14 +592,14 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     }
     wasRunning.current = running;
   }, [session.running, sessionId, runtime]);
-  import_react4.default.useEffect(() => {
+  import_react5.default.useEffect(() => {
     if (input.phase === "plain")
       return;
     if (lastTurn.current !== null)
       runtime.hidden.hide(sessionId, lastTurn.current);
     setCandidate(null);
   }, [input.phase, sessionId, runtime]);
-  const send = import_react4.default.useCallback(() => {
+  const send = import_react5.default.useCallback(() => {
     const current = latest.current;
     if (current === null || current.candidate === null)
       return false;
@@ -602,14 +609,14 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     setCandidate(null);
     return true;
   }, []);
-  const dismiss = import_react4.default.useCallback(() => {
+  const dismiss = import_react5.default.useCallback(() => {
     const current = latest.current;
     if (current !== null && current.candidate !== null) {
       current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
     }
     setCandidate(null);
   }, []);
-  import_react4.default.useEffect(() => {
+  import_react5.default.useEffect(() => {
     if (settings.prediction === true)
       return;
     if (lastTurn.current !== null)
@@ -618,12 +625,12 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
   }, [settings.prediction, sessionId, runtime]);
   if (candidate === null || !canAsk)
     return null;
-  return h4("div", {
+  return h5("div", {
     ref: rowRef,
     className: "dca-suggest",
     role: "group",
     "aria-label": t("suggestion.label")
-  }, h4(HintIcon, { className: "dca-mark" }), h4("span", { className: "dca-text", title: candidate.text }, candidate.text), h4("button", {
+  }, h5(HintIcon, { className: "dca-mark" }), h5("span", { className: "dca-text", title: candidate.text }, candidate.text), h5("button", {
     type: "button",
     className: "dca-send",
     title: t("suggestion.hint"),
@@ -633,7 +640,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     onClick: () => {
       send();
     }
-  }, t("suggestion.send")), h4("button", {
+  }, t("suggestion.send")), h5("button", {
     type: "button",
     className: "dca-dismiss",
     "aria-label": t("suggestion.dismiss"),
@@ -646,6 +653,14 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
 
 // packages/dsh-conversation-assist/src/ui/styles.js
 var CSS = `
+/* The shell draws one nav glyph per settings row and falls back to the gear for
+   unknown section ids. The label is React children, so this marker hides that
+   glyph only in our row and lays the lightbulb out in its seat. */
+button:has(> [data-dca-navmark]) > svg { display: none; }
+button:has(> span > [data-dca-navmark]) > svg { display: none; }
+button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+[data-dca-navmark] { display: inline-flex; flex: none; width: 16px; height: 16px; color: currentColor; }
+[data-dca-navtext] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dca-recap {
   margin: 12px 0 0;
   color: var(--dsw-alias-label-secondary);
@@ -980,7 +995,7 @@ function apply(ctx) {
     name: "settings.section",
     id: "conversation-assist",
     order: 6,
-    label: () => dictionaryFor(language())["settings.nav"],
+    label: () => navLabel(dictionaryFor(language())["settings.nav"]),
     locale: NS,
     inject: () => ({ hooks: { settings }, store: settings })
   }, SettingsSection));

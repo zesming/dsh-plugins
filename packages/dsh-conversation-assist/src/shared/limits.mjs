@@ -11,7 +11,7 @@ export const LIMITS = Object.freeze({
   /** End-to-end deadline for one suggestion, including stream assembly. */
   timeoutMs: 8_000,
   /** UTF-8 byte cap for the trimmed conversation tail. */
-  maxContextBytes: 8_192,
+  maxContextBytes: 24_576,
   /** Message-count cap for the trimmed conversation tail. */
   maxMessages: 24,
   /** Suggestions per session per local day. */
