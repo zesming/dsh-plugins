@@ -91,7 +91,7 @@ export function apply(ctx) {
 
   const suggestDeps = {
     getSettings: () => state.getSettings(),
-    getSession: id => ctx.sessions.get(id),
+    getSession: id => ctx.get('sessions')?.get?.(id),
     getTurn: id => tracker.get(id),
     generate: generateSuggestion,
     // Temporary verification aid; remove before the merge.

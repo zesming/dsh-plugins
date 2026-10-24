@@ -65,7 +65,14 @@ export function createDebugHandler({ onReport, onSuggest }) {
     const body = await readJson(request)
     if (!body.ok) return json({ error: body.tooLarge === true ? 'too-large' : 'invalid-body' }, body.tooLarge === true ? 413 : 400)
     if (typeof body.value !== 'object' || body.value === null) return json({ error: 'invalid-body' }, 400)
-    if (body.value.action === 'suggest' && typeof onSuggest === 'function') return onSuggest(body.value)
+    if (body.value.action === 'suggest' && typeof onSuggest === 'function') {
+      try {
+        return await onSuggest(body.value)
+      } catch (error) {
+        onReport?.({ stage: 'suggest-error', message: error instanceof Error ? error.message : String(error) })
+        return json({ state: 'none' })
+      }
+    }
     onReport?.(body.value)
     return json({ ok: true })
   }
