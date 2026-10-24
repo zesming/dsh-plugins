@@ -23,8 +23,8 @@
 - 选择器是唯一会搬运草稿的入口：`selectWorkspace` 在 `beforeOpen` 中把来源文字、引用和附件写入目标 Session，再把来源文字清空。[D4](evidence.md#项目草稿)
 - 搬运会**静默覆盖目标 blank Session 已有草稿**：`next.setDraft(draft)` 是整份替换，会连同目标的引用芯片一起换掉（附件则是追加合并）；现有 e2e 只覆盖“来源被清空”，没有“目标已有草稿”的用例。[C2](#新增证据)
 - 侧栏、Workspace 浏览器、New Session、新建/添加工作区、Agent preset 切换、启动恢复等入口都不搬运，各自保持原 Session 的草稿。原方案“统一所有项目切换入口”的描述过宽，需要修正。[C3](#新增证据)
-- 附件是浏览器运行时对象，不是引用计数：Session scope 释放时输入壳被销毁，逐个 `releaseDraftAttachment` 删除 File、撤销预览 URL、中止上传。搬运会把附件先移交目标再释放来源引用，所以附件能活过一次跳转；但离开目标时同样会释放。非搬运入口切走再回来，只恢复文字与引用芯片，附件不会回来。[C4](#新增证据)
-- 没有“非替换式”的插件入口：搬运是 `ui-conversation` 内部的闭包，hero 的 workspace 占位虽可被插件用更低优先级替换，但那是复刻整段选择器 UI，违反本仓库“不替换已发布组件”的约定。因此该项按上游修正处理。[D3](evidence.md#项目草稿)
+- 附件是浏览器运行时对象，本身没有引用计数：Session scope 释放时输入壳被销毁，逐个 `releaseDraftAttachment` 删除 File、撤销预览 URL、中止上传。搬运会把附件先移交目标再释放来源引用，所以附件能活过一次跳转；但离开目标时同样会释放。非搬运入口切走再回来，只恢复文字与引用芯片，附件不会回来。[C4](#新增证据)
+- 没有“非替换式”的插件入口：搬运是 `ui-conversation` 内部的闭包，hero 的 workspace 占位虽可被插件通过不同 priority 替换（最低者渲染），但那是复刻整段选择器 UI，违反本仓库“不替换已发布组件”的约定。因此该项按上游修正处理。[D3](evidence.md#项目草稿)
 
 ### 1.2 提示词预测：能做，但不是 ghost text
 
@@ -164,8 +164,8 @@ packages/dsh-conversation-assist/
 
 | 阶段 | 内容 | 出口条件 |
 |---|---|---|
-| M0 | 包骨架、单个 Config（`prediction` / `recap` 两组）、设置区、路由、字典、图标；把 `scripts/build.mjs` 与根 `package.json` 的测试路径改成遍历 `packages/*` | 安装后无副作用；重启后生效；卸载后无残留；`npm run check` 覆盖新包 |
-| M1 | `facts` recap | 五类终态文案快照；无模型调用、无新增 live region；卸载无残留 |
+| M0 | 包骨架、单个 Config（`prediction` / `recap` 两组）、设置区、路由、字典、图标；把 `scripts/build.mjs` 与根 `package.json` 的测试路径改成遍历 `packages/*`；按 CONTRIBUTING 对齐“包名 = factory id = patch 行名”、中英 `meta.title` / `description`、`files` / `exports`，提交前重建 `lib/` | 安装后无副作用；重启后生效；卸载后无残留；`npm run check` 覆盖新包 |
+| M1 | `facts` recap | 各终态与未知原因的文案快照；无模型调用、无新增 live region；卸载无残留 |
 | M2 | 预测（以第七节第 1 条为前提）：Host 候选 + 建议行 + 接受 + 失效 | 真实 UI 里建议不可见时 Tab 行为不变；可见时只接受建议；迟到结果不写入；不展示成本 |
 | M3 | `semantic` recap（同一前提） | 失败回退 facts；预算、超时、缓存生效；语言由请求决定 |
 | M4 | 加固 | 多客户端、重连、深浅主题、读屏、文档与成本说明 |
