@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { canRequest, languageName, parseSuggestBody, sanitizeSuggestion, trimHistory } from '../src/shared/prediction.mjs'
+import { canRequest, isMetaExchange, languageName, parseSuggestBody, sanitizeSuggestion, trimHistory } from '../src/shared/prediction.mjs'
 
 const base = {
   prediction: true,
@@ -102,4 +102,22 @@ test('languageName picks Chinese only for zh tags', () => {
   assert.equal(languageName('zh-CN'), 'Chinese')
   assert.equal(languageName('en-US'), 'English')
   assert.equal(languageName('fr'), 'English')
+})
+
+test('meta/acceptance exchanges are skipped and coding exchanges are not', () => {
+  const meta = [
+    { role: 'user', content: [{ type: 'text', text: '都正常' }] },
+    { role: 'assistant', content: [{ type: 'text', text: '已合并 PR #2 并清理，设置导航和建议条都正常。' }] },
+  ]
+  assert.equal(isMetaExchange(meta), true)
+  const complaint = [
+    { role: 'user', content: [{ type: 'text', text: '这次会话的建议又有问题了，看起来仍然是上次的 strip' }] },
+    { role: 'assistant', content: [{ type: 'text', text: '我查一下。' }] },
+  ]
+  assert.equal(isMetaExchange(complaint), true)
+  const coding = [
+    { role: 'user', content: [{ type: 'text', text: '把 README 的标题改一下' }] },
+    { role: 'assistant', content: [{ type: 'text', text: '已修改标题。' }] },
+  ]
+  assert.equal(isMetaExchange(coding), false)
 })

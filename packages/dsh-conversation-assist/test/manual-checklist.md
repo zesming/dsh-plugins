@@ -28,7 +28,8 @@ resident Host.
    row returns from the Host cache without a new model call or audit line. Switch the model;
    the row disappears and does not return for that turn. Send a message; the row
    disappears and does not return for that turn.
-8. Exercise the recap endings: stop a turn, make a request fail (offline/provider
+8. Say “all good” after a merge or discuss this plugin's own strip/recap; no suggestion row appears
+   and no audit line is written, while a normal coding task still gets one. Exercise the recap endings: stop a turn, make a request fail (offline/provider
    error), trigger a permission block, and a truncated turn. Each shows the
    matching sentence, never "task completed" unless the turn completed; an empty
    reply gets the neutral no-progress line.

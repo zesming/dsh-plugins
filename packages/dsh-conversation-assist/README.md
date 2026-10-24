@@ -110,6 +110,9 @@ Host.
   the plugin's audit file.
 - The suggestion never reads an unsent draft; only the ↙ insert or Send writes it into the draft,
   and Send also submits it. It never uses the clipboard.
+- Meta/acceptance exchanges (for example “all good” after a merge, or a turn about this plugin’s own
+  UI) return no suggestion and no model call; this prevents restating the previous message. The
+  model-side quality is tracked in the repository issue.
 
 ## Development
 

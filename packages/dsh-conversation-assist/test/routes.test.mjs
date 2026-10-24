@@ -27,7 +27,7 @@ test('settings route reads and writes the shared document', async () => {
 test('the value handler serves a suggestion without a Request', async () => {
   const handler = createSuggestValueHandler({
     getSettings: () => ({ prediction: true }),
-    getSession: () => ({ id: 's1', header: {} }),
+    getSession: () => ({ id: 's1', header: {}, deriveMessages: () => [{ role: 'user', content: [{ type: 'text', text: '把标题改一下' }] }, { role: 'assistant', content: [{ type: 'text', text: '已修改。' }] }] }),
     getTurn: () => ({ turn: 2, endSeq: 8, endTime: 100, reason: { kind: 'completed' } }),
     generate: async () => ({ state: 'ready', text: 'next', turn: 2, endSeq: 8 }),
   })
@@ -116,11 +116,31 @@ test('suggest route rejects a non-POST and an oversized body', async () => {
   assert.equal(oversized.status, 413)
 })
 
+test('a meta/acceptance exchange returns none before the model', async () => {
+  let generated = 0
+  const handler = createSuggestValueHandler({
+    getSettings: () => ({ prediction: true }),
+    getSession: () => ({
+      id: 's1',
+      header: {},
+      deriveMessages: () => [
+        { role: 'user', content: [{ type: 'text', text: '都正常' }] },
+        { role: 'assistant', content: [{ type: 'text', text: '已合并 PR #2 并清理，建议条正常。' }] },
+      ],
+    }),
+    getTurn: () => ({ turn: 2, endSeq: 8, endTime: 100, reason: { kind: 'completed' } }),
+    generate: async () => { generated += 1; return { state: 'ready', text: 'x', turn: 2, endSeq: 8 } },
+  })
+  const response = await handler({ sessionId: 's1', language: 'zh-CN' })
+  assert.deepEqual(await response.json(), { state: 'none' })
+  assert.equal(generated, 0)
+})
+
 test('suggest route returns the generated candidate and tolerates failures', async () => {
   const turn = { turn: 2, endSeq: 8, reason: { kind: 'completed' } }
   const ready = createSuggestHandler({
     getSettings: () => settings,
-    getSession: () => ({ id: 's1' }),
+    getSession: () => ({ id: 's1', deriveMessages: () => [{ role: 'user', content: [{ type: 'text', text: '把标题改一下' }] }, { role: 'assistant', content: [{ type: 'text', text: '已修改。' }] }] }),
     getTurn: () => turn,
     generate: async ({ language }) => ({ state: 'ready', text: language, turn: turn.turn, endSeq: turn.endSeq }),
   })
@@ -128,7 +148,7 @@ test('suggest route returns the generated candidate and tolerates failures', asy
   assert.deepEqual(body, { state: 'ready', text: 'zh-CN', turn: 2, endSeq: 8 })
   const failing = createSuggestHandler({
     getSettings: () => settings,
-    getSession: () => ({ id: 's1' }),
+    getSession: () => ({ id: 's1', deriveMessages: () => [{ role: 'user', content: [{ type: 'text', text: '把标题改一下' }] }, { role: 'assistant', content: [{ type: 'text', text: '已修改。' }] }] }),
     getTurn: () => turn,
     generate: async () => { throw new Error('model') },
   })
