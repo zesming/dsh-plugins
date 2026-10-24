@@ -112,7 +112,7 @@ Host.
   and Send also submits it. It never uses the clipboard.
 - Meta/acceptance exchanges (for example “all good” after a merge, or a turn about this plugin’s own
   UI) return no suggestion and no model call; this prevents restating the previous message. The
-  model-side quality is tracked in the repository issue.
+  model-side quality is tracked in [issue #4](https://github.com/zesming/dsh-plugins/issues/4).
 
 ## Development
 
