@@ -36,12 +36,15 @@ async function readJson(request) {
  * @param deps - settings access and persistence.
  * @returns a fetch-compatible handler.
  */
-export function createSettingsHandler({ getSettings, saveSettings }) {
+export function createSettingsHandler({ getSettings, saveSettings, onSuggest }) {
   return async (request) => {
     if (request.method === 'GET') return json(getSettings())
     if (request.method !== 'POST') return json({ state: 'error', error: 'method' }, 405)
     const body = await readJson(request)
     if (!body.ok) return json({ state: 'error', error: body.tooLarge === true ? 'too-large' : 'invalid-json' }, body.tooLarge === true ? 413 : 400)
+    if (body.value?.action === 'suggest' && typeof onSuggest === 'function') {
+      return onSuggest(body.value)
+    }
     const patch = parseSettingsPatch(body.value)
     if (patch === null) return json({ state: 'error', error: 'invalid-patch' }, 400)
     try {

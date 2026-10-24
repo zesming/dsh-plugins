@@ -360,7 +360,7 @@ async function readJson(request) {
     return { ok: false };
   }
 }
-function createSettingsHandler({ getSettings, saveSettings }) {
+function createSettingsHandler({ getSettings, saveSettings, onSuggest }) {
   return async (request) => {
     if (request.method === "GET")
       return json(getSettings());
@@ -369,6 +369,9 @@ function createSettingsHandler({ getSettings, saveSettings }) {
     const body = await readJson(request);
     if (!body.ok)
       return json({ state: "error", error: body.tooLarge === true ? "too-large" : "invalid-json" }, body.tooLarge === true ? 413 : 400);
+    if (body.value?.action === "suggest" && typeof onSuggest === "function") {
+      return onSuggest(body.value);
+    }
     const patch = parseSettingsPatch(body.value);
     if (patch === null)
       return json({ state: "error", error: "invalid-patch" }, 400);
@@ -580,13 +583,6 @@ function apply(ctx) {
     inflight.set(key, task);
     return task;
   }
-  const settingsCore = createSettingsHandler({
-    getSettings: () => state.getSettings(),
-    saveSettings: async (patch) => {
-      await ready;
-      return state.saveSettings(patch);
-    }
-  });
   const suggestCore = createSuggestHandler({
     getSettings: () => state.getSettings(),
     getSession: (id) => ctx.sessions.get(id),
@@ -596,13 +592,28 @@ function apply(ctx) {
       state.appendDebug({ at: Date.now(), kind: "request", ...info });
     }
   });
-  const settingsHandler = async (request) => {
-    await ready;
-    return settingsCore(request);
-  };
   const suggestHandler = async (request) => {
     await ready;
     return suggestCore(request);
+  };
+  const settingsCore = createSettingsHandler({
+    getSettings: () => state.getSettings(),
+    saveSettings: async (patch) => {
+      await ready;
+      return state.saveSettings(patch);
+    },
+    onSuggest: async (value) => {
+      const forwarded = new Request("http://conversation-assist.local/api/suggest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(value)
+      });
+      return suggestHandler(forwarded);
+    }
+  });
+  const settingsHandler = async (request) => {
+    await ready;
+    return settingsCore(request);
   };
   const debugHandler = createDebugHandler({
     onReport: (report) => {

@@ -790,7 +790,7 @@ function decideFixedInput({ gesture, context, visible }) {
 
 // packages/dsh-conversation-assist/src/ui/store.js
 var SETTINGS_ROUTE = "api/dsh-conversation-assist.settings";
-var SUGGEST_ROUTE = "api/dsh-conversation-assist.next";
+var SUGGEST_ROUTE = "api/dsh-conversation-assist.settings";
 var DEBUG_ROUTE = "api/dsh-conversation-assist.debug";
 function urlOf(route) {
   return new URL(route, document.baseURI);
@@ -932,7 +932,7 @@ async function requestSuggestion(sessionId, language, notBefore, signal) {
     const response = await fetch(urlOf(SUGGEST_ROUTE), {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ sessionId, language, ...typeof notBefore === "number" ? { notBefore } : {} }),
+      body: JSON.stringify({ action: "suggest", sessionId, language, ...typeof notBefore === "number" ? { notBefore } : {} }),
       signal
     });
     if (!response.ok)

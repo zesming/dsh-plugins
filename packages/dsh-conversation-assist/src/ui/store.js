@@ -5,7 +5,7 @@ import { NS, dictionaryFor, formatRow } from '../shared/locales.mjs'
 /** Settings route, addressed document-relative. */
 const SETTINGS_ROUTE = 'api/dsh-conversation-assist.settings'
 /** Suggestion route, addressed document-relative. */
-const SUGGEST_ROUTE = 'api/dsh-conversation-assist.next'
+const SUGGEST_ROUTE = 'api/dsh-conversation-assist.settings'
 /** Temporary eligibility-report route used during verification. */
 const DEBUG_ROUTE = 'api/dsh-conversation-assist.debug'
 
@@ -203,7 +203,7 @@ export async function requestSuggestion(sessionId, language, notBefore, signal) 
     const response = await fetch(urlOf(SUGGEST_ROUTE), {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ sessionId, language, ...(typeof notBefore === 'number' ? { notBefore } : {}) }),
+      body: JSON.stringify({ action: 'suggest', sessionId, language, ...(typeof notBefore === 'number' ? { notBefore } : {}) }),
       signal,
     })
     if (!response.ok) return { state: 'none' }

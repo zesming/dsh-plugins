@@ -24,6 +24,17 @@ test('settings route reads and writes the shared document', async () => {
   assert.equal(current.prediction, false)
 })
 
+test('settings route dispatches a suggestion action to the suggest handler', async () => {
+  const handler = createSettingsHandler({
+    getSettings: () => settings,
+    saveSettings: async () => settings,
+    onSuggest: async (value) => new Response(JSON.stringify({ state: 'none', action: value.action }), { status: 200 }),
+  })
+  const response = await handler(post({ action: 'suggest', sessionId: 's1', language: 'zh-CN' }))
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), { state: 'none', action: 'suggest' })
+})
+
 test('settings route rejects malformed writes and reports storage failures', async () => {
   const handler = createSettingsHandler({
     getSettings: () => settings,

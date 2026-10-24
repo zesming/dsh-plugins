@@ -89,13 +89,6 @@ export function apply(ctx) {
     return task
   }
 
-  const settingsCore = createSettingsHandler({
-    getSettings: () => state.getSettings(),
-    saveSettings: async (patch) => {
-      await ready
-      return state.saveSettings(patch)
-    },
-  })
   const suggestCore = createSuggestHandler({
     getSettings: () => state.getSettings(),
     getSession: id => ctx.sessions.get(id),
@@ -104,8 +97,25 @@ export function apply(ctx) {
     // Temporary verification aid; remove before the merge.
     onRequest: info => { void state.appendDebug({ at: Date.now(), kind: 'request', ...info }) },
   })
-  const settingsHandler = async (request) => { await ready; return settingsCore(request) }
   const suggestHandler = async (request) => { await ready; return suggestCore(request) }
+  const settingsCore = createSettingsHandler({
+    getSettings: () => state.getSettings(),
+    saveSettings: async (patch) => {
+      await ready
+      return state.saveSettings(patch)
+    },
+    // The app protocol intercepts the standalone suggestion path before our
+    // handler runs, so the proven settings path carries the suggestion action.
+    onSuggest: async (value) => {
+      const forwarded = new Request('http://conversation-assist.local/api/suggest', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(value),
+      })
+      return suggestHandler(forwarded)
+    },
+  })
+  const settingsHandler = async (request) => { await ready; return settingsCore(request) }
   const debugHandler = createDebugHandler({
     onReport: report => { void state.appendDebug({ at: Date.now(), kind: 'eligibility', ...report }) },
   })
