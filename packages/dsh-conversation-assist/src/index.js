@@ -121,26 +121,26 @@ export function apply(ctx) {
 
   ctx.inject(['connection'], (scope) => {
     scope.effect(() => {
-      const disposers = [
-        scope.connection.fetch.register({
-          path: SETTINGS_PATH,
-          methods: ['GET', 'POST'],
-          requestBody: 'buffered',
-          fetch: settingsHandler,
-        }),
-        scope.connection.fetch.register({
-          path: SUGGEST_PATH,
-          methods: ['POST'],
-          requestBody: 'buffered',
-          fetch: suggestHandler,
-        }),
-        scope.connection.fetch.register({
-          path: DEBUG_PATH,
-          methods: ['POST'],
-          requestBody: 'buffered',
-          fetch: debugHandler,
-        }),
+      const routes = [
+        { path: SETTINGS_PATH, methods: ['GET', 'POST'], requestBody: 'buffered', fetch: settingsHandler },
+        { path: SUGGEST_PATH, methods: ['POST'], requestBody: 'buffered', fetch: suggestHandler },
+        { path: DEBUG_PATH, methods: ['POST'], requestBody: 'buffered', fetch: debugHandler },
       ]
+      const disposers = []
+      // One bad route must not take the other two down; record why it failed in
+      // the verification log instead of losing the whole Host half.
+      for (const route of routes) {
+        try {
+          disposers.push(scope.connection.fetch.register(route))
+        } catch (error) {
+          void state.appendDebug({
+            at: Date.now(),
+            kind: 'route-error',
+            path: route.path,
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
       return () => {
         for (const dispose of disposers) dispose()
       }
