@@ -125,7 +125,7 @@ packages/dsh-conversation-assist/
 
 **接受**：点击“接受”是主入口；键盘支持用 `observeFixedInput` 观测，不 `registerFixed`，且只在建议可见、编辑器 `[data-composer-input]` 聚焦、`region === 'editable'`、非组合输入、`defaultPrevented === false` 时处理。默认接受键仍是 Tab / →（产品要求），但必须保证：Esc 先隐藏建议、Shift+Tab 永远是焦点导航、建议不可见时 Tab 行为不变；不接受 IME 组合、菜单打开、有选区或非空草稿。命中后重新 `captureInsertion()`，再 `insertText(text, span)`；失败则丢弃，不回退成覆盖整份草稿。若维护者认为“在输入框里按 Tab 接受”仍会困住键盘用户，降级为可配置快捷键（例如 Mod+Enter）并保留点击入口。
 
-**键盘边界（需实测）**：同页多个 composer 时必须按 `[data-conversation-session]` 绑定，不能全局查询；Desktop 的可配置快捷键在原生层派发，用户若把 Tab 绑到其他命令，DOM 观测会先看到 `defaultPrevented`，此时退让即可。
+**键盘边界（需实测）**：同页多个 composer 时必须按 `[data-conversation-session]` 绑定，不能全局查询；Desktop 的可配置快捷键在原生层派发，用户若把 Tab 绑到其他命令，DOM 观测可能收不到该按键，或收到时已被 `preventDefault`，两种情况都应安静退让。
 
 **预算**：默认关闭；开启后每轮最多一次、每 Session 每小时与每日上限、失败不重试。不可用、超时、超预算都不显示，也不阻塞输入。
 
