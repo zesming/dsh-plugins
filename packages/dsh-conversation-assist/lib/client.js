@@ -654,71 +654,103 @@ var CSS = `
   overflow-wrap: anywhere;
   white-space: normal;
 }
-.dca-suggest {
+'.dca-suggest {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
+  gap: 8px;
+  /* The same dock column as the queue/todo panels: side clearance plus the
+     card's dock inset, so the pill sits on the card's optical left edge. */
   width: 100%;
-  box-sizing: border-box;
-  min-width: 0;
-  margin: 0 0 8px;
-  padding: 0 16px;
+  max-width: 100%;
+  width: calc(
+    100% -
+    var(--dsh-composer-side-clearance) -
+    var(--dsh-composer-side-clearance) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset)
+  );
+  max-width: calc(
+    var(--dsh-composer-card-max-width) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset)
+  );
+  margin: 0 auto;
+  padding: 5px 8px 5px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-specific-menu);
+  backdrop-filter: var(--dsw-menu-backdrop-filter);
+  box-shadow: var(--dsw-elevation-panel);
   color: var(--dsw-alias-label-secondary);
   font: 400 13px/20px var(--dsw-font-family);
   container-type: inline-size;
 }
 .dca-mark {
-  margin-right: 6px;
+  flex: none;
   color: var(--dsw-alias-label-tertiary);
+  font-size: 14px;
+  line-height: 20px;
 }
 .dca-text {
-  min-width: 120px;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dca-gap { flex: 1 1 auto; }
+.dca-gap {
+  flex: 0 0 0;
+}
 .dca-keys {
   display: flex;
-  gap: 2px;
-  margin: 0 12px;
+  flex: none;
+  gap: 3px;
+  margin-left: auto;
   color: var(--dsw-alias-label-secondary);
 }
 .dca-keys kbd {
-  min-width: 18px;
-  height: 18px;
-  padding: 1px 4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 1px 5px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-bottom-width: 2px;
-  border-radius: var(--dsw-radius-xs, 4px);
+  border-radius: var(--dsw-radius-sm, 4px);
   background: var(--dsw-alias-bg-module-platform);
-  font: 500 11px/14px var(--dsw-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color: var(--dsw-alias-label-secondary);
+  font: 500 11px/16px var(--dsw-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
   text-align: center;
 }
 .dca-accept {
+  flex: none;
   height: 24px;
-  padding: 0 8px;
+  padding: 0 10px;
   border: 0;
   border-radius: var(--dsw-radius-sm, 8px);
   background: none;
   color: var(--dsw-alias-label-secondary);
-  font: 500 12px/18px var(--dsw-font-family);
+  font: 500 13px/20px var(--dsw-font-family);
   cursor: pointer;
 }
 .dca-accept:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-.dca-accept:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
+.dca-accept:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
 .dca-dismiss {
+  flex: none;
   width: 24px;
   height: 24px;
-  margin-left: 4px;
   border: 0;
   border-radius: var(--dsw-radius-sm, 8px);
   background: none;
   color: var(--dsw-alias-label-tertiary);
-  font: 400 12px/1 var(--dsw-font-family);
+  font: 400 14px/1 var(--dsw-font-family);
   cursor: pointer;
 }
 .dca-dismiss:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); }
-.dca-dismiss:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
+.dca-dismiss:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
 @container (max-width: 560px) {
   .dca-keys { display: none; }
 }
