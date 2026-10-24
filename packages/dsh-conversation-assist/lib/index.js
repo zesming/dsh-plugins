@@ -434,7 +434,7 @@ function resolveHome(env = process.env, home = homedir()) {
 }
 function statePaths(home) {
   const dir = join(home, "dsh-conversation-assist");
-  return { dir, settings: join(dir, "settings.json"), audit: join(dir, "audit.jsonl") };
+  return { dir, settings: join(dir, "settings.json"), audit: join(dir, "audit.jsonl"), debug: join(dir, "debug.jsonl") };
 }
 function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
   const paths = statePaths(home);
@@ -476,6 +476,13 @@ function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkd
       });
       saveQueue = run.catch(() => {});
       return run;
+    },
+    async appendDebug(record) {
+      try {
+        await fs.mkdir(paths.dir, { recursive: true });
+        await fs.appendFile(paths.debug, `${JSON.stringify(record)}
+`, "utf8");
+      } catch {}
     },
     async appendAudit(record) {
       try {

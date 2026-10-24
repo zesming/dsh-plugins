@@ -25,7 +25,7 @@ export function resolveHome(env = process.env, home = homedir()) {
  */
 export function statePaths(home) {
   const dir = join(home, 'dsh-conversation-assist')
-  return { dir, settings: join(dir, 'settings.json'), audit: join(dir, 'audit.jsonl') }
+  return { dir, settings: join(dir, 'settings.json'), audit: join(dir, 'audit.jsonl'), debug: join(dir, 'debug.jsonl') }
 }
 
 /**
@@ -86,6 +86,18 @@ export function createStateStore({ home = resolveHome(), logger, fs = { appendFi
       })
       saveQueue = run.catch(() => {})
       return run
+    },
+    /**
+     * Append one best-effort diagnostic row (temporary verification aid).
+     * @param record - small JSON-serializable object.
+     */
+    async appendDebug(record) {
+      try {
+        await fs.mkdir(paths.dir, { recursive: true })
+        await fs.appendFile(paths.debug, `${JSON.stringify(record)}\n`, 'utf8')
+      } catch {
+        // Diagnostics never affect the feature.
+      }
     },
     /**
      * Append one audit row, rotating the file once it reaches the cap.
