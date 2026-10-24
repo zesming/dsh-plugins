@@ -5,7 +5,7 @@ import { NS, dictionaryFor, formatRow } from '../shared/locales.mjs'
 /** Settings route, addressed document-relative. */
 const SETTINGS_ROUTE = 'api/dsh-conversation-assist.settings'
 /** Suggestion route, addressed document-relative. */
-const SUGGEST_ROUTE = 'api/dsh-conversation-assist.settings'
+const SUGGEST_ROUTE = 'api/dsh-conversation-assist.debug'
 /** Temporary eligibility-report route used during verification. */
 const DEBUG_ROUTE = 'api/dsh-conversation-assist.debug'
 

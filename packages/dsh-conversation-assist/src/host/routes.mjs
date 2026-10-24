@@ -60,11 +60,12 @@ export function createSettingsHandler({ getSettings, saveSettings, onSuggest }) 
  * @param options.onReport - receives the small, content-free report.
  * @returns a fetch-compatible handler.
  */
-export function createDebugHandler({ onReport }) {
+export function createDebugHandler({ onReport, onSuggest }) {
   return async (request) => {
     const body = await readJson(request)
     if (!body.ok) return json({ error: body.tooLarge === true ? 'too-large' : 'invalid-body' }, body.tooLarge === true ? 413 : 400)
     if (typeof body.value !== 'object' || body.value === null) return json({ error: 'invalid-body' }, 400)
+    if (body.value.action === 'suggest' && typeof onSuggest === 'function') return onSuggest(body.value)
     onReport?.(body.value)
     return json({ ok: true })
   }

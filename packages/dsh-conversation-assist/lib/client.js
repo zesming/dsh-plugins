@@ -790,7 +790,7 @@ function decideFixedInput({ gesture, context, visible }) {
 
 // packages/dsh-conversation-assist/src/ui/store.js
 var SETTINGS_ROUTE = "api/dsh-conversation-assist.settings";
-var SUGGEST_ROUTE = "api/dsh-conversation-assist.settings";
+var SUGGEST_ROUTE = "api/dsh-conversation-assist.debug";
 var DEBUG_ROUTE = "api/dsh-conversation-assist.debug";
 function urlOf(route) {
   return new URL(route, document.baseURI);

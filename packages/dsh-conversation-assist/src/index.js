@@ -98,6 +98,14 @@ export function apply(ctx) {
     onRequest: info => { void state.appendDebug({ at: Date.now(), kind: 'request', ...info }) },
   })
   const suggestHandler = async (request) => { await ready; return suggestCore(request) }
+  const forwardSuggest = async (value) => {
+    const forwarded = new Request('http://conversation-assist.local/api/suggest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(value),
+    })
+    return suggestHandler(forwarded)
+  }
   const settingsCore = createSettingsHandler({
     getSettings: () => state.getSettings(),
     saveSettings: async (patch) => {
@@ -106,18 +114,12 @@ export function apply(ctx) {
     },
     // The app protocol intercepts the standalone suggestion path before our
     // handler runs, so the proven settings path carries the suggestion action.
-    onSuggest: async (value) => {
-      const forwarded = new Request('http://conversation-assist.local/api/suggest', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(value),
-      })
-      return suggestHandler(forwarded)
-    },
+    onSuggest: forwardSuggest,
   })
   const settingsHandler = async (request) => { await ready; return settingsCore(request) }
   const debugHandler = createDebugHandler({
     onReport: report => { void state.appendDebug({ at: Date.now(), kind: 'eligibility', ...report }) },
+    onSuggest: forwardSuggest,
   })
 
   ctx.on('session/event', (session, event) => {

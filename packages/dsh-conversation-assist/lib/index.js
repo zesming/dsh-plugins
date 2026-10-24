@@ -382,13 +382,15 @@ function createSettingsHandler({ getSettings, saveSettings, onSuggest }) {
     }
   };
 }
-function createDebugHandler({ onReport }) {
+function createDebugHandler({ onReport, onSuggest }) {
   return async (request) => {
     const body = await readJson(request);
     if (!body.ok)
       return json({ error: body.tooLarge === true ? "too-large" : "invalid-body" }, body.tooLarge === true ? 413 : 400);
     if (typeof body.value !== "object" || body.value === null)
       return json({ error: "invalid-body" }, 400);
+    if (body.value.action === "suggest" && typeof onSuggest === "function")
+      return onSuggest(body.value);
     onReport?.(body.value);
     return json({ ok: true });
   };
@@ -596,20 +598,21 @@ function apply(ctx) {
     await ready;
     return suggestCore(request);
   };
+  const forwardSuggest = async (value) => {
+    const forwarded = new Request("http://conversation-assist.local/api/suggest", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(value)
+    });
+    return suggestHandler(forwarded);
+  };
   const settingsCore = createSettingsHandler({
     getSettings: () => state.getSettings(),
     saveSettings: async (patch) => {
       await ready;
       return state.saveSettings(patch);
     },
-    onSuggest: async (value) => {
-      const forwarded = new Request("http://conversation-assist.local/api/suggest", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(value)
-      });
-      return suggestHandler(forwarded);
-    }
+    onSuggest: forwardSuggest
   });
   const settingsHandler = async (request) => {
     await ready;
@@ -618,7 +621,8 @@ function apply(ctx) {
   const debugHandler = createDebugHandler({
     onReport: (report) => {
       state.appendDebug({ at: Date.now(), kind: "eligibility", ...report });
-    }
+    },
+    onSuggest: forwardSuggest
   });
   ctx.on("session/event", (session, event) => {
     tracker.observe(session, event);

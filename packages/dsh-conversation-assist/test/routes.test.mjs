@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { createSettingsHandler, createSuggestHandler } from '../src/host/routes.mjs'
+import { createDebugHandler, createSettingsHandler, createSuggestHandler } from '../src/host/routes.mjs'
 
 const settings = { recap: true, prediction: true }
 const post = (body) => new Request('http://host/api/x', {
@@ -22,6 +22,19 @@ test('settings route reads and writes the shared document', async () => {
   const write = await handler(post({ prediction: false }))
   assert.deepEqual(await write.json(), { recap: true, prediction: false })
   assert.equal(current.prediction, false)
+})
+
+test('debug route dispatches a suggestion action and keeps plain reports', async () => {
+  const reports = []
+  const handler = createDebugHandler({
+    onReport: report => reports.push(report),
+    onSuggest: async value => new Response(JSON.stringify({ state: 'none', action: value.action }), { status: 200 }),
+  })
+  const suggest = await handler(post({ action: 'suggest', sessionId: 's1', language: 'zh-CN' }))
+  assert.deepEqual(await suggest.json(), { state: 'none', action: 'suggest' })
+  const report = await handler(post({ canAsk: true }))
+  assert.deepEqual(await report.json(), { ok: true })
+  assert.equal(reports.length, 1)
 })
 
 test('settings route dispatches a suggestion action to the suggest handler', async () => {
