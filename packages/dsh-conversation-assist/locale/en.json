@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Conversation assist",
+    "description": "A short recap after each turn and a next-message suggestion you can accept as a draft. Suggestions are off by default."
+  }
+}
