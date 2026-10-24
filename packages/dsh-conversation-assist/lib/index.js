@@ -520,7 +520,7 @@ function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkd
 
 // packages/dsh-conversation-assist/src/index.js
 var SETTINGS_PATH = "/api/dsh-conversation-assist.settings";
-var SUGGEST_PATH = "/api/dsh-conversation-assist.suggest";
+var SUGGEST_PATH = "/api/dsh-conversation-assist.next";
 var DEBUG_PATH = "/api/dsh-conversation-assist.debug";
 function apply(ctx) {
   const tracker = createTracker();

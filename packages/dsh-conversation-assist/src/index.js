@@ -10,7 +10,7 @@ import { createStateStore, resolveHome } from './host/state.mjs'
 /** Settings route. */
 export const SETTINGS_PATH = '/api/dsh-conversation-assist.settings'
 /** Suggestion route. */
-export const SUGGEST_PATH = '/api/dsh-conversation-assist.suggest'
+export const SUGGEST_PATH = '/api/dsh-conversation-assist.next'
 /** Temporary eligibility-report route used during verification. */
 export const DEBUG_PATH = '/api/dsh-conversation-assist.debug'
 
