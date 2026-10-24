@@ -263,7 +263,7 @@ function factsValue(state) {
 
 // packages/dsh-conversation-assist/src/shared/limits.mjs
 var LIMITS = Object.freeze({
-  maxOutputTokens: 64,
+  maxOutputTokens: 1024,
   timeoutMs: 8000,
   maxContextBytes: 8192,
   maxMessages: 24,
