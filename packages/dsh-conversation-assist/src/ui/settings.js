@@ -71,5 +71,11 @@ export function SettingsSection({ t, useSettings, store }) {
     }),
     h('div', { className: 'dca-note' },
       h('div', { className: 'dca-note-title' }, t('settings.note.title')),
-      h('div', null, t('settings.note.body'))))
+      h('div', null, t('settings.note.body'))),
+    h('div', { className: 'dca-debug' },
+      `诊断：row=${typeof window !== 'undefined' && window.__dcaAssist?.mounted === true ? 'mounted' : 'absent'}`
+      + ` · prediction=${String(state.prediction)}`
+      + ` · canAsk=${String(typeof window !== 'undefined' && window.__dcaAssist?.canAsk === true)}`
+      + ` · running=${String(typeof window !== 'undefined' ? window.__dcaAssist?.running : '-')}`
+      + ` · draft=${String(typeof window !== 'undefined' ? window.__dcaAssist?.draftLength : '-')}`))
 }

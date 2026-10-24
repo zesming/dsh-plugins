@@ -110,6 +110,7 @@ const CSS = `
   font-size: 12px;
   line-height: 18px;
 }
+.dca-debug { margin-top: 10px; color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 16px; }
 .dca-note-title { margin-bottom: 2px; color: var(--dsw-alias-label-primary); font-weight: 500; }
 `
 

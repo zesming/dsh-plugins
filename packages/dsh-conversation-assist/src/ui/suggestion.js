@@ -48,9 +48,14 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
   })
 
   React.useEffect(() => {
+    // Temporary verification marker: the settings page reads the last mounted
+    // state even after this entry unmounts.
+    if (typeof window !== 'undefined') {
+      window.__dcaAssist = { mounted: true, canAsk, ...JSON.parse(debugKey) }
+    }
     if (settings.prediction !== true) return
     void runtime.reportEligibility(JSON.parse(debugKey))
-  }, [debugKey, runtime, settings.prediction])
+  }, [debugKey, runtime, settings.prediction, canAsk])
 
   React.useEffect(() => {
     if (!canAsk) {

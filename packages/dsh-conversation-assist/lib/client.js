@@ -441,7 +441,7 @@ function SettingsSection({ t, useSettings, store }) {
     errorText: t("settings.error"),
     t,
     onChange: change
-  }), h2("div", { className: "dca-note" }, h2("div", { className: "dca-note-title" }, t("settings.note.title")), h2("div", null, t("settings.note.body"))));
+  }), h2("div", { className: "dca-note" }, h2("div", { className: "dca-note-title" }, t("settings.note.title")), h2("div", null, t("settings.note.body"))), h2("div", { className: "dca-debug" }, `诊断：row=${typeof window !== "undefined" && window.__dcaAssist?.mounted === true ? "mounted" : "absent"}` + ` · prediction=${String(state.prediction)}` + ` · canAsk=${String(typeof window !== "undefined" && window.__dcaAssist?.canAsk === true)}` + ` · running=${String(typeof window !== "undefined" ? window.__dcaAssist?.running : "-")}` + ` · draft=${String(typeof window !== "undefined" ? window.__dcaAssist?.draftLength : "-")}`));
 }
 
 // packages/dsh-conversation-assist/src/ui/suggestion.js
@@ -512,10 +512,13 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     modelKey
   });
   import_react3.default.useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.__dcaAssist = { mounted: true, canAsk, ...JSON.parse(debugKey) };
+    }
     if (settings.prediction !== true)
       return;
     runtime.reportEligibility(JSON.parse(debugKey));
-  }, [debugKey, runtime, settings.prediction]);
+  }, [debugKey, runtime, settings.prediction, canAsk]);
   import_react3.default.useEffect(() => {
     if (!canAsk) {
       setCandidate(null);
@@ -746,6 +749,7 @@ var CSS = `
   font-size: 12px;
   line-height: 18px;
 }
+.dca-debug { margin-top: 10px; color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 16px; }
 .dca-note-title { margin-bottom: 2px; color: var(--dsw-alias-label-primary); font-weight: 500; }
 `;
 function installStyles() {
