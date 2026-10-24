@@ -11,10 +11,11 @@ resident Host.
    appears below the last message, in secondary ink, with no suggestion row. No
    extra request is made.
 3. Turn the suggestion switch on. Complete another turn. A row appears above the
-   composer: a lightbulb, the text, **Send**, and close.
-4. Click **Send**; the text is placed in the draft and submitted as a normal turn;
-   no draft is left behind. Click **Send** in a second turn; same result, and a
-   text selection elsewhere in the transcript does not block the click.
+   composer: a lightbulb, the text, **↙**, **Send**, and close.
+4. Click **↙**; the text becomes an editable draft and is not sent. Clear it.
+   Click **Send** in a second turn; the text is placed in the draft and submitted
+   as a normal turn; no draft is left behind. A text selection elsewhere in the
+   transcript does not block either click.
 5. Click the close control on a visible row; it disappears and does not come back
    for that turn. `Shift+Tab` still moves focus backward.
 6. Type a character, attach a file, add a reference chip, or queue a message while

@@ -15,8 +15,9 @@ Recaps are derived in the browser from the loaded Session events, so every loade
 including after a restart, and they need no network and make no model request.
 
 **Next suggestion.** When enabled, a completed turn may place one suggestion above the composer, in
-the input zone: the text, a **Send** control and a dismiss control. Send places the suggestion in
-the draft and submits it; nothing else is sent. The row exists only while the composer is empty, ordinary, idle and
+the input zone: the text, a small **↙** insert control, **Send**, and a dismiss control. Send places
+the suggestion in the draft and submits it; ↙ only inserts it as an editable draft; nothing else is
+sent. The row exists only while the composer is empty, ordinary, idle and
 free of attachments or reference chips; it disappears as soon as you type, attach something, send,
 switch model, or close the plugin, and returns immediately from the retained candidate when the
 composer is empty again. Switching Session only hides it: coming back shows the same
@@ -92,8 +93,8 @@ Host.
   rebuild from the loaded Session events for every Turn, including after a restart.
 - No tools, no `followup` / `inject`, and no Session writes: the auxiliary request is logged only in
   the plugin's audit file.
-- The suggestion never reads an unsent draft; only clicking Send writes it to the draft and submits
-  it. It never uses the clipboard.
+- The suggestion never reads an unsent draft; only the ↙ insert or Send writes it into the draft,
+  and Send also submits it. It never uses the clipboard.
 
 ## Development
 

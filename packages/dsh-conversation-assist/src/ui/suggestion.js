@@ -124,6 +124,16 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     setCandidate(null)
   }, [input.phase, sessionId, runtime])
 
+  const insert = React.useCallback(() => {
+    const current = latest.current
+    if (current === null || current.candidate === null) return false
+    const span = current.inputActions.captureInsertion()
+    if (!current.inputActions.insertText(current.candidate.text, span)) return false
+    current.runtime.hidden.hide(current.sessionId, current.candidate.turn)
+    setCandidate(null)
+    return true
+  }, [])
+
   const send = React.useCallback(() => {
     const current = latest.current
     if (current === null || current.candidate === null) return false
@@ -159,6 +169,26 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
   },
   h(HintIcon, { className: 'dca-mark' }),
   h('span', { className: 'dca-text', title: candidate.text }, candidate.text),
+  h('button', {
+    type: 'button',
+    className: 'dca-insert',
+    title: t('suggestion.insert'),
+    'aria-label': t('suggestion.insert'),
+    onMouseDown: event => { event.preventDefault() },
+    onClick: () => { insert() },
+  },
+  h('svg', {
+    viewBox: '0 0 16 16',
+    width: 16,
+    height: 16,
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': 'true',
+  },
+  h('path', { d: 'M13 3 3 13M3 13h7M3 13V6' }))),
   h('button', {
     type: 'button',
     className: 'dca-send',

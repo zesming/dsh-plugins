@@ -42,7 +42,9 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
     var(--dsh-composer-dock-inset, 0px)
   );
   margin: 0 auto calc(0px - var(--dsh-composer-stack-gap, 0px) - 3px);
-  padding: 0 12px;
+  /* The bottom inset is tucked under the card, so keep the content centered in
+     the visible part rather than in the full 36px box. */
+  padding: 0 12px calc(var(--dsh-composer-stack-gap, 0px) + 3px);
   min-height: 36px;
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-bottom: none;
@@ -64,6 +66,24 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.dca-insert, .dca-send, .dca-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dca-insert {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+.dca-insert:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.dca-insert:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
 .dca-send {
   flex: none;
   height: 24px;

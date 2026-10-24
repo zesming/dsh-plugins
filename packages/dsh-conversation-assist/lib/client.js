@@ -106,6 +106,7 @@ var zh = {
   "suggestion.label": "下一条建议",
   "suggestion.send": "发送",
   "suggestion.dismiss": "关闭建议",
+  "suggestion.insert": "填入输入框",
   "suggestion.hint": "直接发送这条建议",
   "settings.nav": "对话辅助",
   "settings.title": "对话辅助",
@@ -138,6 +139,7 @@ var en = {
   "suggestion.label": "Suggestion",
   "suggestion.send": "Send",
   "suggestion.dismiss": "Dismiss suggestion",
+  "suggestion.insert": "Insert into the composer",
   "suggestion.hint": "Send this suggestion",
   "settings.nav": "Conversation assist",
   "settings.title": "Conversation assist",
@@ -599,6 +601,17 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
       runtime.hidden.hide(sessionId, lastTurn.current);
     setCandidate(null);
   }, [input.phase, sessionId, runtime]);
+  const insert = import_react5.default.useCallback(() => {
+    const current = latest.current;
+    if (current === null || current.candidate === null)
+      return false;
+    const span = current.inputActions.captureInsertion();
+    if (!current.inputActions.insertText(current.candidate.text, span))
+      return false;
+    current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
+    setCandidate(null);
+    return true;
+  }, []);
   const send = import_react5.default.useCallback(() => {
     const current = latest.current;
     if (current === null || current.candidate === null)
@@ -631,6 +644,27 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     role: "group",
     "aria-label": t("suggestion.label")
   }, h5(HintIcon, { className: "dca-mark" }), h5("span", { className: "dca-text", title: candidate.text }, candidate.text), h5("button", {
+    type: "button",
+    className: "dca-insert",
+    title: t("suggestion.insert"),
+    "aria-label": t("suggestion.insert"),
+    onMouseDown: (event) => {
+      event.preventDefault();
+    },
+    onClick: () => {
+      insert();
+    }
+  }, h5("svg", {
+    viewBox: "0 0 16 16",
+    width: 16,
+    height: 16,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true"
+  }, h5("path", { d: "M13 3 3 13M3 13h7M3 13V6" }))), h5("button", {
     type: "button",
     className: "dca-send",
     title: t("suggestion.hint"),
@@ -694,7 +728,9 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
     var(--dsh-composer-dock-inset, 0px)
   );
   margin: 0 auto calc(0px - var(--dsh-composer-stack-gap, 0px) - 3px);
-  padding: 0 12px;
+  /* The bottom inset is tucked under the card, so keep the content centered in
+     the visible part rather than in the full 36px box. */
+  padding: 0 12px calc(var(--dsh-composer-stack-gap, 0px) + 3px);
   min-height: 36px;
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-bottom: none;
@@ -716,6 +752,24 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.dca-insert, .dca-send, .dca-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dca-insert {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+.dca-insert:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.dca-insert:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
 .dca-send {
   flex: none;
   height: 24px;
