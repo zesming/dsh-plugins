@@ -37,28 +37,39 @@ export function canRequest({ prediction, sessionId, input, session }) {
 export function trimHistory(messages, maxBytes = LIMITS.maxContextBytes, maxMessages = LIMITS.maxMessages) {
   if (!Array.isArray(messages) || messages.length === 0) return []
   const encoder = new TextEncoder()
+  // Group by user Turn. A Turn's tool calls and results must be kept or dropped
+  // together: a partial group is an invalid conversation for the adapter.
+  const groups = []
+  let current = null
+  for (const message of messages) {
+    if (message?.role === 'system' || message?.role === 'developer') continue
+    if (message?.role === 'user') {
+      current = [message]
+      groups.push(current)
+    } else if (current !== null) {
+      current.push(message)
+    }
+    // A tool/assistant message before the first user Turn is an orphan; drop it.
+  }
   const out = []
   let bytes = 0
-  for (let index = messages.length - 1; index >= 0 && out.length < maxMessages; index -= 1) {
-    const message = messages[index]
-    // The auxiliary call has its own system instruction; the agent's system and
-    // developer messages would duplicate that role and eat the byte budget.
-    if (message?.role === 'system' || message?.role === 'developer') continue
+  let count = 0
+  for (let index = groups.length - 1; index >= 0; index -= 1) {
+    const group = groups[index]
     let size = 0
     try {
-      size = encoder.encode(JSON.stringify(message)).length
+      size = encoder.encode(JSON.stringify(group)).length
     } catch {
       continue
     }
-    // A single oversized message is skipped rather than breaking the cap; an
-    // empty result simply means no suggestion.
+    // Keep whole Turns only; an oversized Turn is skipped rather than split.
     if (size > maxBytes) continue
+    if (count + group.length > maxMessages) break
     if (out.length > 0 && bytes + size > maxBytes) break
-    out.unshift(message)
+    out.unshift(...group)
     bytes += size
+    count += group.length
   }
-  // A tail that opens on a tool result would be rejected as an orphaned result.
-  while (out.length > 0 && out[0]?.role === 'tool') out.shift()
   return out
 }
 

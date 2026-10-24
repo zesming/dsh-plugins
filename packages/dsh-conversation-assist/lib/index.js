@@ -17,27 +17,39 @@ function trimHistory(messages, maxBytes = LIMITS.maxContextBytes, maxMessages = 
   if (!Array.isArray(messages) || messages.length === 0)
     return [];
   const encoder = new TextEncoder;
-  const out = [];
-  let bytes = 0;
-  for (let index = messages.length - 1;index >= 0 && out.length < maxMessages; index -= 1) {
-    const message = messages[index];
+  const groups = [];
+  let current = null;
+  for (const message of messages) {
     if (message?.role === "system" || message?.role === "developer")
       continue;
+    if (message?.role === "user") {
+      current = [message];
+      groups.push(current);
+    } else if (current !== null) {
+      current.push(message);
+    }
+  }
+  const out = [];
+  let bytes = 0;
+  let count = 0;
+  for (let index = groups.length - 1;index >= 0; index -= 1) {
+    const group = groups[index];
     let size = 0;
     try {
-      size = encoder.encode(JSON.stringify(message)).length;
+      size = encoder.encode(JSON.stringify(group)).length;
     } catch {
       continue;
     }
     if (size > maxBytes)
       continue;
+    if (count + group.length > maxMessages)
+      break;
     if (out.length > 0 && bytes + size > maxBytes)
       break;
-    out.unshift(message);
+    out.unshift(...group);
     bytes += size;
+    count += group.length;
   }
-  while (out.length > 0 && out[0]?.role === "tool")
-    out.shift();
   return out;
 }
 function sanitizeSuggestion(raw) {

@@ -42,18 +42,41 @@ test('trimHistory keeps the newest messages under both caps', () => {
   assert.equal(trimHistory([], 100, 10).length, 0)
 })
 
-test('trimHistory drops the agent system prompt, oversized messages and orphan tool results', () => {
+test('trimHistory drops system/developer messages and orphan tool output', () => {
   const messages = [
     { role: 'system', content: 'agent instructions' },
     { role: 'developer', content: 'dev' },
     { role: 'tool', content: 'orphan' },
     { role: 'user', content: 'hello' },
-    { role: 'assistant', content: 'x'.repeat(5000) },
-    { role: 'tool', content: 'y'.repeat(5000) },
+    { role: 'assistant', content: [{ type: 'text', text: 'hi' }] },
   ]
-  const tail = trimHistory(messages, 100, 24)
-  assert.deepEqual(tail.map(message => message.role), ['user'])
-  assert.equal(tail[0].content, 'hello')
+  const tail = trimHistory(messages, 8192, 24)
+  assert.deepEqual(tail.map(message => message.role), ['user', 'assistant'])
+})
+
+test('trimHistory never splits a Turn that contains a tool call and its result', () => {
+  const toolCall = { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'a', name: 'bash', arguments: {} }] }
+  const toolResult = { role: 'tool', toolCallId: 'a', content: [{ type: 'text', text: 'y'.repeat(5000) }] }
+  const text = { role: 'assistant', content: [{ type: 'text', text: 'done' }] }
+  const messages = [{ role: 'user', content: 'run it' }, toolCall, toolResult, text]
+  // The oversized Turn is skipped whole, not reduced to an unresolved call.
+  assert.deepEqual(trimHistory(messages, 2000, 24), [])
+  // A Turn that fits keeps the call and its result together.
+  const small = trimHistory(messages, 8192, 24)
+  assert.deepEqual(small.map(message => message.role), ['user', 'assistant', 'tool', 'assistant'])
+  assert.equal(small[1].content[0].toolCallId, 'a')
+  assert.equal(small[2].toolCallId, 'a')
+})
+
+test('trimHistory keeps whole newest Turns under both caps', () => {
+  const messages = [
+    { role: 'user', content: 'one' },
+    { role: 'assistant', content: 'a' },
+    { role: 'user', content: 'two' },
+    { role: 'assistant', content: 'b' },
+  ]
+  const tail = trimHistory(messages, 8192, 2)
+  assert.deepEqual(tail.map(message => message.content), ['two', 'b'])
 })
 
 test('sanitizeSuggestion returns one clean line or null', () => {
