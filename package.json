@@ -9,7 +9,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test packages/dsh-deepseek-usage/test/",
+    "test": "node scripts/test.mjs",
     "build": "node scripts/build.mjs",
     "check": "npm run build && npm test"
   },

@@ -1,0 +1,97 @@
+/** Locale namespace and dictionaries shared by the client entry and the tests. */
+
+/** Locale namespace owned by this plugin. */
+export const NS = 'conversation-assist'
+
+/** Chinese copy. */
+export const zh = {
+  'recap.completed': '回顾：{snippet}',
+  'recap.aborted': '已停止（{cause}）。{snippet}',
+  'recap.blocked': '被阻塞：需要你处理后才能继续。{snippet}',
+  'recap.error': '本轮失败{code}。{snippet}',
+  'recap.maxTokens': '输出达到上限被截断。{snippet}',
+  'recap.interrupted': '这是恢复闭合的轮次，不是新的完成轮。',
+  'recap.forked': '这是分叉时继承截断的轮次，不是新的完成轮。',
+  'recap.unknown': '本轮以未知原因结束；不假定成功或失败。',
+  'recap.noReply': '本轮没有文字回复。',
+  'recap.code': '（{code}）',
+  'recap.cause.user': '用户取消',
+  'recap.cause.parent': '父会话取消',
+  'recap.cause.hook': '被钩子取消',
+  'recap.cause.disposed': '会话被释放',
+  'recap.cause.legacy': '旧记录未注明原因',
+  'recap.cause.unknown': '原因未知',
+  'suggestion.label': '下一条建议',
+  'suggestion.send': '发送',
+  'suggestion.dismiss': '关闭建议',
+  'suggestion.insert': '填入输入框',
+  'suggestion.hint': '直接发送这条建议',
+  'settings.nav': '对话辅助',
+  'settings.title': '对话辅助',
+  'settings.intro': '两个开关在同一处；改动即时生效，重启 DSH 后保留。',
+  'settings.recap.name': '轮次回顾',
+  'settings.recap.desc': '每轮结束后摘录本轮回复的开头一段作为要点。默认开启，不调用模型；关闭后所有回顾隐藏，正文与输入不变。',
+  'settings.prediction.name': '下一条建议',
+  'settings.prediction.desc': '一轮正常完成后在输入框上方给出一条下一条提示词，可填入草稿或直接发送。默认关闭；开启后每轮最多一次模型请求，受每日/并发上限约束，可能不发；关闭后无建议行、无请求。',
+  'settings.note.title': '用量说明',
+  'settings.note.body': '开启「下一条建议」后每轮最多产生一次辅助模型请求（受每日/并发上限约束），该请求不显示在 DSH 用量页，只写入插件审计（尽力而为）。',
+  'settings.error': '设置未保存，请重试。',
+}
+
+/** English copy. */
+export const en = {
+  'recap.completed': 'Recap: {snippet}',
+  'recap.aborted': 'Stopped ({cause}). {snippet}',
+  'recap.blocked': 'Blocked: your action is needed before continuing. {snippet}',
+  'recap.error': 'Turn failed{code}. {snippet}',
+  'recap.maxTokens': 'Output hit the token limit and was truncated. {snippet}',
+  'recap.interrupted': 'This turn was closed during recovery; it is not a new completed turn.',
+  'recap.forked': 'This turn was inherited from a truncated fork; it is not a new completed turn.',
+  'recap.unknown': 'This turn ended for an unknown reason; success is not assumed.',
+  'recap.noReply': 'No reply text this turn.',
+  'recap.code': ' ({code})',
+  'recap.cause.user': 'cancelled by the user',
+  'recap.cause.parent': 'cancelled by the parent',
+  'recap.cause.hook': 'cancelled by a hook',
+  'recap.cause.disposed': 'the session was disposed',
+  'recap.cause.legacy': 'cancelled for a legacy reason',
+  'recap.cause.unknown': 'an unknown reason',
+  'suggestion.label': 'Suggestion',
+  'suggestion.send': 'Send',
+  'suggestion.dismiss': 'Dismiss suggestion',
+  'suggestion.insert': 'Insert into the composer',
+  'suggestion.hint': 'Send this suggestion',
+  'settings.nav': 'Conversation assist',
+  'settings.title': 'Conversation assist',
+  'settings.intro': 'Both switches live here. Changes apply immediately and survive a restart.',
+  'settings.recap.name': 'Turn recap',
+  'settings.recap.desc': 'After each turn, the opening paragraph of the final reply appears below it. On by default; no model call. When off, every recap is hidden and the transcript and composer are unchanged.',
+  'settings.prediction.name': 'Next-suggestion',
+  'settings.prediction.desc': 'After a completed turn, suggests a next prompt above the composer that you can insert as a draft or send. Off by default; when on, at most one model request per completed turn, subject to the daily and concurrency caps, so it may not fire. When off, there is no row and no request.',
+  'settings.note.title': 'Usage',
+  'settings.note.body': 'With next-suggestion on, each turn makes at most one auxiliary model request (subject to the daily and concurrency caps); it is not shown on the DSH usage page and is recorded only in the plugin audit (best effort).',
+  'settings.error': 'Settings were not saved. Try again.',
+}
+
+/**
+ * Pick the dictionary for a language tag.
+ * @param language - active UI language, e.g. `zh-CN`.
+ * @returns the matching dictionary, falling back to English.
+ */
+export function dictionaryFor(language) {
+  return typeof language === 'string' && language.toLowerCase().startsWith('zh') ? zh : en
+}
+
+/**
+ * Replace `{name}` placeholders without depending on the host translator.
+ * @param text - dictionary row.
+ * @param values - replacement values keyed by placeholder name.
+ * @returns the rendered string.
+ */
+export function formatRow(text, values = {}) {
+  if (typeof text !== 'string') return ''
+  return text.replace(/\{(\w+)\}/gu, (match, key) => {
+    const value = values[key]
+    return value === undefined ? match : String(value)
+  })
+}
