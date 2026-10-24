@@ -395,14 +395,9 @@ function createDebugHandler({ onReport, onSuggest }) {
     return json({ ok: true });
   };
 }
-function createSuggestHandler({ getSettings, getSession, getTurn, generate, onRequest }) {
-  return async (request) => {
-    if (request.method !== "POST")
-      return json({ state: "error", error: "method" }, 405);
-    const body = await readJson(request);
-    if (!body.ok)
-      return json({ state: "error", error: body.tooLarge === true ? "too-large" : "invalid-json" }, body.tooLarge === true ? 413 : 400);
-    const parsed = parseSuggestBody(body.value);
+function createSuggestValueHandler({ getSettings, getSession, getTurn, generate, onRequest }) {
+  return async (value) => {
+    const parsed = parseSuggestBody(value);
     if (parsed === null)
       return json({ state: "error", error: "invalid-body" }, 400);
     const tracked = getTurn(parsed.sessionId);
@@ -435,11 +430,22 @@ function createSuggestHandler({ getSettings, getSession, getTurn, generate, onRe
       return json({ state: "none" });
     }
     try {
-      const result = await generate({ session, turn, language: parsed.language, signal: request.signal });
+      const result = await generate({ session, turn, language: parsed.language });
       return json(result ?? { state: "none" });
     } catch {
       return json({ state: "none" });
     }
+  };
+}
+function createSuggestHandler(deps) {
+  const onValue = createSuggestValueHandler(deps);
+  return async (request) => {
+    if (request.method !== "POST")
+      return json({ state: "error", error: "method" }, 405);
+    const body = await readJson(request);
+    if (!body.ok)
+      return json({ state: "error", error: body.tooLarge === true ? "too-large" : "invalid-json" }, body.tooLarge === true ? 413 : 400);
+    return onValue(body.value);
   };
 }
 
@@ -585,7 +591,7 @@ function apply(ctx) {
     inflight.set(key, task);
     return task;
   }
-  const suggestCore = createSuggestHandler({
+  const suggestDeps = {
     getSettings: () => state.getSettings(),
     getSession: (id) => ctx.sessions.get(id),
     getTurn: (id) => tracker.get(id),
@@ -593,18 +599,12 @@ function apply(ctx) {
     onRequest: (info) => {
       state.appendDebug({ at: Date.now(), kind: "request", ...info });
     }
-  });
+  };
+  const suggestValue = createSuggestValueHandler(suggestDeps);
+  const suggestCore = createSuggestHandler(suggestDeps);
   const suggestHandler = async (request) => {
     await ready;
     return suggestCore(request);
-  };
-  const forwardSuggest = async (value) => {
-    const forwarded = new Request("http://conversation-assist.local/api/suggest", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(value)
-    });
-    return suggestHandler(forwarded);
   };
   const settingsCore = createSettingsHandler({
     getSettings: () => state.getSettings(),
@@ -612,7 +612,7 @@ function apply(ctx) {
       await ready;
       return state.saveSettings(patch);
     },
-    onSuggest: forwardSuggest
+    onSuggest: suggestValue
   });
   const settingsHandler = async (request) => {
     await ready;
@@ -622,7 +622,7 @@ function apply(ctx) {
     onReport: (report) => {
       state.appendDebug({ at: Date.now(), kind: "eligibility", ...report });
     },
-    onSuggest: forwardSuggest
+    onSuggest: suggestValue
   });
   ctx.on("session/event", (session, event) => {
     tracker.observe(session, event);

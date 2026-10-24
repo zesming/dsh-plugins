@@ -72,16 +72,15 @@ export function createDebugHandler({ onReport, onSuggest }) {
 }
 
 /**
- * Suggestion route: validate the request, then ask the predictor.
+ * Suggestion core over an already-parsed body. The debug/settings dispatch can
+ * call it without inventing a Request, which keeps the Host fetch primitive out
+ * of the shared path.
  * @param deps - settings, Session/Turn lookup, and the generator.
- * @returns a fetch-compatible handler.
+ * @returns a handler over the decoded object.
  */
-export function createSuggestHandler({ getSettings, getSession, getTurn, generate, onRequest }) {
-  return async (request) => {
-    if (request.method !== 'POST') return json({ state: 'error', error: 'method' }, 405)
-    const body = await readJson(request)
-    if (!body.ok) return json({ state: 'error', error: body.tooLarge === true ? 'too-large' : 'invalid-json' }, body.tooLarge === true ? 413 : 400)
-    const parsed = parseSuggestBody(body.value)
+export function createSuggestValueHandler({ getSettings, getSession, getTurn, generate, onRequest }) {
+  return async (value) => {
+    const parsed = parseSuggestBody(value)
     if (parsed === null) return json({ state: 'error', error: 'invalid-body' }, 400)
     const tracked = getTurn(parsed.sessionId)
     onRequest?.({
@@ -112,10 +111,25 @@ export function createSuggestHandler({ getSettings, getSession, getTurn, generat
       return json({ state: 'none' })
     }
     try {
-      const result = await generate({ session, turn, language: parsed.language, signal: request.signal })
+      const result = await generate({ session, turn, language: parsed.language })
       return json(result ?? { state: 'none' })
     } catch {
       return json({ state: 'none' })
     }
+  }
+}
+
+/**
+ * Suggestion route: decode the request, then delegate to the value handler.
+ * @param deps - settings, Session/Turn lookup, and the generator.
+ * @returns a fetch-compatible handler.
+ */
+export function createSuggestHandler(deps) {
+  const onValue = createSuggestValueHandler(deps)
+  return async (request) => {
+    if (request.method !== 'POST') return json({ state: 'error', error: 'method' }, 405)
+    const body = await readJson(request)
+    if (!body.ok) return json({ state: 'error', error: body.tooLarge === true ? 'too-large' : 'invalid-json' }, body.tooLarge === true ? 413 : 400)
+    return onValue(body.value)
   }
 }

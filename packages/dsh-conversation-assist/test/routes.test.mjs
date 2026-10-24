@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { createDebugHandler, createSettingsHandler, createSuggestHandler } from '../src/host/routes.mjs'
+import { createDebugHandler, createSettingsHandler, createSuggestHandler, createSuggestValueHandler } from '../src/host/routes.mjs'
 
 const settings = { recap: true, prediction: true }
 const post = (body) => new Request('http://host/api/x', {
@@ -22,6 +22,20 @@ test('settings route reads and writes the shared document', async () => {
   const write = await handler(post({ prediction: false }))
   assert.deepEqual(await write.json(), { recap: true, prediction: false })
   assert.equal(current.prediction, false)
+})
+
+test('the value handler serves a suggestion without a Request', async () => {
+  const reports = []
+  const handler = createSuggestValueHandler({
+    getSettings: () => ({ prediction: true }),
+    getSession: () => ({ id: 's1', header: {} }),
+    getTurn: () => ({ turn: 2, endSeq: 8, endTime: 100, reason: { kind: 'completed' } }),
+    generate: async () => ({ state: 'ready', text: 'next', turn: 2, endSeq: 8 }),
+    onRequest: info => reports.push(info),
+  })
+  const response = await handler({ action: 'suggest', sessionId: 's1', language: 'zh-CN' })
+  assert.deepEqual(await response.json(), { state: 'ready', text: 'next', turn: 2, endSeq: 8 })
+  assert.equal(reports[0].tracked.turn, 2)
 })
 
 test('debug route dispatches a suggestion action and keeps plain reports', async () => {
@@ -119,10 +133,10 @@ test('suggest route returns the generated candidate and tolerates failures', asy
     getSettings: () => settings,
     getSession: () => ({ id: 's1' }),
     getTurn: () => turn,
-    generate: async ({ language, signal }) => ({ state: 'ready', text: language, turn: turn.turn, endSeq: turn.endSeq, signal: signal instanceof AbortSignal }),
+    generate: async ({ language }) => ({ state: 'ready', text: language, turn: turn.turn, endSeq: turn.endSeq }),
   })
   const body = await (await ready(post({ sessionId: 's1', language: 'zh-CN' }))).json()
-  assert.deepEqual(body, { state: 'ready', text: 'zh-CN', turn: 2, endSeq: 8, signal: true })
+  assert.deepEqual(body, { state: 'ready', text: 'zh-CN', turn: 2, endSeq: 8 })
   const failing = createSuggestHandler({
     getSettings: () => settings,
     getSession: () => ({ id: 's1' }),
