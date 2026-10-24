@@ -53,6 +53,21 @@ export function createSettingsHandler({ getSettings, saveSettings }) {
 }
 
 /**
+ * Temporary eligibility-report route used during verification.
+ * @param options.onReport - receives the small, content-free report.
+ * @returns a fetch-compatible handler.
+ */
+export function createDebugHandler({ onReport }) {
+  return async (request) => {
+    const body = await readJson(request)
+    if (!body.ok) return json({ error: body.tooLarge === true ? 'too-large' : 'invalid-body' }, body.tooLarge === true ? 413 : 400)
+    if (typeof body.value !== 'object' || body.value === null) return json({ error: 'invalid-body' }, 400)
+    onReport?.(body.value)
+    return json({ ok: true })
+  }
+}
+
+/**
  * Suggestion route: validate the request, then ask the predictor.
  * @param deps - settings, Session/Turn lookup, and the generator.
  * @returns a fetch-compatible handler.

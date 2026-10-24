@@ -6,7 +6,7 @@ import { SettingsSection } from './ui/settings.js'
 import { SuggestionRow } from './ui/suggestion.js'
 import { installStyles } from './ui/styles.js'
 import { decideFixedInput } from './shared/keyboard.mjs'
-import { createHiddenTurns, createSettingsStore, requestSuggestion, translate } from './ui/store.js'
+import { createHiddenTurns, createSettingsStore, reportEligibility, requestSuggestion, translate } from './ui/store.js'
 
 /** Services this client plugin requires. */
 export const inject = ['slots', 'locale', 'uiConversation']
@@ -30,7 +30,7 @@ export function apply(ctx) {
   const accepts = new Map()
   let armedAt = startedAt
   let wasPrediction = false
-  const runtime = { hidden, accepts, language, requestSuggestion, armedAt: () => armedAt }
+  const runtime = { hidden, accepts, language, requestSuggestion, reportEligibility, armedAt: () => armedAt }
 
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor('zh'), en: dictionaryFor('en') }), 'dsh-conversation-assist: dictionaries')
   ctx.effect(() => installStyles(), 'dsh-conversation-assist: stylesheet')

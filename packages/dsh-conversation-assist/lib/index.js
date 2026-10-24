@@ -379,6 +379,17 @@ function createSettingsHandler({ getSettings, saveSettings }) {
     }
   };
 }
+function createDebugHandler({ onReport }) {
+  return async (request) => {
+    const body = await readJson(request);
+    if (!body.ok)
+      return json({ error: body.tooLarge === true ? "too-large" : "invalid-body" }, body.tooLarge === true ? 413 : 400);
+    if (typeof body.value !== "object" || body.value === null)
+      return json({ error: "invalid-body" }, 400);
+    onReport?.(body.value);
+    return json({ ok: true });
+  };
+}
 function createSuggestHandler({ getSettings, getSession, getTurn, generate, onRequest }) {
   return async (request) => {
     if (request.method !== "POST")
@@ -489,6 +500,7 @@ function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkd
 // packages/dsh-conversation-assist/src/index.js
 var SETTINGS_PATH = "/api/dsh-conversation-assist.settings";
 var SUGGEST_PATH = "/api/dsh-conversation-assist.suggest";
+var DEBUG_PATH = "/api/dsh-conversation-assist.debug";
 function apply(ctx) {
   const tracker = createTracker();
   const home = (() => {
@@ -571,6 +583,11 @@ function apply(ctx) {
     await ready;
     return suggestCore(request);
   };
+  const debugHandler = createDebugHandler({
+    onReport: (report) => {
+      state.appendDebug({ at: Date.now(), kind: "eligibility", ...report });
+    }
+  });
   ctx.on("session/event", (session, event) => {
     tracker.observe(session, event);
     if (event.type === "turn/start")
@@ -604,6 +621,7 @@ function apply(ctx) {
   });
 }
 export {
+  DEBUG_PATH,
   SETTINGS_PATH,
   SUGGEST_PATH,
   apply

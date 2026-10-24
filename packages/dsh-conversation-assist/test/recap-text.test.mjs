@@ -10,45 +10,35 @@ const value = (overrides = {}) => ({
   reasonKind: 'completed', cancelKind: undefined, errorCode: undefined, ...overrides,
 })
 
-test('completed recaps keep the failure and never claim the task is done', () => {
-  const text = composeRecap(value(), tFor(zh))
-  assert.match(text, /^本轮已结束/u)
-  assert.match(text, /3 个工具调用/u)
-  assert.match(text, /1 个失败/u)
-  assert.match(text, /有失败项需要处理/u)
+test('a completed recap carries the reply lead and no tool counts', () => {
+  const text = composeRecap(value({ lastText: '修复了 finish 契约。补了测试。' }), tFor(zh))
+  assert.match(text, /^本轮主要做了：/u)
+  assert.match(text, /修复了 finish 契约。/u)
+  assert.doesNotMatch(text, /工具调用|个失败|未确认|下一步由你决定/u)
   assert.doesNotMatch(text, /任务完成|全部完成|已上线|已发布成功/u)
   assert.ok(text.length <= 400)
 })
 
-test('completed recaps name the tools and quote the reply lead', () => {
-  const text = composeRecap(value({
-    failures: 0,
-    toolNames: ['bash', 'read'],
-    lastText: '修复了 finish 契约。补了测试。',
-  }), tFor(zh))
-  assert.match(text, /工具调用（bash、read）/u)
-  assert.match(text, /回复要点：修复了 finish 契约。/u)
-  assert.match(text, /没有失败或未确认项/u)
-  assert.doesNotMatch(text, /下一步由你决定/u)
+test('a completed turn without reply text says so plainly', () => {
+  assert.equal(composeRecap(value({ lastText: undefined }), tFor(zh)), '本轮没有文字回复。')
+  assert.equal(composeRecap(value({ lastText: undefined }), tFor(en)), 'No reply text this turn.')
 })
 
-test('a long reply is reduced to its first sentence and bounded', () => {
-  const text = composeRecap(value({
-    failures: 0,
-    calls: 0,
-    lastText: '第一句话在这里。第二句话不应该出现。',
-  }), tFor(zh))
-  assert.match(text, /回复要点：第一句话在这里。/u)
+test('the reply lead is the first sentence, bounded', () => {
+  const text = composeRecap(value({ lastText: '第一句话在这里。第二句话不应该出现。' }), tFor(zh))
+  assert.match(text, /第一句话在这里。/u)
   assert.doesNotMatch(text, /第二句话/u)
-  assert.ok(text.length <= 400)
+  const long = composeRecap(value({ lastText: '甲'.repeat(200) }), tFor(zh))
+  assert.ok([...long].length <= 400)
+  assert.match(long, /…$/u)
 })
 
 test('every terminal reason composes a sentence in both languages', () => {
   const cases = [
-    [{ reasonKind: 'aborted', cancelKind: 'user' }, /已停止（用户取消）/u, /Stopped \(cancelled by the user\)/u],
-    [{ reasonKind: 'blocked' }, /被阻塞/u, /Blocked/u],
-    [{ reasonKind: 'error', errorCode: 'RATE_LIMIT' }, /本轮失败（RATE_LIMIT）/u, /Turn failed \(RATE_LIMIT\)/u],
-    [{ reasonKind: 'max-tokens', hasReply: false }, /输出达到上限被截断/u, /Output hit the token limit/u],
+    [{ reasonKind: 'aborted', cancelKind: 'user', lastText: '已改完两处。' }, /已停止（用户取消）。已改完两处。/u, /Stopped \(cancelled by the user\)\. 已改完两处。/u],
+    [{ reasonKind: 'blocked', lastText: '等待权限。' }, /被阻塞：需要你处理后才能继续。等待权限。/u, /Blocked: your action is needed before continuing\. 等待权限。/u],
+    [{ reasonKind: 'error', errorCode: 'RATE_LIMIT', lastText: '重试了一次。' }, /本轮失败（RATE_LIMIT）。重试了一次。/u, /Turn failed \(RATE_LIMIT\)\. 重试了一次。/u],
+    [{ reasonKind: 'max-tokens', lastText: '输出到一半。' }, /输出达到上限被截断。输出到一半。/u, /Output hit the token limit and was truncated\. 输出到一半。/u],
     [{ reasonKind: 'interrupted' }, /恢复闭合/u, /closed during recovery/u],
     [{ reasonKind: 'forked' }, /分叉时继承截断/u, /inherited from a truncated fork/u],
     [{ reasonKind: 'unknown' }, /未知原因/u, /unknown reason/u],
@@ -63,16 +53,8 @@ test('every terminal reason composes a sentence in both languages', () => {
   }
 })
 
-test('a turn with no confirmable progress gets a neutral sentence', () => {
-  assert.match(composeRecap(value({ calls: 0, failures: 0, pending: 0, hasReply: false }), tFor(zh)), /没有可确认的新进展/u)
-  assert.match(composeRecap(value({ calls: 0, failures: 0, pending: 0, hasReply: false }), tFor(en)), /No confirmable progress/u)
-})
-
-test('pending and unconfirmed results are stated explicitly', () => {
-  const text = composeRecap(value({ pending: 2, unknown: 1, hasReply: false }), tFor(zh))
-  assert.match(text, /2 个结果未返回/u)
-  assert.match(text, /1 个结果未确认/u)
-  assert.match(text, /没有正文/u)
+test('an aborted turn without reply text still names the cause', () => {
+  assert.equal(composeRecap(value({ reasonKind: 'aborted', cancelKind: 'parent', lastText: undefined }), tFor(zh)), '已停止（父会话取消）。')
 })
 
 test('recap copy never uses the forbidden cost words', () => {

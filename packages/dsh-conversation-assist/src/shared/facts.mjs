@@ -15,7 +15,6 @@ export function emptyFacts(turn) {
   return {
     turn,
     calls: new Map(),
-    names: new Map(),
     hasReply: false,
     lastText: undefined,
     reasonKind: undefined,
@@ -28,7 +27,7 @@ export function emptyFacts(turn) {
 
 /** @param state - fold state. @returns a copy whose call map is independent. */
 function copy(state) {
-  return { ...state, calls: new Map(state.calls), names: new Map(state.names) }
+  return { ...state, calls: new Map(state.calls) }
 }
 
 /**
@@ -44,13 +43,7 @@ export function foldFacts(state, event) {
     const callId = String(event.data.callId ?? '')
     if (callId === '') return state
     const next = copy(state)
-    if (!next.calls.has(callId)) {
-      next.calls.set(callId, 'pending')
-      const name = typeof event.data.name === 'string' && /^[A-Za-z0-9._-]{1,40}$/u.test(event.data.name)
-        ? event.data.name
-        : 'tool'
-      next.names.set(callId, name)
-    }
+    if (!next.calls.has(callId)) next.calls.set(callId, 'pending')
     return next
   }
   if (event.type === 'tool/result') {
@@ -108,15 +101,9 @@ export function factsValue(state) {
     else if (status === 'unknown') unknown += 1
     else pending += 1
   }
-  const toolNames = []
-  for (const name of state.names.values()) {
-    if (!toolNames.includes(name)) toolNames.push(name)
-    if (toolNames.length >= 3) break
-  }
   return {
     turn: state.turn,
     calls: state.calls.size,
-    toolNames,
     lastText: state.lastText,
     failures,
     unknown,

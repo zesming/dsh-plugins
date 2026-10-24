@@ -4,13 +4,15 @@ import { candidateKey } from './shared/prediction.mjs'
 import { createSuggestionGate } from './host/gate.mjs'
 import { createTracker } from './host/tracker.mjs'
 import { createPredictor, routeFromHeader, routeFromProjection } from './host/predict.mjs'
-import { createSettingsHandler, createSuggestHandler } from './host/routes.mjs'
+import { createDebugHandler, createSettingsHandler, createSuggestHandler } from './host/routes.mjs'
 import { createStateStore, resolveHome } from './host/state.mjs'
 
 /** Settings route. */
 export const SETTINGS_PATH = '/api/dsh-conversation-assist.settings'
 /** Suggestion route. */
 export const SUGGEST_PATH = '/api/dsh-conversation-assist.suggest'
+/** Temporary eligibility-report route used during verification. */
+export const DEBUG_PATH = '/api/dsh-conversation-assist.debug'
 
 /**
  * Mount the Host half.
@@ -104,6 +106,9 @@ export function apply(ctx) {
   })
   const settingsHandler = async (request) => { await ready; return settingsCore(request) }
   const suggestHandler = async (request) => { await ready; return suggestCore(request) }
+  const debugHandler = createDebugHandler({
+    onReport: report => { void state.appendDebug({ at: Date.now(), kind: 'eligibility', ...report }) },
+  })
 
   ctx.on('session/event', (session, event) => {
     tracker.observe(session, event)

@@ -1,42 +1,7 @@
-/** Compose one recap sentence from folded Turn facts. */
+/** Compose the reply lead of one Turn, with its ending when it did not complete. */
 
 import { LIMITS } from './limits.mjs'
 import { formatRow } from './locales.mjs'
-
-/**
- * One counted phrase, choosing the singular row when needed.
- * @param t - dictionary lookup.
- * @param base - row prefix, e.g. `recap.parts.tools`.
- * @param count - non-zero count.
- * @returns the rendered phrase.
- */
-function counted(t, base, count) {
-  const key = count === 1 ? `${base}.one` : base
-  return formatRow(t(key), { n: count })
-}
-
-/**
- * The confirmed-parts clause of a recap.
- * @param value - folded facts.
- * @param t - dictionary lookup.
- * @returns a clause such as "已确认 3 个工具调用，1 个失败。", or "".
- */
-function detail(value, t) {
-  const parts = []
-  if (value.calls > 0) {
-    const tools = counted(t, 'recap.parts.tools', value.calls)
-    const names = Array.isArray(value.toolNames) && value.toolNames.length > 0
-      ? formatRow(t('recap.parts.toolNames'), { names: value.toolNames.join(t('recap.parts.toolJoin')) })
-      : ''
-    parts.push(`${tools}${names}`)
-  }
-  if (value.failures > 0) parts.push(counted(t, 'recap.parts.failures', value.failures))
-  if (value.unknown > 0) parts.push(counted(t, 'recap.parts.unknown', value.unknown))
-  if (value.pending > 0) parts.push(counted(t, 'recap.parts.pending', value.pending))
-  if (value.calls > 0 && !value.hasReply) parts.push(t('recap.parts.noReply'))
-  if (parts.length === 0) return ''
-  return formatRow(t('recap.detail'), { parts: parts.join(t('recap.parts.join')) })
-}
 
 /**
  * Resolve a cancellation cause, including unknown and future causes.
@@ -51,6 +16,26 @@ function cause(t, kind) {
 }
 
 /**
+ * First sentence of the final reply, stripped of leading markup and bounded.
+ * @param value - folded facts.
+ * @returns a snippet, or "".
+ */
+function snippet(value) {
+  if (typeof value.lastText !== 'string' || value.lastText === '') return ''
+  let text = value.lastText
+    .replace(/^[#>*\-\s]+/u, '')
+    .replace(/^```[\s\S]*?```/u, '')
+    .replace(/\s+/gu, ' ')
+    .trim()
+  if (text === '') return ''
+  const sentence = text.match(/^.*?[。！？.!?]/u)
+  if (sentence !== null) text = sentence[0]
+  const chars = [...text]
+  if (chars.length > 100) text = `${chars.slice(0, 100).join('')}…`
+  return text
+}
+
+/**
  * Ellipsize text at the hard recap bound.
  * @param text - composed sentence.
  * @param max - code-point-safe maximum.
@@ -62,76 +47,38 @@ export function truncateRecap(text, max = LIMITS.maxRecapChars) {
 }
 
 /**
- * First sentence of the final reply, bounded for a recap.
- * @param value - folded facts.
- * @returns a snippet, or "".
- */
-function reply(value, t) {
-  if (typeof value.lastText !== 'string' || value.lastText === '') return ''
-  let text = value.lastText
-    .replace(/^[#>*\-\s]+/u, '')
-    .replace(/^```[\s\S]*?```/u, '')
-    .trim()
-  if (text === '') return ''
-  const sentence = text.match(/^.*?[。！？.!?]/u)
-  if (sentence !== null) text = sentence[0]
-  const chars = [...text]
-  if (chars.length > 80) text = `${chars.slice(0, 80).join('')}…`
-  return formatRow(t('recap.reply'), { snippet: text })
-}
-
-/**
- * A factual closing clause instead of "next step is up to you".
- * @param value - folded facts.
- * @param t - dictionary lookup.
- * @returns the ending sentence.
- */
-function ending(value, t) {
-  if (value.failures > 0) return t('recap.ending.failures')
-  if (value.pending > 0 || value.unknown > 0) return t('recap.ending.pending')
-  return t('recap.ending.none')
-}
-
-/**
  * Compose the recap for one closed Turn.
  * @param value - facts published by the definition.
  * @param t - dictionary lookup returning localized rows.
- * @returns one or two sentences, or "" when no recap should render.
+ * @returns one sentence, or "" when no recap should render.
  */
 export function composeRecap(value, t) {
   if (typeof value !== 'object' || value === null) return ''
   const kind = typeof value.reasonKind === 'string' ? value.reasonKind : 'unknown'
+  const lead = snippet(value)
   let text
   switch (kind) {
-    case 'completed': {
-      const confirmed = detail(value, t)
-      if (confirmed === '' && value.hasReply !== true && value.calls === 0) {
-        text = t('recap.noProgress')
-        break
-      }
-      text = formatRow(t('recap.completed'), {
-        detail: confirmed,
-        reply: reply(value, t),
-        ending: ending(value, t),
-      })
+    case 'completed':
+      text = lead === ''
+        ? t('recap.noReply')
+        : formatRow(t('recap.completed'), { snippet: lead })
       break
-    }
     case 'aborted':
-      text = formatRow(t('recap.aborted'), { cause: cause(t, value.cancelKind ?? 'unknown'), detail: detail(value, t) })
+      text = formatRow(t('recap.aborted'), { cause: cause(t, value.cancelKind ?? 'unknown'), snippet: lead })
       break
     case 'blocked':
-      text = formatRow(t('recap.blocked'), { detail: detail(value, t) })
+      text = formatRow(t('recap.blocked'), { snippet: lead })
       break
     case 'error':
       text = formatRow(t('recap.error'), {
         code: typeof value.errorCode === 'string' && value.errorCode !== ''
           ? formatRow(t('recap.code'), { code: value.errorCode })
           : '',
-        detail: detail(value, t),
+        snippet: lead,
       })
       break
     case 'max-tokens':
-      text = formatRow(t('recap.maxTokens'), { detail: detail(value, t) })
+      text = formatRow(t('recap.maxTokens'), { snippet: lead })
       break
     case 'interrupted':
       text = t('recap.interrupted')

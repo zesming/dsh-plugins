@@ -30,6 +30,28 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
 
   const canAsk = canRequest({ prediction: settings.prediction, sessionId, input, session })
 
+  const debugKey = JSON.stringify({
+    sessionId,
+    canAsk,
+    prediction: settings.prediction,
+    running: session.running ?? null,
+    draftLength: typeof input.draft === 'string' ? input.draft.length : null,
+    attachments: input.attachmentIds?.length ?? null,
+    occurrences: input.occurrences?.length ?? null,
+    queue: input.queue?.length ?? null,
+    phase: input.phase ?? null,
+    claim: input.claim === undefined || input.claim === null ? null : 'present',
+    pending: session.pendingSubmissions?.length ?? null,
+    subagent: session.subagent !== null && session.subagent !== undefined,
+    removed: session.removed === true,
+    modelKey,
+  })
+
+  React.useEffect(() => {
+    if (settings.prediction !== true) return
+    void runtime.reportEligibility(JSON.parse(debugKey))
+  }, [debugKey, runtime, settings.prediction])
+
   React.useEffect(() => {
     if (!canAsk) {
       setCandidate(null)

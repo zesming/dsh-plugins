@@ -7,9 +7,9 @@ per completed turn.
 ## What it does
 
 **Turn recap.** After a turn closes, one or two secondary-ink sentences appear below the last message
-and above the action row. They name the tool calls and their outcomes, how the turn ended — completed,
-stopped, blocked, failed, truncated, or closed during recovery — and the first sentence of the final
-reply, so a completed turn reads as work rather than a count. A tool result is only "confirmed" when a non-error result arrived; a call with no result
+and above the action row. They carry the first sentence of the final reply, so a completed turn reads as work rather than a
+count, and name how the turn ended when it did not complete — stopped, blocked, failed, truncated,
+or closed during recovery. Tool counts and failure tallies are deliberately not shown. A tool result is only "confirmed" when a non-error result arrived; a call with no result
 stays pending. The copy never claims a task is done, deployed, or published when the turn only
 closed. Recaps are derived in the browser from the loaded Session events, so they need no network and
 make no model request, and they are not backfilled for turns that ended before the plugin started.

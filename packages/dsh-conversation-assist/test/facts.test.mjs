@@ -19,7 +19,6 @@ test('facts count calls, failures, unknown outcomes and pending results', () => 
   assert.deepEqual(factsValue(state), {
     turn: 1,
     calls: 3,
-    toolNames: ['bash', 'edit', 'web'],
     lastText: undefined,
     failures: 1,
     unknown: 1,

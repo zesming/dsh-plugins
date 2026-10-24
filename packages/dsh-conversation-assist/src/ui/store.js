@@ -6,6 +6,8 @@ import { NS, dictionaryFor, formatRow } from '../shared/locales.mjs'
 const SETTINGS_ROUTE = 'api/dsh-conversation-assist.settings'
 /** Suggestion route, addressed document-relative. */
 const SUGGEST_ROUTE = 'api/dsh-conversation-assist.suggest'
+/** Temporary eligibility-report route used during verification. */
+const DEBUG_ROUTE = 'api/dsh-conversation-assist.debug'
 
 /**
  * Resolve a document-relative route against the current page.
@@ -170,6 +172,22 @@ export function createHiddenTurns() {
     clear(sessionId) {
       hidden.delete(sessionId)
     },
+  }
+}
+
+/**
+ * Send one content-free eligibility snapshot to the verification log.
+ * @param report - small plain object.
+ */
+export async function reportEligibility(report) {
+  try {
+    await fetch(urlOf(DEBUG_ROUTE), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(report),
+    })
+  } catch {
+    // Diagnostics only.
   }
 }
 

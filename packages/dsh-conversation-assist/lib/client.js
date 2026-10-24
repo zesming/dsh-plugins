@@ -87,33 +87,16 @@ module.exports = __toCommonJS(exports_client);
 // packages/dsh-conversation-assist/src/shared/locales.mjs
 var NS = "conversation-assist";
 var zh = {
-  "recap.completed": "本轮已结束。{detail}{reply}{ending}",
-  "recap.aborted": "已停止（{cause}）。{detail}",
-  "recap.blocked": "被阻塞：需要你处理后才能继续。{detail}",
-  "recap.error": "本轮失败{code}。{detail}",
-  "recap.maxTokens": "输出达到上限被截断。{detail}",
+  "recap.completed": "本轮主要做了：{snippet}",
+  "recap.aborted": "已停止（{cause}）。{snippet}",
+  "recap.blocked": "被阻塞：需要你处理后才能继续。{snippet}",
+  "recap.error": "本轮失败{code}。{snippet}",
+  "recap.maxTokens": "输出达到上限被截断。{snippet}",
   "recap.interrupted": "这是恢复闭合的轮次，不是新的完成轮。",
   "recap.forked": "这是分叉时继承截断的轮次，不是新的完成轮。",
   "recap.unknown": "本轮以未知原因结束；不假定成功或失败。",
-  "recap.detail": "已确认 {parts}。",
-  "recap.noProgress": "本轮没有可确认的新进展。",
-  "recap.reply": "回复要点：{snippet}",
-  "recap.parts.toolJoin": "、",
-  "recap.ending.none": "没有失败或未确认项。",
-  "recap.ending.failures": "有失败项需要处理。",
-  "recap.ending.pending": "还有结果未确认，建议先核对。",
+  "recap.noReply": "本轮没有文字回复。",
   "recap.code": "（{code}）",
-  "recap.parts.join": "，",
-  "recap.parts.tools": "{n} 个工具调用",
-  "recap.parts.tools.one": "{n} 个工具调用",
-  "recap.parts.toolNames": "（{names}）",
-  "recap.parts.failures": "{n} 个失败",
-  "recap.parts.failures.one": "{n} 个失败",
-  "recap.parts.pending": "{n} 个结果未返回",
-  "recap.parts.pending.one": "{n} 个结果未返回",
-  "recap.parts.unknown": "{n} 个结果未确认",
-  "recap.parts.unknown.one": "{n} 个结果未确认",
-  "recap.parts.noReply": "没有正文",
   "recap.cause.user": "用户取消",
   "recap.cause.parent": "父会话取消",
   "recap.cause.hook": "被钩子取消",
@@ -128,7 +111,7 @@ var zh = {
   "settings.title": "对话辅助",
   "settings.intro": "两个开关在同一处；改动即时生效，重启 DSH 后保留。",
   "settings.recap.name": "轮次回顾",
-  "settings.recap.desc": "每轮结束后用一两句话说明工具调用、失败或未确认项，并带一句回复要点。默认开启，不调用模型；关闭后新轮次不再出现回顾，正文与输入不变。",
+  "settings.recap.desc": "每轮结束后用一句话摘录本轮回复的要点。默认开启，不调用模型；关闭后新轮次不再出现回顾，正文与输入不变。",
   "settings.prediction.name": "下一条建议",
   "settings.prediction.desc": "一轮正常完成后在输入框上方给出下一条可接受为草稿的建议。默认关闭；开启后每轮完成会额外发一次模型请求，关闭后无建议行、无请求，按键行为回到默认。",
   "settings.note.title": "用量说明",
@@ -136,33 +119,16 @@ var zh = {
   "settings.error": "设置未保存，请重试。"
 };
 var en = {
-  "recap.completed": "Turn ended. {detail}{reply}{ending}",
-  "recap.aborted": "Stopped ({cause}). {detail}",
-  "recap.blocked": "Blocked: your action is needed before continuing. {detail}",
-  "recap.error": "Turn failed{code}. {detail}",
-  "recap.maxTokens": "Output hit the token limit and was truncated. {detail}",
+  "recap.completed": "This turn: {snippet}",
+  "recap.aborted": "Stopped ({cause}). {snippet}",
+  "recap.blocked": "Blocked: your action is needed before continuing. {snippet}",
+  "recap.error": "Turn failed{code}. {snippet}",
+  "recap.maxTokens": "Output hit the token limit and was truncated. {snippet}",
   "recap.interrupted": "This turn was closed during recovery; it is not a new completed turn.",
   "recap.forked": "This turn was inherited from a truncated fork; it is not a new completed turn.",
   "recap.unknown": "This turn ended for an unknown reason; success is not assumed.",
-  "recap.detail": "Confirmed {parts}.",
-  "recap.noProgress": "No confirmable progress this turn.",
-  "recap.reply": " Reply: {snippet}",
-  "recap.parts.toolJoin": ", ",
-  "recap.ending.none": " No failures or unconfirmed results.",
-  "recap.ending.failures": " Failures need attention.",
-  "recap.ending.pending": " Some results remain unconfirmed; check them first.",
+  "recap.noReply": "No reply text this turn.",
   "recap.code": " ({code})",
-  "recap.parts.join": ", ",
-  "recap.parts.tools": "{n} tool calls",
-  "recap.parts.tools.one": "{n} tool call",
-  "recap.parts.toolNames": " ({names})",
-  "recap.parts.failures": "{n} failed",
-  "recap.parts.failures.one": "{n} failed",
-  "recap.parts.pending": "{n} pending",
-  "recap.parts.pending.one": "{n} pending",
-  "recap.parts.unknown": "{n} unconfirmed",
-  "recap.parts.unknown.one": "{n} unconfirmed",
-  "recap.parts.noReply": "no reply text",
   "recap.cause.user": "cancelled by the user",
   "recap.cause.parent": "cancelled by the parent",
   "recap.cause.hook": "cancelled by a hook",
@@ -177,7 +143,7 @@ var en = {
   "settings.title": "Conversation assist",
   "settings.intro": "Both switches live here. Changes apply immediately and survive a restart.",
   "settings.recap.name": "Turn recap",
-  "settings.recap.desc": "After each turn, a sentence names the tool calls, failures or unconfirmed results, and the start of the reply. On by default; no model call. When off, new turns show no recap and the transcript and composer are unchanged.",
+  "settings.recap.desc": "After each turn, a sentence carries the start of the final reply. On by default; no model call. When off, new turns show no recap and the transcript and composer are unchanged.",
   "settings.prediction.name": "Next-suggestion",
   "settings.prediction.desc": "After a completed turn, suggests a next message above the composer that you can accept as a draft. Off by default; when on, each completed turn sends one extra model request. When off, there is no row, no request, and keys behave as before.",
   "settings.note.title": "Usage",
@@ -204,7 +170,6 @@ function emptyFacts(turn) {
   return {
     turn,
     calls: new Map,
-    names: new Map,
     hasReply: false,
     lastText: undefined,
     reasonKind: undefined,
@@ -215,7 +180,7 @@ function emptyFacts(turn) {
   };
 }
 function copy(state) {
-  return { ...state, calls: new Map(state.calls), names: new Map(state.names) };
+  return { ...state, calls: new Map(state.calls) };
 }
 function foldFacts(state, event) {
   const turn = event?.data?.turn;
@@ -226,11 +191,8 @@ function foldFacts(state, event) {
     if (callId === "")
       return state;
     const next = copy(state);
-    if (!next.calls.has(callId)) {
+    if (!next.calls.has(callId))
       next.calls.set(callId, "pending");
-      const name = typeof event.data.name === "string" && /^[A-Za-z0-9._-]{1,40}$/u.test(event.data.name) ? event.data.name : "tool";
-      next.names.set(callId, name);
-    }
     return next;
   }
   if (event.type === "tool/result") {
@@ -283,17 +245,9 @@ function factsValue(state) {
     else
       pending += 1;
   }
-  const toolNames = [];
-  for (const name of state.names.values()) {
-    if (!toolNames.includes(name))
-      toolNames.push(name);
-    if (toolNames.length >= 3)
-      break;
-  }
   return {
     turn: state.turn,
     calls: state.calls.size,
-    toolNames,
     lastText: state.lastText,
     failures,
     unknown,
@@ -321,92 +275,53 @@ var LIMITS = Object.freeze({
 });
 
 // packages/dsh-conversation-assist/src/shared/recap-text.mjs
-function counted(t, base, count) {
-  const key = count === 1 ? `${base}.one` : base;
-  return formatRow(t(key), { n: count });
-}
-function detail(value, t) {
-  const parts = [];
-  if (value.calls > 0) {
-    const tools = counted(t, "recap.parts.tools", value.calls);
-    const names = Array.isArray(value.toolNames) && value.toolNames.length > 0 ? formatRow(t("recap.parts.toolNames"), { names: value.toolNames.join(t("recap.parts.toolJoin")) }) : "";
-    parts.push(`${tools}${names}`);
-  }
-  if (value.failures > 0)
-    parts.push(counted(t, "recap.parts.failures", value.failures));
-  if (value.unknown > 0)
-    parts.push(counted(t, "recap.parts.unknown", value.unknown));
-  if (value.pending > 0)
-    parts.push(counted(t, "recap.parts.pending", value.pending));
-  if (value.calls > 0 && !value.hasReply)
-    parts.push(t("recap.parts.noReply"));
-  if (parts.length === 0)
-    return "";
-  return formatRow(t("recap.detail"), { parts: parts.join(t("recap.parts.join")) });
-}
 function cause(t, kind) {
   const key = `recap.cause.${kind}`;
   const row = t(key);
   return row === key ? t("recap.cause.unknown") : row;
 }
-function truncateRecap(text, max = LIMITS.maxRecapChars) {
-  const chars = [...text];
-  return chars.length <= max ? text : `${chars.slice(0, Math.max(0, max - 1)).join("")}…`;
-}
-function reply(value, t) {
+function snippet(value) {
   if (typeof value.lastText !== "string" || value.lastText === "")
     return "";
-  let text = value.lastText.replace(/^[#>*\-\s]+/u, "").replace(/^```[\s\S]*?```/u, "").trim();
+  let text = value.lastText.replace(/^[#>*\-\s]+/u, "").replace(/^```[\s\S]*?```/u, "").replace(/\s+/gu, " ").trim();
   if (text === "")
     return "";
   const sentence = text.match(/^.*?[。！？.!?]/u);
   if (sentence !== null)
     text = sentence[0];
   const chars = [...text];
-  if (chars.length > 80)
-    text = `${chars.slice(0, 80).join("")}…`;
-  return formatRow(t("recap.reply"), { snippet: text });
+  if (chars.length > 100)
+    text = `${chars.slice(0, 100).join("")}…`;
+  return text;
 }
-function ending(value, t) {
-  if (value.failures > 0)
-    return t("recap.ending.failures");
-  if (value.pending > 0 || value.unknown > 0)
-    return t("recap.ending.pending");
-  return t("recap.ending.none");
+function truncateRecap(text, max = LIMITS.maxRecapChars) {
+  const chars = [...text];
+  return chars.length <= max ? text : `${chars.slice(0, Math.max(0, max - 1)).join("")}…`;
 }
 function composeRecap(value, t) {
   if (typeof value !== "object" || value === null)
     return "";
   const kind = typeof value.reasonKind === "string" ? value.reasonKind : "unknown";
+  const lead = snippet(value);
   let text;
   switch (kind) {
-    case "completed": {
-      const confirmed = detail(value, t);
-      if (confirmed === "" && value.hasReply !== true && value.calls === 0) {
-        text = t("recap.noProgress");
-        break;
-      }
-      text = formatRow(t("recap.completed"), {
-        detail: confirmed,
-        reply: reply(value, t),
-        ending: ending(value, t)
-      });
+    case "completed":
+      text = lead === "" ? t("recap.noReply") : formatRow(t("recap.completed"), { snippet: lead });
       break;
-    }
     case "aborted":
-      text = formatRow(t("recap.aborted"), { cause: cause(t, value.cancelKind ?? "unknown"), detail: detail(value, t) });
+      text = formatRow(t("recap.aborted"), { cause: cause(t, value.cancelKind ?? "unknown"), snippet: lead });
       break;
     case "blocked":
-      text = formatRow(t("recap.blocked"), { detail: detail(value, t) });
+      text = formatRow(t("recap.blocked"), { snippet: lead });
       break;
     case "error":
       text = formatRow(t("recap.error"), {
         code: typeof value.errorCode === "string" && value.errorCode !== "" ? formatRow(t("recap.code"), { code: value.errorCode }) : "",
-        detail: detail(value, t)
+        snippet: lead
       });
       break;
     case "max-tokens":
-      text = formatRow(t("recap.maxTokens"), { detail: detail(value, t) });
+      text = formatRow(t("recap.maxTokens"), { snippet: lead });
       break;
     case "interrupted":
       text = t("recap.interrupted");
@@ -580,6 +495,27 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
   const latest = import_react3.default.useRef(null);
   latest.current = { candidate, inputActions, sessionId, runtime };
   const canAsk = canRequest({ prediction: settings.prediction, sessionId, input, session });
+  const debugKey = JSON.stringify({
+    sessionId,
+    canAsk,
+    prediction: settings.prediction,
+    running: session.running ?? null,
+    draftLength: typeof input.draft === "string" ? input.draft.length : null,
+    attachments: input.attachmentIds?.length ?? null,
+    occurrences: input.occurrences?.length ?? null,
+    queue: input.queue?.length ?? null,
+    phase: input.phase ?? null,
+    claim: input.claim === undefined || input.claim === null ? null : "present",
+    pending: session.pendingSubmissions?.length ?? null,
+    subagent: session.subagent !== null && session.subagent !== undefined,
+    removed: session.removed === true,
+    modelKey
+  });
+  import_react3.default.useEffect(() => {
+    if (settings.prediction !== true)
+      return;
+    runtime.reportEligibility(JSON.parse(debugKey));
+  }, [debugKey, runtime, settings.prediction]);
   import_react3.default.useEffect(() => {
     if (!canAsk) {
       setCandidate(null);
@@ -844,6 +780,7 @@ function decideFixedInput({ gesture, context, visible }) {
 // packages/dsh-conversation-assist/src/ui/store.js
 var SETTINGS_ROUTE = "api/dsh-conversation-assist.settings";
 var SUGGEST_ROUTE = "api/dsh-conversation-assist.suggest";
+var DEBUG_ROUTE = "api/dsh-conversation-assist.debug";
 function urlOf(route) {
   return new URL(route, document.baseURI);
 }
@@ -970,6 +907,15 @@ function createHiddenTurns() {
     }
   };
 }
+async function reportEligibility(report) {
+  try {
+    await fetch(urlOf(DEBUG_ROUTE), {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify(report)
+    });
+  } catch {}
+}
 async function requestSuggestion(sessionId, language, notBefore, signal) {
   try {
     const response = await fetch(urlOf(SUGGEST_ROUTE), {
@@ -1004,7 +950,7 @@ function apply(ctx) {
   const accepts = new Map;
   let armedAt = startedAt;
   let wasPrediction = false;
-  const runtime = { hidden, accepts, language, requestSuggestion, armedAt: () => armedAt };
+  const runtime = { hidden, accepts, language, requestSuggestion, reportEligibility, armedAt: () => armedAt };
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor("zh"), en: dictionaryFor("en") }), "dsh-conversation-assist: dictionaries");
   ctx.effect(() => installStyles(), "dsh-conversation-assist: stylesheet");
   ctx.effect(() => settings.subscribe(() => {
