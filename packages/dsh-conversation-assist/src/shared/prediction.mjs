@@ -135,40 +135,48 @@ function messageText(message) {
 }
 
 /** Short acknowledgement after a finished exchange. */
-const ACK = /^(?:都)?(?:好|好的|好滴|行|可以|正常|没问题|收到|谢谢|ok|okay|yes|yep|通过|合入|合并|merge|ship|all good|works|done)[\s。.!！?？,，]*$/iu
+const ACK = /^(?:都)?(?:好|好的|好滴|行|可以|正常|没问题|收到|谢谢|通过|\bok\b|\bokay\b|\byes\b|\byep\b|\ball good\b|\bworks\b|\bdone\b)[\s。.!！?？,，]*$/iu
 
-/** Terms this plugin itself adds to the conversation. */
-const PLUGIN_TERMS = /(?:下一条建议|建议条|建议行|回顾|灯泡|发送按钮|插入按钮|设置导航|对话辅助|strip|↙|ghost text|suggestion|composer)/iu
+/** Terms that only this plugin's own UI uses. */
+const PLUGIN_TERMS = /(?:下一条建议|建议条|建议行|↙|对话辅助|\bghost text\b)/iu
 
 /** Terms of acceptance, review, merge or a meta complaint. */
-const META_TERMS = /(?:建议|验收|合入|合并|清理|上次|还是|质量|不准|有问题|不对|正常|测试|回顾|灯泡|插件|补丁|PR|pull request|issue)/iu
+const META_TERMS = /(?:建议|验收|合入|合并|清理|上次|还是|质量|不准|有问题|不对|正常|测试|回顾|灯泡|插件|补丁|\bPR\b|\bpull request\b|\bissue\b)/iu
 
 /** Completion language for a finished task or merge. */
-const COMPLETION = /(?:已合入|已合并|已清理|已完成|已推送|已更新|已修复|merged|cleaned|done|shipped|fixed)/iu
+const COMPLETION = /(?:已合入|已合并|已清理|已完成|已推送|已更新|已修复|\bmerged\b|\bcleaned\b|\bdone\b|\bshipped\b|\bfixed\b)/iu
 
 /**
  * Decide whether the latest exchange is a meta/acceptance exchange rather than
  * a coding task. Such a Turn has no next prompt worth suggesting, and the model
  * otherwise restates the previous message (the issue this guard tracks).
+ *
+ * This is a deliberately narrow heuristic: only this plugin's own UI terms and
+ * a short acknowledgement after a completion/merge count. A normal coding task
+ * that merely mentions a PR, a suggestion or a strip must still reach the model.
  * @param messages - `session.deriveMessages()`.
  * @returns whether the Host should return none without calling the model.
  */
 export function isMetaExchange(messages) {
   if (!Array.isArray(messages)) return false
-  let user = null
-  let assistant = null
-  for (const message of messages) {
-    if (message?.role === 'user') {
-      user = messageText(message)
-      assistant = null
-    } else if (message?.role === 'assistant') {
-      const text = messageText(message).trim()
-      if (text !== '') assistant = text
+  let userIndex = -1
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'user') {
+      userIndex = index
+      break
     }
   }
-  if (user === null) return false
-  const said = user.trim()
-  const reply = (assistant ?? '').trim()
+  if (userIndex < 0) return false
+  let reply = ''
+  for (let index = messages.length - 1; index > userIndex; index -= 1) {
+    if (messages[index]?.role !== 'assistant') continue
+    const text = messageText(messages[index]).trim()
+    if (text !== '') {
+      reply = text
+      break
+    }
+  }
+  const said = messageText(messages[userIndex]).trim()
   // "All good" after a completion/merge, or after this plugin's own UI.
   if (ACK.test(said) && (COMPLETION.test(reply) || PLUGIN_TERMS.test(reply))) return true
   // A message about this plugin's own UI/acceptance.

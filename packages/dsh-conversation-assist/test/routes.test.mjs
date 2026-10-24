@@ -136,6 +136,16 @@ test('a meta/acceptance exchange returns none before the model', async () => {
   assert.equal(generated, 0)
 })
 
+test('a deriveMessages failure returns none', async () => {
+  const handler = createSuggestHandler({
+    getSettings: () => settings,
+    getSession: () => ({ id: 's1', deriveMessages: () => { throw new Error('boom') } }),
+    getTurn: () => ({ turn: 2, endSeq: 8, endTime: 100, reason: { kind: 'completed' } }),
+    generate: async () => { throw new Error('must not run') },
+  })
+  assert.deepEqual(await (await handler(post({ sessionId: 's1' }))).json(), { state: 'none' })
+})
+
 test('suggest route returns the generated candidate and tolerates failures', async () => {
   const turn = { turn: 2, endSeq: 8, reason: { kind: 'completed' } }
   const ready = createSuggestHandler({

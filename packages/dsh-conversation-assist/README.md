@@ -110,9 +110,10 @@ Host.
   the plugin's audit file.
 - The suggestion never reads an unsent draft; only the ↙ insert or Send writes it into the draft,
   and Send also submits it. It never uses the clipboard.
-- Meta/acceptance exchanges (for example “all good” after a merge, or a turn about this plugin’s own
-  UI) return no suggestion and no model call; this prevents restating the previous message. The
-  model-side quality is tracked in [issue #4](https://github.com/zesming/dsh-plugins/issues/4).
+- A narrow Host heuristic suppresses suggestions in meta/acceptance exchanges (for example “all
+good” after a merge, or a turn about this plugin’s own UI): no model call, no row. It can also skip
+a normal exchange that only confirms a finished task; this and the model-side quality are tracked in
+[issue #4](https://github.com/zesming/dsh-plugins/issues/4).
 
 ## Development
 

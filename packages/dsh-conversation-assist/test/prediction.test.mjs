@@ -111,7 +111,7 @@ test('meta/acceptance exchanges are skipped and coding exchanges are not', () =>
   ]
   assert.equal(isMetaExchange(meta), true)
   const complaint = [
-    { role: 'user', content: [{ type: 'text', text: '这次会话的建议又有问题了，看起来仍然是上次的 strip' }] },
+    { role: 'user', content: [{ type: 'text', text: '这次会话的建议条又有问题了，看起来仍然是上次的' }] },
     { role: 'assistant', content: [{ type: 'text', text: '我查一下。' }] },
   ]
   assert.equal(isMetaExchange(complaint), true)
@@ -120,4 +120,19 @@ test('meta/acceptance exchanges are skipped and coding exchanges are not', () =>
     { role: 'assistant', content: [{ type: 'text', text: '已修改标题。' }] },
   ]
   assert.equal(isMetaExchange(coding), false)
+  for (const ordinary of [
+    'strip 一下多余的空白，顺便修正 expression 的解析',
+    '用 Stripe 做结账页，补测试',
+    '优化 composer 的 prompt 长度，测试一下',
+    '回顾一下这个 PR 的 diff',
+  ]) {
+    assert.equal(isMetaExchange([
+      { role: 'user', content: [{ type: 'text', text: ordinary }] },
+      { role: 'assistant', content: [{ type: 'text', text: '已处理。' }] },
+    ]), false)
+  }
+  assert.equal(isMetaExchange([
+    { role: 'user', content: [{ type: 'text', text: '好的' }] },
+    { role: 'assistant', content: [{ type: 'text', text: '已修复。' }] },
+  ]), true)
 })

@@ -65,13 +65,6 @@ export function createSuggestValueHandler({ getSettings, getSession, getTurn, ge
     const session = getSession(parsed.sessionId)
     if (session === undefined) return json({ state: 'none' })
     if (session.header?.origin === 'subagent') return json({ state: 'none' })
-    let messages
-    try {
-      messages = session.deriveMessages()
-    } catch {
-      return json({ state: 'none' })
-    }
-    if (isMetaExchange(messages)) return json({ state: 'none' })
     const turn = getTurn(parsed.sessionId)
     if (turn === undefined || turn.reason?.kind !== 'completed' || typeof turn.endSeq !== 'number') {
       return json({ state: 'none' })
@@ -79,6 +72,13 @@ export function createSuggestValueHandler({ getSettings, getSession, getTurn, ge
     if (parsed.notBefore !== undefined && typeof turn.endTime === 'number' && turn.endTime < parsed.notBefore) {
       return json({ state: 'none' })
     }
+    let messages
+    try {
+      messages = session.deriveMessages()
+    } catch {
+      return json({ state: 'none' })
+    }
+    if (isMetaExchange(messages)) return json({ state: 'none' })
     try {
       const result = await generate({ session, turn, language: parsed.language })
       return json(result ?? { state: 'none' })

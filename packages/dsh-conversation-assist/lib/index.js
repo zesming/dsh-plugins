@@ -88,29 +88,33 @@ function messageText(message) {
   return Array.isArray(message?.content) ? message.content.filter((block) => block?.type === "text" && typeof block.text === "string").map((block) => block.text).join(`
 `) : "";
 }
-var ACK = /^(?:都)?(?:好|好的|好滴|行|可以|正常|没问题|收到|谢谢|ok|okay|yes|yep|通过|合入|合并|merge|ship|all good|works|done)[\s。.!！?？,，]*$/iu;
-var PLUGIN_TERMS = /(?:下一条建议|建议条|建议行|回顾|灯泡|发送按钮|插入按钮|设置导航|对话辅助|strip|↙|ghost text|suggestion|composer)/iu;
-var META_TERMS = /(?:建议|验收|合入|合并|清理|上次|还是|质量|不准|有问题|不对|正常|测试|回顾|灯泡|插件|补丁|PR|pull request|issue)/iu;
-var COMPLETION = /(?:已合入|已合并|已清理|已完成|已推送|已更新|已修复|merged|cleaned|done|shipped|fixed)/iu;
+var ACK = /^(?:都)?(?:好|好的|好滴|行|可以|正常|没问题|收到|谢谢|通过|\bok\b|\bokay\b|\byes\b|\byep\b|\ball good\b|\bworks\b|\bdone\b)[\s。.!！?？,，]*$/iu;
+var PLUGIN_TERMS = /(?:下一条建议|建议条|建议行|↙|对话辅助|\bghost text\b)/iu;
+var META_TERMS = /(?:建议|验收|合入|合并|清理|上次|还是|质量|不准|有问题|不对|正常|测试|回顾|灯泡|插件|补丁|\bPR\b|\bpull request\b|\bissue\b)/iu;
+var COMPLETION = /(?:已合入|已合并|已清理|已完成|已推送|已更新|已修复|\bmerged\b|\bcleaned\b|\bdone\b|\bshipped\b|\bfixed\b)/iu;
 function isMetaExchange(messages) {
   if (!Array.isArray(messages))
     return false;
-  let user = null;
-  let assistant = null;
-  for (const message of messages) {
-    if (message?.role === "user") {
-      user = messageText(message);
-      assistant = null;
-    } else if (message?.role === "assistant") {
-      const text = messageText(message).trim();
-      if (text !== "")
-        assistant = text;
+  let userIndex = -1;
+  for (let index = messages.length - 1;index >= 0; index -= 1) {
+    if (messages[index]?.role === "user") {
+      userIndex = index;
+      break;
     }
   }
-  if (user === null)
+  if (userIndex < 0)
     return false;
-  const said = user.trim();
-  const reply = (assistant ?? "").trim();
+  let reply = "";
+  for (let index = messages.length - 1;index > userIndex; index -= 1) {
+    if (messages[index]?.role !== "assistant")
+      continue;
+    const text = messageText(messages[index]).trim();
+    if (text !== "") {
+      reply = text;
+      break;
+    }
+  }
+  const said = messageText(messages[userIndex]).trim();
   if (ACK.test(said) && (COMPLETION.test(reply) || PLUGIN_TERMS.test(reply)))
     return true;
   if (PLUGIN_TERMS.test(said) && META_TERMS.test(said))
@@ -432,6 +436,13 @@ function createSuggestValueHandler({ getSettings, getSession, getTurn, generate 
       return json({ state: "none" });
     if (session.header?.origin === "subagent")
       return json({ state: "none" });
+    const turn = getTurn(parsed.sessionId);
+    if (turn === undefined || turn.reason?.kind !== "completed" || typeof turn.endSeq !== "number") {
+      return json({ state: "none" });
+    }
+    if (parsed.notBefore !== undefined && typeof turn.endTime === "number" && turn.endTime < parsed.notBefore) {
+      return json({ state: "none" });
+    }
     let messages;
     try {
       messages = session.deriveMessages();
@@ -440,13 +451,6 @@ function createSuggestValueHandler({ getSettings, getSession, getTurn, generate 
     }
     if (isMetaExchange(messages))
       return json({ state: "none" });
-    const turn = getTurn(parsed.sessionId);
-    if (turn === undefined || turn.reason?.kind !== "completed" || typeof turn.endSeq !== "number") {
-      return json({ state: "none" });
-    }
-    if (parsed.notBefore !== undefined && typeof turn.endTime === "number" && turn.endTime < parsed.notBefore) {
-      return json({ state: "none" });
-    }
     try {
       const result = await generate({ session, turn, language: parsed.language });
       return json(result ?? { state: "none" });
