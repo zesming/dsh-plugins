@@ -1,0 +1,56 @@
+# 每轮结束后的 recap
+
+## 目标与参考产品的区别
+
+本功能按用户要求，在一轮结束后、最后一条相关消息之后，以灰色次要文字简短说明“刚才做了什么、哪些失败或尚未确认、下一步待用户决定什么”。它不另开对话、不发送下一条提示词，也不把主回复改写成摘要。
+
+Claude Code 官方 [Session recap](https://code.claude.com/docs/en/interactive-mode#session-recap) 描述的是离开终端后返回时帮助恢复上下文：终端失焦、上轮完成至少 3 分钟、会话至少 3 轮后后台生成，返回时展示，不连续两次出现；支持 `/recap` 手动触发和 `/config` → Session recap 关闭，非交互模式不自动显示，最长 400 字符。本方案采用用户指定的 turn-end 触发，不能宣称完整复刻 Claude 条件。[R1](evidence.md#轮次-recap)
+
+官方 CHANGELOG 记录了 2.1.108 引入、2.1.110 扩展到关闭 telemetry 的用户、2.1.113 修复编辑未发送输入时触发、2.1.257 修复配置 advisor 模型的会话在 `/recap` 等后台请求中遗漏缓存。可确认有后台模型请求，但具体模型、prompt 和固定费用并未由这些资料给出；成本页也没有 recap 固定价格。[R2–R3](evidence.md#轮次-recap)
+
+## 建议输出规则
+
+摘要只覆盖对应轮次；建议一至两句，目标 80–160 个中文字符，硬上限 400 字符，窄屏自然换行。灰色用 `--dsw-alias-label-secondary`（约 5.8:1），不用 `tertiary`（约 3.7:1，低于 AA）；文本可选择、可复制。它是普通文本，不新增 `aria-live` 区域：Chat 已有运行/完成的播报，再来一个每轮 live region 会重复朗读。进展、阻塞和待用户决定的下一步按事实存在与否显示，不强行补齐三段。显示开关属于本功能，不要求用户修改系统提示词。
+
+| 终态 | 输出含义 |
+|---|---|
+| `completed` | 本轮已闭合，不代表整个任务完成；概括已确认项，保留失败或待确认事项 |
+| `aborted`，含用户主动 stop | 明确“已停止”或实际取消原因，只概括停止前确认的进展，指出未完成或结果未确认 |
+| `blocked` | 明确权限或其他阻塞与需要的操作，不能写为已完成 |
+| `error` | 明确失败及已知进展；未知结果标记未知，不猜测操作没有发生或已经成功 |
+| `max-tokens` | 明确输出受限，只列已核实部分；不能把截断文本补成成功结论 |
+| `interrupted` / `forked` | 分别属于恢复闭合 / 继承截断，不作为新完成轮自动生成 recap |
+| 主轮已结束，但 Session 仍在运行（排队输入、后续轮次、后台任务） | 只描述已完成轮次；不把后续轮次或后台任务当作本轮成果，也不臆测它们的状态 |
+| 没有可确认的新进展 | 可显示简短中性状态或省略内容摘要，不能为了填充而编造工作 |
+
+示意文案是设计样例，不是已核实发布事实：`※ recap：已修改动画并通过本地检查；重新发布尚未确认。下一步等你决定是否同步脚本与 HTML。` 用户提供的 PlayTuck 文案也只作为交互示例；待决定的同步不能写为已执行。
+
+## 事实来源与实现前置
+
+事实层必须确定性地从本轮结构化结果与结束原因得出状态；语义层只负责压缩表达。工具调用不等于成功，exit 0 不等于功能正确，本地 build 不等于发布，链接存在不等于新版上线。主回复中的“已经部署”只是待核对的自述；发布成功需要对应操作的明确结果。无结果、`TOOL_OUTCOME_UNKNOWN`、超时或冲突证据保留“未确认”；运行中的后台任务保留“进行中”。
+
+已核实结束依据是 durable `turn/end`，不是 stream end、idle 或 `agent/turn-stopping`；stopping 时仍可能被 steering 续跑。结束原因由 `TurnEndReasonMap` 定义，需处理表内各项与未来扩展原因；未知原因回退中性事实状态，不假定成功。turn-tail 的 owner 直接带 `TurnLocation.end`，结束原因与取消原因不必再绕一层投影。[R4](evidence.md#轮次-recap)
+
+## 建议插件结构
+
+`facts` 模式完全在 Client 完成：turn-tail 条目直接读 `owner.turn.end` 得到结束原因与取消原因；工具调用与结果、最终答复、截断标记由插件注册一个 state-only 的 Conversation Definition 折叠，在 `buildLocationData` 里按 Turn 发布，条目通过 `owner.turn.data.get(kind)` 读取。不需要 Host，也不需要模型调用；事件按增量折叠，不做每次渲染的全量重扫。[R5–R6](evidence.md#轮次-recap)
+
+`semantic` 模式由 Host 生成、Client 展示：Host 用同一批已提交事件折叠事实并调用一次模型，Client 只读取结果。首版按需 `fetch` 插件路由；后续可以用 Host 投影推送，但投影值应能在缺失时重算。避免 React 每次扫描整段历史，也避免每个连接的客户端各自请求模型。新实现不使用 `snapshotEvents`、`eventAt` 或 `ownEvents` 读取历史。
+
+已核实 `conversation.chat.turnTail` 是 Session 级 list slot，位于末尾正文之后、completed Turn 的 action row 之前，现有 `ui-deliverables` 已使用。可追加本插件自己的 entry，无需替换主组件。`TurnTailNodeView` 传入的 `owner.seq = closing?.finalNode.seq ?? data.seq`，并不总是实际 `turn/end` seq；必须从 `owner.turn.end` 或权威轮次记录取得真实结束序号，再映射到对应 `owner.turn`，不能直接用 owner.seq 当结束锚点。[R5–R6](evidence.md#轮次-recap)
+
+建议配置 `off / facts / semantic`，首版默认 `facts`，允许关闭。`facts` 只用可确认结果生成短句；`semantic` 显式开启后发一次无工具辅助请求，仅输入本轮意图、最终可见答复、裁剪后的证据与结束原因，不发送隐藏推理或整段原始工具输出。要求输出关联 evidence IDs，校验其确实支持动作、状态和下一步；缺少依据、格式不合法、失败或超时就回退事实摘要，不阻塞正文和新输入。
+
+`semantic` 必须清楚说明额外 tokens，并配置输入 / 输出预算、超时、并发、取消与缓存。`session-title` 和 `session-title-llm` 的辅助请求模式可参考，但不能占用 title 的唯一 provider，也不能伪造 title 事件记录 recap。不能用阻塞 waking input 的 `runMaintenance`，或通过 `followup` / `inject` 再开主轮次。[R7](evidence.md#轮次-recap)
+
+预测与 recap 可以复用轻量生命周期、取消和预算模块；内容选择、UI、触发条件和缓存键独立，不为了省一次调用绑在同一输出中。关闭提示必须指向插件实际实现的设置入口；不能复制 Claude 文案里的 `/config` 作为 DSH 已有命令。
+
+## 展示与生命周期建议
+
+摘要属于轮次展示数据，不修改原消息、不进入后续主模型历史。幂等键建议使用 `sessionId + turn + 实际 endSeq + summarizerVersion`；刷新、重连和多客户端访问命中同一结果，不重复生成。历史版本另作有效性检查；旧结果只挂旧轮次，不能跑到新回合尾部。若无正文，也应使用该轮状态 / tail 位置，具体布局需用真实异常和空回复验证。
+
+切换项目、修改历史、重试、恢复或新轮次开始时取消不再需要的待生成请求；已有摘要留在原轮次，历史被替换时失效。取消的语义请求不能因刷新马上自动补发而突破预算。插件卸载释放订阅、请求和 UI 注册；Session 删除清理关联缓存。
+
+v0 采用纯派生事实或插件自有缓存；缓存记录应有版本与来源关联，不能冒充可回放的 Session 事件。外部插件禁止调用 `appendPluginRecord`；若要 Session log 持久化，需正式支持的事件、schema、读取和迁移规则，不能凭类型扩展就保证可回放。语义辅助调用还需满足 dsh-llm 的请求可追溯规则；外部插件缺少公开日志接口时，按[评审结论](conclusion.md#七已定方向与后续)的宽松解读处理：请求可由日志 + code 重建，插件另存审计记录，Session 日志与用量页不含这次调用。[P7–P8](evidence.md#提示词预测)
+
+验收使用 [R-01 至 R-12](acceptance.md#轮次-recap)。仍待实测：事实提取与 evidence IDs 的映射、无正文 / 异常终态在 tail 的实际布局、缓存清理与多客户端去重、实际成本与时延。客户端增量读取与 `TurnLocation.end` 已核实可用；`semantic` 的请求日志仍是明确缺口，不能用现有 slot 的展示能力替代这个结论。

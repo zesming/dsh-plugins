@@ -90,6 +90,10 @@ Four rules matter more than the rest, each learned from a defect this repository
   such as a settings nav row — is on screen even when the plugin's own page is not, so a stylesheet
   that mounts with the page leaves that seat unstyled until the page is opened once.
 
+## Research proposals
+
+- [对话输入与回顾：项目草稿、提示词预测、轮次 recap](docs/proposals/conversation-assistance/README.md) — research and design for review; no feature implementation.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
