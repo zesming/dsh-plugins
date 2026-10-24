@@ -1,6 +1,8 @@
 /** Settings section: two host switches and the usage note. */
 
 import React from 'react'
+
+import { HintIcon } from './icons.js'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 
 const h = React.createElement
@@ -45,7 +47,7 @@ export function SettingsSection({ t, useSettings, store }) {
   const state = useSettings(value => value)
   const change = (setting, next) => { void store.update({ [setting]: next }) }
   return h('div', { className: 'dca-settings' },
-    h('h2', { className: 'dca-settings-title' }, t('settings.title')),
+    h('h2', { className: 'dca-settings-title' }, h(HintIcon, { className: 'dca-settings-icon', size: 18 }), t('settings.title')),
     h('p', { className: 'dca-settings-intro' }, t('settings.intro')),
     h(Row, {
       setting: 'recap',

@@ -1,6 +1,6 @@
 # dsh-conversation-assist
 
-A short factual recap after each turn, and an optional next-message suggestion you can accept as a
+A short factual recap after each turn, and an optional next-message suggestion you can send as a
 draft. Recaps use no model call; suggestions are off by default and send one small auxiliary request
 per completed turn.
 
@@ -15,17 +15,22 @@ Recaps are derived in the browser from the loaded Session events, so every loade
 including after a restart, and they need no network and make no model request.
 
 **Next suggestion.** When enabled, a completed turn may place one suggestion above the composer, in
-the input zone: the text, the `Tab` / `→` hint, an **Accept** control, and a dismiss control. Accepting turns the whole
-suggestion into an editable draft and nothing more; the draft is never sent automatically, and one
-undo returns to the empty draft. The row exists only while the composer is empty, ordinary, idle and
+the input zone: the text, a **Send** control and a dismiss control. Send places the suggestion in
+the draft and submits it; nothing else is sent. The row exists only while the composer is empty, ordinary, idle and
 free of attachments or reference chips; it disappears as soon as you type, attach something, send,
 switch model, or close the plugin, and returns immediately from the retained candidate when the
 composer is empty again. Switching Session only hides it: coming back shows the same
 suggestion without a second model call. Switching the model consumes that Turn, because the
 suggestion belongs to the route that produced it.
 
-The row is above the composer card, not inside the editor. Inline ghost text needs a host-level
-composer suggestion interface that this plugin does not have; that is tracked separately.
+The row is above the composer card, not inside the editor, so it uses a lightbulb marker and an
+explicit Send control instead of accepting inline. Inline ghost text needs a host-level composer
+suggestion interface that this plugin does not have; that is tracked separately.
+
+The Settings navigation glyph is host-owned: `ui-settings-general`'s `SettingsRoot.tsx` maps known
+section ids and falls back to the settings gear for every other id. `settings.section` has no icon
+field, so this plugin cannot change the gear in the menu; its own page and the suggestion row use the
+lightbulb. Tracked for an upstream host change.
 
 ## Install
 
@@ -46,12 +51,12 @@ directory to discard them.
 
 | Setting | Default | Effect |
 |---|---|---|
-| Turn recap | On | New turns close with a recap. Turning it off leaves the transcript and composer unchanged, and turning it back on starts with the next turn — turns that ended while it was off stay without one. |
-| Next-suggestion | Off | No row, no request, and no key handling while off. When on, every completed turn may send one auxiliary model request. |
+| Turn recap | On | Every loaded turn closes with a recap, including turns replayed after a restart. Turning it off hides all recaps; turning it back on shows them again. |
+| Next-suggestion | Off | No row and no request while off. When on, every completed turn may send one auxiliary model request. |
 
-Changes apply immediately and survive a restart. There is no second shortcut configuration: `Tab`,
-`→` and a click accept, `Esc` or the dismiss control hide the row for that turn, and `Shift+Tab`
-always remains focus navigation.
+Changes apply immediately and survive a restart. The plugin registers no composer shortcuts: Send
+sends the suggestion, the dismiss control hides it, and `Shift+Tab` stays focus navigation. Use the
+Send control rather than inserting the hint into the editor.
 
 ## Cost and audit
 
@@ -86,8 +91,8 @@ Host.
   rebuild from the loaded Session events for every Turn, including after a restart.
 - No tools, no `followup` / `inject`, and no Session writes: the auxiliary request is logged only in
   the plugin's audit file.
-- The suggestion never reads an unsent draft and never enters the draft, clipboard, or send payload
-  before you accept it.
+- The suggestion never reads an unsent draft; only clicking Send writes it to the draft and submits
+  it. It never uses the clipboard.
 
 ## Development
 

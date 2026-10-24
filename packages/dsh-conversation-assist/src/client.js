@@ -5,7 +5,6 @@ import { createRecapDefinition, RecapTail } from './ui/recap.js'
 import { SettingsSection } from './ui/settings.js'
 import { SuggestionRow } from './ui/suggestion.js'
 import { installStyles } from './ui/styles.js'
-import { decideFixedInput } from './shared/keyboard.mjs'
 import { createHiddenTurns, createSettingsStore, reportEligibility, requestSuggestion, translate } from './ui/store.js'
 
 /** Services this client plugin requires. */
@@ -27,10 +26,9 @@ export function apply(ctx) {
   const startedAt = Date.now()
   const settings = createSettingsStore({ language })
   const hidden = createHiddenTurns()
-  const accepts = new Map()
   let armedAt = startedAt
   let wasPrediction = false
-  const runtime = { hidden, accepts, language, requestSuggestion, reportEligibility, armedAt: () => armedAt }
+  const runtime = { hidden, language, requestSuggestion, reportEligibility, armedAt: () => armedAt }
 
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor('zh'), en: dictionaryFor('en') }), 'dsh-conversation-assist: dictionaries')
   ctx.effect(() => installStyles(), 'dsh-conversation-assist: stylesheet')
@@ -73,32 +71,6 @@ export function apply(ctx) {
     inject: () => ({ hooks: { settings }, store: settings }),
   }, SettingsSection))
 
-  ctx.inject(['shortcuts'], (scope) => {
-    scope.effect(() => scope.shortcuts.observeFixedInput((input) => {
-      if (input.type === 'reset') return
-      const { gesture, context } = input
-      const target = context.target
-      const element = target instanceof Element ? target : null
-      const sessionId = element?.closest('[data-conversation-session]')?.getAttribute('data-conversation-session')
-      const entry = sessionId === undefined || sessionId === null ? undefined : accepts.get(sessionId)
-      const action = decideFixedInput({
-        gesture,
-        context: {
-          modal: context.modal,
-          region: context.region,
-          targetIsInput: element?.closest('[data-composer-input]') !== null && element !== null,
-        },
-        visible: entry !== undefined,
-      })
-      if (action === 'ignore' || entry === undefined) return
-      if (action === 'dismiss') {
-        entry.dismiss()
-        input.consume()
-        return
-      }
-      if (entry.accept('key')) input.consume()
-    }, 'dsh-conversation-assist: fixed input'))
-  })
 }
 
 export { translate }

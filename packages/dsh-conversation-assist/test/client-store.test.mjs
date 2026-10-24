@@ -14,8 +14,8 @@ test('hidden Turns are keyed per Session and cleared explicitly', () => {
 })
 
 test('translate follows the interface language and falls back to English', () => {
-  assert.equal(translate('zh-CN', 'suggestion.accept'), '接受')
-  assert.equal(translate('en', 'suggestion.accept'), 'Accept')
-  assert.equal(translate('fr', 'suggestion.accept'), 'Accept')
+  assert.equal(translate('zh-CN', 'suggestion.send'), '发送')
+  assert.equal(translate('en', 'suggestion.send'), 'Send')
+  assert.equal(translate('fr', 'suggestion.send'), 'Send')
   assert.equal(translate('en', 'missing.key'), 'missing.key')
 })

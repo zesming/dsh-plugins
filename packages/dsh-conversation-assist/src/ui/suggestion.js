@@ -3,6 +3,7 @@
 import React from 'react'
 
 import { canRequest } from '../shared/prediction.mjs'
+import { HintIcon } from './icons.js'
 
 const h = React.createElement
 
@@ -123,17 +124,11 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     setCandidate(null)
   }, [input.phase, sessionId, runtime])
 
-  const accept = React.useCallback((source = 'click') => {
+  const send = React.useCallback(() => {
     const current = latest.current
     if (current === null || current.candidate === null) return false
-    // A page selection only matters for the keyboard gestures; clicking Accept
-    // while text is selected elsewhere in the transcript must still work.
-    if (source === 'key') {
-      const selection = document.getSelection()
-      if (selection !== null && !selection.isCollapsed) return false
-    }
-    const span = current.inputActions.captureInsertion()
-    if (!current.inputActions.insertText(current.candidate.text, span)) return false
+    current.inputActions.setDraft(current.candidate.text)
+    current.inputActions.submit()
     current.runtime.hidden.hide(current.sessionId, current.candidate.turn)
     setCandidate(null)
     return true
@@ -146,17 +141,6 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     }
     setCandidate(null)
   }, [])
-
-  React.useEffect(() => {
-    if (candidate === null || !canAsk) {
-      runtime.accepts.delete(sessionId)
-      return () => {}
-    }
-    runtime.accepts.set(sessionId, { accept, dismiss, turn: candidate.turn })
-    return () => {
-      if (runtime.accepts.get(sessionId)?.turn === candidate.turn) runtime.accepts.delete(sessionId)
-    }
-  }, [accept, canAsk, candidate, dismiss, runtime, sessionId])
 
   React.useEffect(() => {
     // Turning prediction off consumes the pending candidate; re-enabling starts
@@ -173,18 +157,15 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     role: 'group',
     'aria-label': t('suggestion.label'),
   },
-  h('span', { className: 'dca-mark', 'aria-hidden': 'true' }, '↳'),
+  h(HintIcon, { className: 'dca-mark' }),
   h('span', { className: 'dca-text', title: candidate.text }, candidate.text),
-  h('span', { className: 'dca-gap' }),
-  h('span', { className: 'dca-keys', 'aria-hidden': 'true' }, h('kbd', null, 'Tab'), h('kbd', null, '→')),
   h('button', {
     type: 'button',
-    className: 'dca-accept',
-    'aria-keyshortcuts': 'Tab ArrowRight',
+    className: 'dca-send',
     title: t('suggestion.hint'),
     onMouseDown: event => { event.preventDefault() },
-    onClick: () => { accept('click') },
-  }, t('suggestion.accept')),
+    onClick: () => { send() },
+  }, t('suggestion.send')),
   h('button', {
     type: 'button',
     className: 'dca-dismiss',

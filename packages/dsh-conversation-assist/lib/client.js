@@ -104,9 +104,9 @@ var zh = {
   "recap.cause.legacy": "旧记录未注明原因",
   "recap.cause.unknown": "原因未知",
   "suggestion.label": "下一条建议",
-  "suggestion.accept": "接受",
+  "suggestion.send": "发送",
   "suggestion.dismiss": "关闭建议",
-  "suggestion.hint": "接受后是可编辑草稿，不会自动发送",
+  "suggestion.hint": "直接发送这条建议",
   "settings.nav": "对话辅助",
   "settings.title": "对话辅助",
   "settings.intro": "两个开关在同一处；改动即时生效，重启 DSH 后保留。",
@@ -136,9 +136,9 @@ var en = {
   "recap.cause.legacy": "cancelled for a legacy reason",
   "recap.cause.unknown": "an unknown reason",
   "suggestion.label": "Suggestion",
-  "suggestion.accept": "Accept",
+  "suggestion.send": "Send",
   "suggestion.dismiss": "Dismiss suggestion",
-  "suggestion.hint": "Accepted as an editable draft; nothing is sent.",
+  "suggestion.hint": "Send this suggestion",
   "settings.nav": "Conversation assist",
   "settings.title": "Conversation assist",
   "settings.intro": "Both switches live here. Changes apply immediately and survive a restart.",
@@ -383,12 +383,32 @@ function RecapTail({ turn, t, useSession, useSettings }) {
 }
 
 // packages/dsh-conversation-assist/src/ui/settings.js
+var import_react3 = __toESM(require("react"), 1);
+
+// packages/dsh-conversation-assist/src/ui/icons.js
 var import_react2 = __toESM(require("react"), 1);
-var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
 var h2 = import_react2.default.createElement;
+function HintIcon({ className, size = 16 }) {
+  return h2("svg", {
+    className,
+    viewBox: "0 0 24 24",
+    width: size,
+    height: size,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true"
+  }, h2("path", { d: "M9 18h6" }), h2("path", { d: "M10 21h4" }), h2("path", { d: "M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V17h5v-1.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z" }));
+}
+
+// packages/dsh-conversation-assist/src/ui/settings.js
+var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
+var h3 = import_react3.default.createElement;
 function Row({ setting, name, description, checked, pending, failed, errorText, t, onChange }) {
   const Switch2 = typeof primitives?.Switch === "function" ? primitives.Switch : undefined;
-  const control = Switch2 === undefined ? h2("button", {
+  const control = Switch2 === undefined ? h3("button", {
     type: "button",
     role: "switch",
     className: "dca-switch",
@@ -398,7 +418,7 @@ function Row({ setting, name, description, checked, pending, failed, errorText, 
     onClick: () => {
       onChange(setting, !checked);
     }
-  }) : h2(Switch2, {
+  }) : h3(Switch2, {
     checked,
     disabled: pending,
     label: name,
@@ -406,14 +426,14 @@ function Row({ setting, name, description, checked, pending, failed, errorText, 
       onChange(setting, next);
     }
   });
-  return h2("div", { className: "dca-setrow" }, h2("div", { className: "dca-setbody" }, h2("div", { className: "dca-setname" }, name), h2("div", { className: "dca-setdesc" }, description), failed ? h2("div", { className: "dca-seterror", role: "alert" }, errorText) : null), control);
+  return h3("div", { className: "dca-setrow" }, h3("div", { className: "dca-setbody" }, h3("div", { className: "dca-setname" }, name), h3("div", { className: "dca-setdesc" }, description), failed ? h3("div", { className: "dca-seterror", role: "alert" }, errorText) : null), control);
 }
 function SettingsSection({ t, useSettings, store }) {
   const state = useSettings((value) => value);
   const change = (setting, next) => {
     store.update({ [setting]: next });
   };
-  return h2("div", { className: "dca-settings" }, h2("h2", { className: "dca-settings-title" }, t("settings.title")), h2("p", { className: "dca-settings-intro" }, t("settings.intro")), h2(Row, {
+  return h3("div", { className: "dca-settings" }, h3("h2", { className: "dca-settings-title" }, h3(HintIcon, { className: "dca-settings-icon", size: 18 }), t("settings.title")), h3("p", { className: "dca-settings-intro" }, t("settings.intro")), h3(Row, {
     setting: "recap",
     name: t("settings.recap.name"),
     description: t("settings.recap.desc"),
@@ -423,7 +443,7 @@ function SettingsSection({ t, useSettings, store }) {
     errorText: t("settings.error"),
     t,
     onChange: change
-  }), h2(Row, {
+  }), h3(Row, {
     setting: "prediction",
     name: t("settings.prediction.name"),
     description: t("settings.prediction.desc"),
@@ -433,11 +453,11 @@ function SettingsSection({ t, useSettings, store }) {
     errorText: t("settings.error"),
     t,
     onChange: change
-  }), h2("div", { className: "dca-note" }, h2("div", { className: "dca-note-title" }, t("settings.note.title")), h2("div", null, t("settings.note.body"))), h2("div", { className: "dca-debug" }, `诊断：row=${typeof window !== "undefined" && window.__dcaAssist?.mounted === true ? "mounted" : "absent"}` + ` · prediction=${String(state.prediction)}` + ` · canAsk=${String(typeof window !== "undefined" && window.__dcaAssist?.canAsk === true)}` + ` · running=${String(typeof window !== "undefined" ? window.__dcaAssist?.running : "-")}` + ` · draft=${String(typeof window !== "undefined" ? window.__dcaAssist?.draftLength : "-")}`));
+  }), h3("div", { className: "dca-note" }, h3("div", { className: "dca-note-title" }, t("settings.note.title")), h3("div", null, t("settings.note.body"))), h3("div", { className: "dca-debug" }, `诊断：row=${typeof window !== "undefined" && window.__dcaAssist?.mounted === true ? "mounted" : "absent"}` + ` · prediction=${String(state.prediction)}` + ` · canAsk=${String(typeof window !== "undefined" && window.__dcaAssist?.canAsk === true)}` + ` · running=${String(typeof window !== "undefined" ? window.__dcaAssist?.running : "-")}` + ` · draft=${String(typeof window !== "undefined" ? window.__dcaAssist?.draftLength : "-")}`));
 }
 
 // packages/dsh-conversation-assist/src/ui/suggestion.js
-var import_react3 = __toESM(require("react"), 1);
+var import_react4 = __toESM(require("react"), 1);
 
 // packages/dsh-conversation-assist/src/shared/prediction.mjs
 function canRequest({ prediction, sessionId, input, session }) {
@@ -469,7 +489,7 @@ function canRequest({ prediction, sessionId, input, session }) {
 }
 
 // packages/dsh-conversation-assist/src/ui/suggestion.js
-var h3 = import_react3.default.createElement;
+var h4 = import_react4.default.createElement;
 var ASK_DELAY_MS = 400;
 function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSettings, inputActions, t, runtime }) {
   const settings = useSettings((state) => state);
@@ -477,12 +497,12 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
   const input = useInput((state) => state);
   const projection = useProjection("modelSelection");
   const modelKey = `${projection?.next?.provider ?? ""}/${projection?.next?.model ?? ""}`;
-  const [candidate, setCandidate] = import_react3.default.useState(null);
-  const rowRef = import_react3.default.useRef(null);
-  const lastTurn = import_react3.default.useRef(null);
-  const previousModelKey = import_react3.default.useRef(null);
-  const wasRunning = import_react3.default.useRef(false);
-  const latest = import_react3.default.useRef(null);
+  const [candidate, setCandidate] = import_react4.default.useState(null);
+  const rowRef = import_react4.default.useRef(null);
+  const lastTurn = import_react4.default.useRef(null);
+  const previousModelKey = import_react4.default.useRef(null);
+  const wasRunning = import_react4.default.useRef(false);
+  const latest = import_react4.default.useRef(null);
   latest.current = { candidate, inputActions, sessionId, runtime };
   const canAsk = canRequest({ prediction: settings.prediction, sessionId, input, session });
   const debugKey = JSON.stringify({
@@ -501,7 +521,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     removed: session.removed === true,
     modelKey
   });
-  import_react3.default.useEffect(() => {
+  import_react4.default.useEffect(() => {
     if (typeof window !== "undefined") {
       window.__dcaAssist = { mounted: true, canAsk, ...JSON.parse(debugKey) };
     }
@@ -509,7 +529,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
       return;
     runtime.reportEligibility(JSON.parse(debugKey));
   }, [debugKey, runtime, settings.prediction, canAsk]);
-  import_react3.default.useEffect(() => {
+  import_react4.default.useEffect(() => {
     if (!canAsk)
       return;
     const controller = new AbortController;
@@ -545,7 +565,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
       controller.abort();
     };
   }, [canAsk, sessionId, settings.prediction, modelKey, runtime]);
-  import_react3.default.useEffect(() => {
+  import_react4.default.useEffect(() => {
     if (previousModelKey.current === null) {
       previousModelKey.current = modelKey;
       return;
@@ -557,7 +577,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
       runtime.hidden.hide(sessionId, lastTurn.current);
     setCandidate(null);
   }, [modelKey, sessionId, runtime]);
-  import_react3.default.useEffect(() => {
+  import_react4.default.useEffect(() => {
     const running = session.running === true;
     if (running && !wasRunning.current && lastTurn.current !== null) {
       runtime.hidden.hide(sessionId, lastTurn.current);
@@ -565,48 +585,31 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     }
     wasRunning.current = running;
   }, [session.running, sessionId, runtime]);
-  import_react3.default.useEffect(() => {
+  import_react4.default.useEffect(() => {
     if (input.phase === "plain")
       return;
     if (lastTurn.current !== null)
       runtime.hidden.hide(sessionId, lastTurn.current);
     setCandidate(null);
   }, [input.phase, sessionId, runtime]);
-  const accept = import_react3.default.useCallback((source = "click") => {
+  const send = import_react4.default.useCallback(() => {
     const current = latest.current;
     if (current === null || current.candidate === null)
       return false;
-    if (source === "key") {
-      const selection = document.getSelection();
-      if (selection !== null && !selection.isCollapsed)
-        return false;
-    }
-    const span = current.inputActions.captureInsertion();
-    if (!current.inputActions.insertText(current.candidate.text, span))
-      return false;
+    current.inputActions.setDraft(current.candidate.text);
+    current.inputActions.submit();
     current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
     setCandidate(null);
     return true;
   }, []);
-  const dismiss = import_react3.default.useCallback(() => {
+  const dismiss = import_react4.default.useCallback(() => {
     const current = latest.current;
     if (current !== null && current.candidate !== null) {
       current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
     }
     setCandidate(null);
   }, []);
-  import_react3.default.useEffect(() => {
-    if (candidate === null || !canAsk) {
-      runtime.accepts.delete(sessionId);
-      return () => {};
-    }
-    runtime.accepts.set(sessionId, { accept, dismiss, turn: candidate.turn });
-    return () => {
-      if (runtime.accepts.get(sessionId)?.turn === candidate.turn)
-        runtime.accepts.delete(sessionId);
-    };
-  }, [accept, canAsk, candidate, dismiss, runtime, sessionId]);
-  import_react3.default.useEffect(() => {
+  import_react4.default.useEffect(() => {
     if (settings.prediction === true)
       return;
     if (lastTurn.current !== null)
@@ -615,23 +618,22 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
   }, [settings.prediction, sessionId, runtime]);
   if (candidate === null || !canAsk)
     return null;
-  return h3("div", {
+  return h4("div", {
     ref: rowRef,
     className: "dca-suggest",
     role: "group",
     "aria-label": t("suggestion.label")
-  }, h3("span", { className: "dca-mark", "aria-hidden": "true" }, "↳"), h3("span", { className: "dca-text", title: candidate.text }, candidate.text), h3("span", { className: "dca-gap" }), h3("span", { className: "dca-keys", "aria-hidden": "true" }, h3("kbd", null, "Tab"), h3("kbd", null, "→")), h3("button", {
+  }, h4(HintIcon, { className: "dca-mark" }), h4("span", { className: "dca-text", title: candidate.text }, candidate.text), h4("button", {
     type: "button",
-    className: "dca-accept",
-    "aria-keyshortcuts": "Tab ArrowRight",
+    className: "dca-send",
     title: t("suggestion.hint"),
     onMouseDown: (event) => {
       event.preventDefault();
     },
     onClick: () => {
-      accept("click");
+      send();
     }
-  }, t("suggestion.accept")), h3("button", {
+  }, t("suggestion.send")), h4("button", {
     type: "button",
     className: "dca-dismiss",
     "aria-label": t("suggestion.dismiss"),
@@ -686,13 +688,11 @@ var CSS = `
   backdrop-filter: var(--dsw-menu-backdrop-filter);
   color: var(--dsw-alias-label-secondary);
   font: 400 13px/20px var(--dsw-font-family);
-  container-type: inline-size;
 }
 .dca-mark {
+  display: block;
   flex: none;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 14px;
-  line-height: 20px;
 }
 .dca-text {
   flex: 1 1 auto;
@@ -701,41 +701,19 @@ var CSS = `
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dca-gap {
-  flex: 0 0 0;
-}
-.dca-keys {
-  display: flex;
-  flex: none;
-  gap: 3px;
-  margin-left: auto;
-  color: var(--dsw-alias-label-secondary);
-}
-.dca-keys kbd {
-  min-width: 20px;
-  height: 20px;
-  padding: 1px 5px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-bottom-width: 2px;
-  border-radius: var(--dsw-radius-sm, 4px);
-  background: var(--dsw-alias-bg-module-platform);
-  color: var(--dsw-alias-label-secondary);
-  font: 500 11px/16px var(--dsw-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
-  text-align: center;
-}
-.dca-accept {
+.dca-send {
   flex: none;
   height: 24px;
   padding: 0 10px;
   border: 0;
   border-radius: var(--dsw-radius-sm, 8px);
   background: none;
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-brand-primary, var(--dsw-alias-label-primary));
   font: 500 13px/20px var(--dsw-font-family);
   cursor: pointer;
 }
-.dca-accept:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-.dca-accept:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
+.dca-send:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.dca-send:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
 .dca-dismiss {
   flex: none;
   width: 24px;
@@ -749,16 +727,14 @@ var CSS = `
 }
 .dca-dismiss:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); }
 .dca-dismiss:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
-@container (max-width: 560px) {
-  .dca-keys { display: none; }
-}
 .dca-settings {
   max-width: 640px;
   padding: 0 24px 24px;
   color: var(--dsw-alias-label-primary);
   font-family: var(--dsw-font-family);
 }
-.dca-settings-title { margin: 18px 0 4px; font-size: 18px; line-height: 26px; font-weight: 600; }
+.dca-settings-title { display: flex; align-items: center; gap: 8px; margin: 18px 0 4px; font-size: 18px; line-height: 26px; font-weight: 600; }
+.dca-settings-icon { flex: none; color: var(--dsw-alias-label-tertiary); }
 .dca-settings-intro { margin: 0 0 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 20px; }
 .dca-setrow {
   display: flex;
@@ -797,25 +773,6 @@ function installStyles() {
   return () => {
     tag.remove();
   };
-}
-
-// packages/dsh-conversation-assist/src/shared/keyboard.mjs
-function decideFixedInput({ gesture, context, visible }) {
-  if (!visible)
-    return "ignore";
-  if (gesture.repeat || gesture.composing || gesture.defaultPrevented)
-    return "ignore";
-  if (gesture.control || gesture.alt || gesture.meta || gesture.shift)
-    return "ignore";
-  if (context.modal !== null)
-    return "ignore";
-  if (context.region !== "editable" || context.targetIsInput !== true)
-    return "ignore";
-  if (gesture.code === "Escape")
-    return "dismiss";
-  if (gesture.code === "Tab" || gesture.code === "ArrowRight")
-    return "accept";
-  return "ignore";
 }
 
 // packages/dsh-conversation-assist/src/ui/store.js
@@ -988,10 +945,9 @@ function apply(ctx) {
   const startedAt = Date.now();
   const settings = createSettingsStore({ language });
   const hidden = createHiddenTurns();
-  const accepts = new Map;
   let armedAt = startedAt;
   let wasPrediction = false;
-  const runtime = { hidden, accepts, language, requestSuggestion, reportEligibility, armedAt: () => armedAt };
+  const runtime = { hidden, language, requestSuggestion, reportEligibility, armedAt: () => armedAt };
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor("zh"), en: dictionaryFor("en") }), "dsh-conversation-assist: dictionaries");
   ctx.effect(() => installStyles(), "dsh-conversation-assist: stylesheet");
   ctx.effect(() => settings.subscribe(() => {
@@ -1028,35 +984,6 @@ function apply(ctx) {
     locale: NS,
     inject: () => ({ hooks: { settings }, store: settings })
   }, SettingsSection));
-  ctx.inject(["shortcuts"], (scope) => {
-    scope.effect(() => scope.shortcuts.observeFixedInput((input) => {
-      if (input.type === "reset")
-        return;
-      const { gesture, context } = input;
-      const target = context.target;
-      const element = target instanceof Element ? target : null;
-      const sessionId = element?.closest("[data-conversation-session]")?.getAttribute("data-conversation-session");
-      const entry = sessionId === undefined || sessionId === null ? undefined : accepts.get(sessionId);
-      const action = decideFixedInput({
-        gesture,
-        context: {
-          modal: context.modal,
-          region: context.region,
-          targetIsInput: element?.closest("[data-composer-input]") !== null && element !== null
-        },
-        visible: entry !== undefined
-      });
-      if (action === "ignore" || entry === undefined)
-        return;
-      if (action === "dismiss") {
-        entry.dismiss();
-        input.consume();
-        return;
-      }
-      if (entry.accept("key"))
-        input.consume();
-    }, "dsh-conversation-assist: fixed input"));
-  });
 }
 
     })(module, exports, reactRequire);
