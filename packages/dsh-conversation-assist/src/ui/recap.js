@@ -12,13 +12,13 @@ export const RECAP_KIND = 'conversation-assist.recap'
 
 /**
  * Create the state-only Definition that folds one Turn's facts.
- * Only Turns closed after the plugin started publish data, so a restart never
- * backfills a screen of recaps.
- * @param options.startedAt - client plugin start time.
- * @param options.isRecapEnabled - current recap preference.
+ *
+ * The Definition replays the loaded Session history, so every loaded Turn gets a
+ * value, not only Turns closed after this client started. The View decides
+ * whether the current recap switch hides it.
  * @returns the Definition registration value.
  */
-export function createRecapDefinition({ startedAt, isRecapEnabled }) {
+export function createRecapDefinition() {
   return {
     kind: RECAP_KIND,
     match(event) {
@@ -30,18 +30,16 @@ export function createRecapDefinition({ startedAt, isRecapEnabled }) {
       return null
     },
     start(_context, match) {
-      return { ...emptyFacts(match.event.data.turn), recapEnabledAtEnd: false }
+      return emptyFacts(match.event.data.turn)
     },
     update(context, match) {
-      const next = foldFacts(context.state, match.event)
-      if (match.event.type !== 'turn/end') return next
-      return { ...next, recapEnabledAtEnd: isRecapEnabled() === true }
+      return foldFacts(context.state, match.event)
     },
     buildLocationData(context, scope, previous) {
       if (scope !== 'turn') return null
       const state = context.state
-      if (state === undefined || typeof state.endTime !== 'number' || state.endTime < startedAt) return null
-      const value = { ...factsValue(state), recapEnabledAtEnd: state.recapEnabledAtEnd === true }
+      if (state === undefined || typeof state.endTime !== 'number') return null
+      const value = factsValue(state)
       if (previous !== null && previous !== undefined && previous.kind === 'turn'
         && previous.turn === value.turn && previous.key === RECAP_KIND
         && JSON.stringify(previous.value) === JSON.stringify(value)) return previous
@@ -52,21 +50,19 @@ export function createRecapDefinition({ startedAt, isRecapEnabled }) {
 
 /**
  * Render one Turn's recap inside `conversation.chat.turnTail`.
- * @param props - Turn owner, translator, and standard session hooks.
+ * @param props - Turn owner, translator, settings hook, and session hooks.
  * @returns a plain paragraph, or null.
  */
-export function RecapTail({ turn, t, useSession }) {
+export function RecapTail({ turn, t, useSession, useSettings }) {
   const subagent = useSession(state => state.subagent)
+  const enabled = useSettings(state => state.recap === true)
   if (subagent !== null && subagent !== undefined) return null
+  if (!enabled) return null
   const end = turn.end
   if (end === undefined || typeof end.time !== 'number') return null
   const data = turn.data.get(RECAP_KIND)
-  // No data means the window did not include this Turn's start, or the Turn
-  // ended before this client started. Do not fabricate a recap in either case.
   if (data === undefined) return null
-  const value = data
-  if (value.recapEnabledAtEnd !== true) return null
-  const text = composeRecap(value, t)
+  const text = composeRecap(data, t)
   if (text === '') return null
   return h('p', { className: 'dca-recap' }, text)
 }

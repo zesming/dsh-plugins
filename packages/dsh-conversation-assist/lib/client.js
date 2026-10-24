@@ -338,7 +338,7 @@ function composeRecap(value, t) {
 // packages/dsh-conversation-assist/src/ui/recap.js
 var h = import_react.default.createElement;
 var RECAP_KIND = "conversation-assist.recap";
-function createRecapDefinition({ startedAt, isRecapEnabled }) {
+function createRecapDefinition() {
   return {
     kind: RECAP_KIND,
     match(event) {
@@ -350,30 +350,30 @@ function createRecapDefinition({ startedAt, isRecapEnabled }) {
       return null;
     },
     start(_context, match) {
-      return { ...emptyFacts(match.event.data.turn), recapEnabledAtEnd: false };
+      return emptyFacts(match.event.data.turn);
     },
     update(context, match) {
-      const next = foldFacts(context.state, match.event);
-      if (match.event.type !== "turn/end")
-        return next;
-      return { ...next, recapEnabledAtEnd: isRecapEnabled() === true };
+      return foldFacts(context.state, match.event);
     },
     buildLocationData(context, scope, previous) {
       if (scope !== "turn")
         return null;
       const state = context.state;
-      if (state === undefined || typeof state.endTime !== "number" || state.endTime < startedAt)
+      if (state === undefined || typeof state.endTime !== "number")
         return null;
-      const value = { ...factsValue(state), recapEnabledAtEnd: state.recapEnabledAtEnd === true };
+      const value = factsValue(state);
       if (previous !== null && previous !== undefined && previous.kind === "turn" && previous.turn === value.turn && previous.key === RECAP_KIND && JSON.stringify(previous.value) === JSON.stringify(value))
         return previous;
       return { kind: "turn", turn: value.turn, key: RECAP_KIND, value };
     }
   };
 }
-function RecapTail({ turn, t, useSession }) {
+function RecapTail({ turn, t, useSession, useSettings }) {
   const subagent = useSession((state) => state.subagent);
+  const enabled = useSettings((state) => state.recap === true);
   if (subagent !== null && subagent !== undefined)
+    return null;
+  if (!enabled)
     return null;
   const end = turn.end;
   if (end === undefined || typeof end.time !== "number")
@@ -381,10 +381,7 @@ function RecapTail({ turn, t, useSession }) {
   const data = turn.data.get(RECAP_KIND);
   if (data === undefined)
     return null;
-  const value = data;
-  if (value.recapEnabledAtEnd !== true)
-    return null;
-  const text = composeRecap(value, t);
+  const text = composeRecap(data, t);
   if (text === "")
     return null;
   return h("p", { className: "dca-recap" }, text);
@@ -518,10 +515,8 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     runtime.reportEligibility(JSON.parse(debugKey));
   }, [debugKey, runtime, settings.prediction, canAsk]);
   import_react3.default.useEffect(() => {
-    if (!canAsk) {
-      setCandidate(null);
+    if (!canAsk)
       return;
-    }
     const controller = new AbortController;
     const timer = window.setTimeout(() => {
       runtime.reportEligibility({ stage: "timer", sessionId });
@@ -606,7 +601,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     setCandidate(null);
   }, []);
   import_react3.default.useEffect(() => {
-    if (candidate === null) {
+    if (candidate === null || !canAsk) {
       runtime.accepts.delete(sessionId);
       return () => {};
     }
@@ -615,8 +610,15 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
       if (runtime.accepts.get(sessionId)?.turn === candidate.turn)
         runtime.accepts.delete(sessionId);
     };
-  }, [accept, candidate, dismiss, runtime, sessionId]);
-  if (candidate === null)
+  }, [accept, canAsk, candidate, dismiss, runtime, sessionId]);
+  import_react3.default.useEffect(() => {
+    if (settings.prediction === true)
+      return;
+    if (lastTurn.current !== null)
+      runtime.hidden.hide(sessionId, lastTurn.current);
+    setCandidate(null);
+  }, [settings.prediction, sessionId, runtime]);
+  if (candidate === null || !canAsk)
     return null;
   return h3("div", {
     ref: rowRef,
@@ -658,9 +660,9 @@ var CSS = `
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 8px;
-  /* The same dock column as the queue/todo panels: side clearance plus the
-     card's dock inset, so the pill sits on the card's optical left edge. */
+  gap: 10px;
+  /* The queue/todo dock contract: side clearance plus the card's dock inset,
+     with the surface tucked under the input card's top edge. */
   width: 100%;
   max-width: 100%;
   width: calc(
@@ -679,13 +681,14 @@ var CSS = `
     var(--dsh-composer-dock-inset) -
     var(--dsh-composer-dock-inset)
   );
-  margin: 0 auto;
-  padding: 5px 8px 5px 12px;
+  margin: 0 auto calc(0px - var(--dsh-composer-stack-gap) - 3px);
+  padding: 0 12px;
+  min-height: 36px;
   border: 0.5px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dsw-radius-lg);
+  border-bottom: none;
+  border-radius: var(--dsw-radius-lg) var(--dsw-radius-lg) 0 0;
   background: var(--dsw-specific-menu);
   backdrop-filter: var(--dsw-menu-backdrop-filter);
-  box-shadow: var(--dsw-elevation-panel);
   color: var(--dsw-alias-label-secondary);
   font: 400 13px/20px var(--dsw-font-family);
   container-type: inline-size;
@@ -1007,15 +1010,13 @@ function apply(ctx) {
     settings.start();
   }), "dsh-conversation-assist: settings reset");
   settings.start();
-  ctx.effect(() => ctx.uiConversation.events.register(createRecapDefinition({
-    startedAt,
-    isRecapEnabled: () => settings.getSnapshot().recap
-  })), "dsh-conversation-assist: recap definition");
+  ctx.effect(() => ctx.uiConversation.events.register(createRecapDefinition()), "dsh-conversation-assist: recap definition");
   ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({
     name: "conversation.chat.turnTail",
     id: "dsh-conversation-assist.recap",
     order: 20,
-    locale: NS
+    locale: NS,
+    inject: () => ({ hooks: { settings } })
   }, RecapTail));
   ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
     name: "conversation.input.dock",

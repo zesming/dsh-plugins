@@ -6,20 +6,21 @@ per completed turn.
 
 ## What it does
 
-**Turn recap.** After a turn closes, one or two secondary-ink sentences appear below the last message
-and above the action row. They carry the first sentence of the final reply, so a completed turn reads as work rather than a
-count, and name how the turn ended when it did not complete — stopped, blocked, failed, truncated,
-or closed during recovery. Tool counts and failure tallies are deliberately not shown. A tool result is only "confirmed" when a non-error result arrived; a call with no result
-stays pending. The copy never claims a task is done, deployed, or published when the turn only
-closed. Recaps are derived in the browser from the loaded Session events, so they need no network and
-make no model request, and they are not backfilled for turns that ended before the plugin started.
+**Turn recap.** After a turn closes, a secondary-ink sentence appears below the last message and above
+the action row. It carries the first sentence of the final reply, so a completed turn reads as work
+rather than a count, and names how the turn ended when it did not complete — stopped, blocked,
+failed, truncated, or closed during recovery. Tool counts and failure tallies are deliberately not
+shown. The copy never claims a task is done, deployed, or published when the turn only closed.
+Recaps are derived in the browser from the loaded Session events, so every loaded Turn carries one,
+including after a restart, and they need no network and make no model request.
 
 **Next suggestion.** When enabled, a completed turn may place one suggestion above the composer, in
 the input zone: the text, the `Tab` / `→` hint, an **Accept** control, and a dismiss control. Accepting turns the whole
 suggestion into an editable draft and nothing more; the draft is never sent automatically, and one
 undo returns to the empty draft. The row exists only while the composer is empty, ordinary, idle and
 free of attachments or reference chips; it disappears as soon as you type, attach something, send,
-switch model, or close the plugin. Switching Session only hides it: coming back shows the same
+switch model, or close the plugin, and returns immediately from the retained candidate when the
+composer is empty again. Switching Session only hides it: coming back shows the same
 suggestion without a second model call. Switching the model consumes that Turn, because the
 suggestion belongs to the route that produced it.
 
@@ -81,7 +82,8 @@ Host.
 - Facts-only recap: no semantic summary mode in this version.
 - Suggestions only after `completed` turns, never after stop, block, error, truncation or a resumed
   fork; only the main Session, never a subagent.
-- No backfill: turns that ended before the plugin started show no recap or suggestion.
+- No suggestion backfill: a Turn completed before the Host plugin started shows no suggestion. Recaps
+  rebuild from the loaded Session events for every Turn, including after a restart.
 - No tools, no `followup` / `inject`, and no Session writes: the auxiliary request is logged only in
   the plugin's audit file.
 - The suggestion never reads an unsent draft and never enters the draft, clipboard, or send payload

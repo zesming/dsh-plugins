@@ -58,10 +58,7 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
   }, [debugKey, runtime, settings.prediction, canAsk])
 
   React.useEffect(() => {
-    if (!canAsk) {
-      setCandidate(null)
-      return undefined
-    }
+    if (!canAsk) return undefined
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
       void runtime.reportEligibility({ stage: 'timer', sessionId })
@@ -151,7 +148,7 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
   }, [])
 
   React.useEffect(() => {
-    if (candidate === null) {
+    if (candidate === null || !canAsk) {
       runtime.accepts.delete(sessionId)
       return () => {}
     }
@@ -159,9 +156,17 @@ export function SuggestionRow({ sessionId, useSession, useInput, useProjection, 
     return () => {
       if (runtime.accepts.get(sessionId)?.turn === candidate.turn) runtime.accepts.delete(sessionId)
     }
-  }, [accept, candidate, dismiss, runtime, sessionId])
+  }, [accept, canAsk, candidate, dismiss, runtime, sessionId])
 
-  if (candidate === null) return null
+  React.useEffect(() => {
+    // Turning prediction off consumes the pending candidate; re-enabling starts
+    // with the next Turn rather than resurrecting the old one.
+    if (settings.prediction === true) return
+    if (lastTurn.current !== null) runtime.hidden.hide(sessionId, lastTurn.current)
+    setCandidate(null)
+  }, [settings.prediction, sessionId, runtime])
+
+  if (candidate === null || !canAsk) return null
   return h('div', {
     ref: rowRef,
     className: 'dca-suggest',

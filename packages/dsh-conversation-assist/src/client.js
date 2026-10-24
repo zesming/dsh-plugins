@@ -44,10 +44,7 @@ export function apply(ctx) {
   void settings.start()
 
   ctx.effect(
-    () => ctx.uiConversation.events.register(createRecapDefinition({
-      startedAt,
-      isRecapEnabled: () => settings.getSnapshot().recap,
-    })),
+    () => ctx.uiConversation.events.register(createRecapDefinition()),
     'dsh-conversation-assist: recap definition',
   )
 
@@ -56,6 +53,7 @@ export function apply(ctx) {
     id: 'dsh-conversation-assist.recap',
     order: 20,
     locale: NS,
+    inject: () => ({ hooks: { settings } }),
   }, RecapTail))
 
   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({

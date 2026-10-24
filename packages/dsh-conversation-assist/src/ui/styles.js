@@ -12,9 +12,9 @@ const CSS = `
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 8px;
-  /* The same dock column as the queue/todo panels: side clearance plus the
-     card's dock inset, so the pill sits on the card's optical left edge. */
+  gap: 10px;
+  /* The queue/todo dock contract: side clearance plus the card's dock inset,
+     with the surface tucked under the input card's top edge. */
   width: 100%;
   max-width: 100%;
   width: calc(
@@ -33,13 +33,14 @@ const CSS = `
     var(--dsh-composer-dock-inset) -
     var(--dsh-composer-dock-inset)
   );
-  margin: 0 auto;
-  padding: 5px 8px 5px 12px;
+  margin: 0 auto calc(0px - var(--dsh-composer-stack-gap) - 3px);
+  padding: 0 12px;
+  min-height: 36px;
   border: 0.5px solid var(--dsw-alias-border-l1);
-  border-radius: var(--dsw-radius-lg);
+  border-bottom: none;
+  border-radius: var(--dsw-radius-lg) var(--dsw-radius-lg) 0 0;
   background: var(--dsw-specific-menu);
   backdrop-filter: var(--dsw-menu-backdrop-filter);
-  box-shadow: var(--dsw-elevation-panel);
   color: var(--dsw-alias-label-secondary);
   font: 400 13px/20px var(--dsw-font-family);
   container-type: inline-size;
