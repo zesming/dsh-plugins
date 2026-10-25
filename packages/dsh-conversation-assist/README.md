@@ -1,9 +1,9 @@
 # dsh-conversation-assist
 
 A short model recap after each completed main-session turn, with an optional next-prompt
-suggestion that you can accept as an editable draft. Smart recaps are on by default; suggestions
-are off. When both are enabled they share at most one bounded auxiliary generation attempt per
-turn. Auxiliary calls use the existing model provider and may incur additional usage.
+suggestion that you can accept as an editable draft. Recaps are on by default; suggestions are
+off. When both are enabled they share at most one bounded auxiliary generation attempt per turn.
+Auxiliary calls use the existing model provider and add a small amount of usage.
 
 ## Recaps
 
@@ -67,14 +67,14 @@ its text, reserve Tab globally, or occupy a shipped single-occupant slot.
 
 | Setting | Default | Effect |
 |---|---|---|
-| Show recaps | On | Show smart recaps or clearly labeled reply excerpts. |
-| Smart recap | On | Request a model recap for new completed main-session turns. Turning it off uses excerpts. |
+| Show recaps | On | Show model recaps or clearly labeled reply excerpts. |
 | Next suggestion | Off | Request an optional draftable next prompt for new completed main-session turns. |
 
 Preferences apply immediately and survive restart. Existing recap and suggestion preferences are
-preserved; the new smart-recap preference defaults to on. Turning recap display off prevents
-recap-only calls; suggestions can remain enabled independently. Enabling a feature does not
-regenerate an already-ended turn. A failed preference write rolls back and shows an inline error.
+preserved. The retired separate model-recap preference is ignored and is no longer saved. Turning
+recap display off prevents recap-only calls; suggestions can remain enabled independently.
+Enabling a feature does not regenerate an already-ended turn. A failed preference write rolls back
+and shows an inline error.
 
 ## Limits, storage, and usage
 
@@ -96,7 +96,7 @@ Files belong to the plugin under `$DSH_HOME/dsh-conversation-assist/` (default `
 
 | File | Contents |
 |---|---|
-| `settings.json` | The three preferences. |
+| `settings.json` | Recap display and next-suggestion preferences. |
 | `assistance.json` | Up to 200 generated recaps or omission markers with source identities, plus the current-day attempt ledger. No suggestion text or original transcript. |
 | `audit.jsonl` | Best-effort attempt metadata: Session, turn, source/auxiliary route, feature flags, bytes, usage, finish, timing, and error. No prompts, drafts, tool output, recap, or candidate text. |
 

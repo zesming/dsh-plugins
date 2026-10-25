@@ -28,7 +28,7 @@ test('concurrent saves serialize instead of overwriting each other', async () =>
       store.saveSettings({ recap: false }),
       store.saveSettings({ prediction: true }),
     ])
-    assert.deepEqual(JSON.parse(await readFile(statePaths(home).settings, 'utf8')), { recap: false, semanticRecap: true, prediction: true })
+    assert.deepEqual(JSON.parse(await readFile(statePaths(home).settings, 'utf8')), { recap: false, prediction: true })
   } finally {
     await rm(home, { recursive: true, force: true })
   }
@@ -38,19 +38,36 @@ test('settings round-trip through the document and fall back on a bad file', asy
   const home = await mkdtemp(join(tmpdir(), 'dca-state-'))
   try {
     const store = createStateStore({ home })
-    assert.deepEqual(await store.load(), { recap: true, semanticRecap: true, prediction: false })
+    assert.deepEqual(await store.load(), { recap: true, prediction: false })
     const saved = await store.saveSettings({ prediction: true })
-    assert.deepEqual(saved, { recap: true, semanticRecap: true, prediction: true })
-    assert.deepEqual(JSON.parse(await readFile(statePaths(home).settings, 'utf8')), { recap: true, semanticRecap: true, prediction: true })
+    assert.deepEqual(saved, { recap: true, prediction: true })
+    assert.deepEqual(JSON.parse(await readFile(statePaths(home).settings, 'utf8')), { recap: true, prediction: true })
     const reloaded = createStateStore({ home })
-    assert.deepEqual(await reloaded.load(), { recap: true, semanticRecap: true, prediction: true })
+    assert.deepEqual(await reloaded.load(), { recap: true, prediction: true })
     await store.appendAudit({ v: 1, session: 's1' })
     const lines = (await readFile(statePaths(home).audit, 'utf8')).trim().split('\n')
     assert.equal(lines.length, 1)
     assert.equal(JSON.parse(lines[0]).session, 's1')
     await writeFile(statePaths(home).settings, '{not json', 'utf8')
     const broken = createStateStore({ home })
-    assert.deepEqual(await broken.load(), { recap: true, semanticRecap: true, prediction: false })
+    assert.deepEqual(await broken.load(), { recap: true, prediction: false })
+  } finally {
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
+test('legacy smart-recap preference is ignored and omitted from the next saved document', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'dca-settings-migration-'))
+  try {
+    const paths = statePaths(home)
+    await mkdir(paths.dir, { recursive: true })
+    await writeFile(paths.settings, JSON.stringify({ recap: true, semanticRecap: false, prediction: true }), 'utf8')
+
+    const store = createStateStore({ home })
+    assert.deepEqual(await store.load(), { recap: true, prediction: true })
+    const saved = await store.saveSettings({ prediction: false })
+    assert.deepEqual(saved, { recap: true, prediction: false })
+    assert.deepEqual(JSON.parse(await readFile(paths.settings, 'utf8')), { recap: true, prediction: false })
   } finally {
     await rm(home, { recursive: true, force: true })
   }

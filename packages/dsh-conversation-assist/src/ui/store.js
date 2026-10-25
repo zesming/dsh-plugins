@@ -37,12 +37,11 @@ export function translate(language, key, values) {
 export function createSettingsStore({ language }) {
   let state = {
     recap: true,
-    semanticRecap: true,
     prediction: false,
     predictionOffEpoch: 0,
     loaded: false,
     error: false,
-    pending: { recap: false, semanticRecap: false, prediction: false },
+    pending: { recap: false, prediction: false },
     failed: null,
   }
   let mutations = 0
@@ -87,7 +86,6 @@ export function createSettingsStore({ language }) {
         const prediction = typeof value?.prediction === 'boolean' ? value.prediction : false
         set({
           recap: typeof value?.recap === 'boolean' ? value.recap : true,
-          semanticRecap: typeof value?.semanticRecap === 'boolean' ? value.semanticRecap : true,
           prediction,
           predictionOffEpoch: state.prediction === true && prediction === false
             ? state.predictionOffEpoch + 1 : state.predictionOffEpoch,
@@ -106,11 +104,13 @@ export function createSettingsStore({ language }) {
      */
     async update(patch) {
       const previous = state
-      const keys = Object.keys(patch).filter(key => typeof patch[key] === 'boolean')
+      const keys = ['recap', 'prediction'].filter(key => typeof patch?.[key] === 'boolean')
+      if (keys.length === 0) return false
+      const acceptedPatch = Object.fromEntries(keys.map(key => [key, patch[key]]))
       mutations += 1
       set({
-        ...patch,
-        predictionOffEpoch: Object.hasOwn(patch, 'prediction') && patch.prediction === false
+        ...acceptedPatch,
+        predictionOffEpoch: Object.hasOwn(acceptedPatch, 'prediction') && acceptedPatch.prediction === false
           ? state.predictionOffEpoch + 1 : state.predictionOffEpoch,
         failed: null,
         pending: pendingFor(keys, true),
@@ -119,7 +119,7 @@ export function createSettingsStore({ language }) {
         const response = await fetch(urlOf(SETTINGS_ROUTE), {
           method: 'POST',
           headers: { 'content-type': 'application/json', accept: 'application/json' },
-          body: JSON.stringify(patch),
+          body: JSON.stringify(acceptedPatch),
         })
         if (!response.ok) throw new Error(`settings ${response.status}`)
         const value = await response.json()

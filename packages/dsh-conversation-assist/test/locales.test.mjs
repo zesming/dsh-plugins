@@ -18,12 +18,16 @@ test('unknown languages fall back to English and placeholders interpolate', () =
   assert.equal(formatRow('keep {other}', {}), 'keep {other}')
 })
 
-test('the interface copy names three independent settings and a shared request cap', () => {
-  assert.equal(zh['settings.semanticRecap.name'], '智能回顾')
-  assert.match(zh['settings.note.body'], /共用每轮最多一次/u)
-  assert.match(en['settings.note.body'], /share at most one bounded auxiliary request per turn/u)
-  assert.match(zh['settings.prediction.desc'], /输入框上方/u)
+test('settings copy describes recap fallback, next suggestions, and shared usage', () => {
+  assert.equal(zh['settings.intro'], '设置即时生效，重启后保留。')
+  assert.equal(zh['settings.recap.desc'], '显示每轮的智能回顾或回复摘录。关闭后，所有回顾隐藏。')
+  assert.equal(zh['settings.prediction.desc'], '有明确后续意图时，在输入框上方显示一条建议，可填入聊天或点击发送。默认关闭')
+  assert.equal(zh['settings.note.body'], '显示回顾和下一条建议共用每轮最多一次辅助请求，会增加微量用量。')
+  assert.match(en['settings.intro'], /take effect immediately.*persist across restarts/iu)
   assert.match(en['settings.prediction.desc'], /above the composer/iu)
+  assert.match(en['settings.note.body'], /share at most one auxiliary request per turn, with a small amount of added usage/iu)
+  assert.equal(Object.hasOwn(zh, 'settings.semanticRecap.name'), false)
+  assert.equal(Object.hasOwn(en, 'settings.semanticRecap.name'), false)
   assert.equal(zh['suggestion.insert'], '填入聊天')
   assert.equal(en['suggestion.insert'], 'Insert into chat')
   assert.equal(zh['suggestion.send'], '发送')

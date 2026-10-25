@@ -6,10 +6,10 @@ installed and restarted. The synthetic semantic cases are in
 examples. A mocked request or structural assertion does not establish summary
 or suggestion quality.
 
-1. Open Conversation assist settings. Confirm the three independent defaults:
-   **Show recaps** on, **Smart recap** on, **Next suggestion** off. The usage
-   note describes one shared bounded auxiliary request per turn and says it is
-   not counted on the DSH usage page.
+1. Open Conversation assist settings. Confirm **Show recaps** is on and
+   **Next suggestion** is off. The intro says settings take effect immediately
+   and persist after restart. The usage note says both share at most one
+   auxiliary request per turn and disclose the small added usage.
 2. Complete a normal turn with a multi-paragraph reply. Confirm the tail shows
    **Recap:** before the complete model recap, preserves the result, completed checks,
    limitations and undecided items that matter, and wraps the whole generated
@@ -69,15 +69,20 @@ or suggestion quality.
     Repeat with a quick running transition that ends before React can render
     the running state. Toggle suggestions off and back on; the consumed turn
     stays consumed.
-12. Verify settings migration from an older saved record without
-    `semanticRecap`: the two old values survive and smart recap defaults on.
-    Force a save failure and confirm only the changed switch rolls back, its
-    pending state clears, and the inline error is localized.
+12. Verify settings migration from an older saved record with
+    `semanticRecap: false`: recap and suggestion values survive, recap stays
+    enabled when its own preference is on, and the retired field is omitted
+    from the next saved document. Turn recaps off while suggestions are off and
+    confirm no auxiliary request starts; turn suggestions on and confirm they
+    still work while recaps remain off. Force a save failure and confirm only
+    the changed switch rolls back, its pending state clears, and the inline
+    error is localized.
 13. Inspect the Network panel: suggestion reads use
     `/api/dsh-conversation-assist.rpc` with `{sessionId, turn, endSeq}`;
     recap reads use `/api/dsh-conversation-assist.recap` with the same identity
-    plus `replyHash`. Verify disabled features do not request, historic reads do
-    not generate, and no request includes draft text or attachments.
+    plus `replyHash`. Verify recap-off with suggestions off starts no request,
+    suggestions still work independently when enabled, historic reads do not
+    generate, and no request includes draft text or attachments.
 14. Check light and dark themes, narrow widths, and 125% zoom. Recap and
     suggestion text should wrap without horizontal overflow; controls remain
     reachable. Verify native Tab navigation, Escape, fill, Send, and caret

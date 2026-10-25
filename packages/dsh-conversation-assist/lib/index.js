@@ -318,8 +318,8 @@ function createPredictor({ getLlm, audit, now = Date.now, limits = LIMITS } = {}
 }
 
 // packages/dsh-conversation-assist/src/shared/settings.mjs
-var DEFAULT_SETTINGS = Object.freeze({ recap: true, semanticRecap: true, prediction: false });
-var SETTINGS_KEYS = Object.freeze(["recap", "semanticRecap", "prediction"]);
+var DEFAULT_SETTINGS = Object.freeze({ recap: true, prediction: false });
+var SETTINGS_KEYS = Object.freeze(["recap", "prediction"]);
 function normalizeSettings(value) {
   const settings = { ...DEFAULT_SETTINGS };
   if (typeof value !== "object" || value === null || Array.isArray(value))
@@ -477,7 +477,7 @@ function createRecapValueHandler({ getSettings, getSession, getTurn, getResult, 
     if (identity === null)
       return json({ state: "error", error: "invalid-body" }, 400);
     const settings = getSettings();
-    if (settings.recap !== true || settings.semanticRecap !== true)
+    if (settings.recap !== true)
       return json({ state: "none", reason: "disabled" });
     const session = getSession(identity.sessionId);
     if (session?.header?.origin === "subagent")
@@ -504,7 +504,7 @@ function createRecapValueHandler({ getSettings, getSession, getTurn, getResult, 
     try {
       const result = await getResult({ ...identity, generation: turn.generation });
       const latestSettings = getSettings();
-      if (latestSettings.recap !== true || latestSettings.semanticRecap !== true)
+      if (latestSettings.recap !== true)
         return json({ state: "none", reason: "disabled" });
       const latestSession = getSession(identity.sessionId);
       const latestTurn = getTurn(identity.sessionId);
@@ -1470,7 +1470,7 @@ function apply(ctx) {
         if (!isLive(session, turn) || controller.signal.aborted || lifetime.signal.aborted)
           return { state: "none", reason: "historical" };
         const settings = state.getSettings();
-        const recapEnabled = settings.recap === true && settings.semanticRecap === true;
+        const recapEnabled = settings.recap === true;
         const recapNotNeeded = recapEnabled && isBriefReply(turn.finalText);
         const features = {
           recap: recapEnabled && !recapNotNeeded,
@@ -1511,7 +1511,7 @@ function apply(ctx) {
             replyHash,
             route: sourceSelection,
             recapReason: recapNotNeeded ? "not-needed" : generated.recapReason,
-            recap: currentSettings.recap === true && currentSettings.semanticRecap === true ? generated.recap : null,
+            recap: currentSettings.recap === true ? generated.recap : null,
             suggestion: currentSettings.prediction === true && entry.predictionEpoch === predictionEpoch && !suggestionInvalidated ? generated.suggestion : null,
             suggestionReason: suggestionInvalidated ? "selection-changed" : generated.suggestionReason
           };
@@ -1526,7 +1526,7 @@ function apply(ctx) {
               generation,
               recap: result.recap
             }) === true;
-          } else if (features.recap === true && currentSettings.recap === true && currentSettings.semanticRecap === true && generated.recapReason === "not-needed") {
+          } else if (features.recap === true && currentSettings.recap === true && generated.recapReason === "not-needed") {
             const generation = turn.surfaceGeneration ?? turn.generation;
             result.persisted = await state.saveSummary({
               sessionId: session.id,
@@ -1596,7 +1596,7 @@ function apply(ctx) {
       }
       const settings = await state.saveSettings(patch);
       for (const entry of inflight.values()) {
-        const stillNeeded = entry.features.recap && settings.recap && settings.semanticRecap || entry.features.prediction && settings.prediction;
+        const stillNeeded = entry.features.recap && settings.recap || entry.features.prediction && settings.prediction;
         if (!stillNeeded)
           entry.controller.abort();
       }

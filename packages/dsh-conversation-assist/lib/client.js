@@ -123,15 +123,13 @@ var zh = {
   "suggestion.send": "发送",
   "settings.nav": "对话辅助",
   "settings.title": "对话辅助",
-  "settings.intro": "三个独立开关；改动即时生效，重启 DSH 后保留。",
+  "settings.intro": "设置即时生效，重启后保留。",
   "settings.recap.name": "显示回顾",
   "settings.recap.desc": "显示每轮的智能回顾或回复摘录。关闭后，所有回顾隐藏。",
-  "settings.semanticRecap.name": "智能回顾",
-  "settings.semanticRecap.desc": "正常结束后生成简短的模型回顾。默认开启；失败或历史轮次会显示明确标注的回复摘录。",
   "settings.prediction.name": "下一条建议",
-  "settings.prediction.desc": "有明确后续意图时，在输入框上方显示一条建议，可填入聊天或点击发送。默认关闭；关闭后不显示也不请求。",
+  "settings.prediction.desc": "有明确后续意图时，在输入框上方显示一条建议，可填入聊天或点击发送。默认关闭",
   "settings.note.title": "用量说明",
-  "settings.note.body": "智能回顾和下一条建议共用每轮最多一次受限辅助请求；只开启一项时只请求该项。请求受每日、并发、输入和输出上限约束，可能跳过；不计入 DSH 用量页。",
+  "settings.note.body": "显示回顾和下一条建议共用每轮最多一次辅助请求，会增加微量用量。",
   "settings.error": "设置未保存，请重试。"
 };
 var en = {
@@ -171,15 +169,13 @@ var en = {
   "suggestion.send": "Send",
   "settings.nav": "Conversation assist",
   "settings.title": "Conversation assist",
-  "settings.intro": "Three independent switches. Changes apply immediately and survive a restart.",
+  "settings.intro": "Settings take effect immediately and persist across restarts.",
   "settings.recap.name": "Show recaps",
   "settings.recap.desc": "Show a smart recap or reply excerpt for each turn. Turning this off hides all recaps.",
-  "settings.semanticRecap.name": "Smart recap",
-  "settings.semanticRecap.desc": "Generate a short model recap after a normal turn. On by default; failures and historical turns show a clearly labeled reply excerpt.",
   "settings.prediction.name": "Next suggestion",
-  "settings.prediction.desc": "Show one next-step suggestion above the composer when the turn has a clear next step. Fill it into chat or click Send. Off by default; when off, no row or request appears.",
+  "settings.prediction.desc": "When there is clear follow-up intent, show one suggestion above the composer. Fill it into chat or click Send. Off by default.",
   "settings.note.title": "Usage",
-  "settings.note.body": "Smart recap and next suggestion share at most one bounded auxiliary request per turn; when only one is enabled, only that item is requested. Daily, concurrency, input, and output caps apply, so a request may be skipped. It is not counted on the DSH usage page.",
+  "settings.note.body": "Recaps and next suggestions share at most one auxiliary request per turn, with a small amount of added usage.",
   "settings.error": "Settings were not saved. Try again."
 };
 function dictionaryFor(language) {
@@ -611,8 +607,8 @@ function isBriefReply(text) {
 function isBriefCompletedReply(facts) {
   return facts?.reasonKind === "completed" && facts.finalReply === true && facts.excerptTruncated === false && typeof facts.lastText === "string" && isBriefReply(facts.lastText);
 }
-function shouldRequestRecap({ settingsLoaded, enabled, semanticEnabled, subagent, identity, facts }) {
-  return settingsLoaded === true && enabled === true && semanticEnabled === true && subagent == null && identity !== null && facts?.reasonKind === "completed" && facts.finalReply === true && typeof facts.replyHash === "string" && !isBriefCompletedReply(facts);
+function shouldRequestRecap({ settingsLoaded, enabled, subagent, identity, facts }) {
+  return settingsLoaded === true && enabled === true && subagent == null && identity !== null && facts?.reasonKind === "completed" && facts.finalReply === true && typeof facts.replyHash === "string" && !isBriefCompletedReply(facts);
 }
 function shouldOmitRecap(facts, requestView) {
   return isBriefCompletedReply(facts) || requestView?.state === "none" && requestView.reason === "not-needed";
@@ -664,7 +660,6 @@ function excerpt2(value, t) {
 function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime }) {
   const subagent = useSession((state) => state.subagent);
   const enabled = useSettings((state) => state.recap === true);
-  const semanticEnabled = useSettings((state) => state.semanticRecap === true);
   const settingsLoaded = useSettings((state) => state.loaded === true);
   const [request, setRequest] = import_react.default.useState(null);
   const end = turn?.end;
@@ -678,11 +673,10 @@ function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime }) {
     reasonKind: end?.data?.reason?.kind ?? "unknown",
     lastText: undefined
   };
-  const recapKey = identity === null ? "" : `${identityKey(identity)}:${facts.replyHash ?? ""}:${semanticEnabled ? "on" : "off"}`;
+  const recapKey = identity === null ? "" : `${identityKey(identity)}:${facts.replyHash ?? ""}`;
   const shouldRequest = shouldRequestRecap({
     settingsLoaded,
     enabled,
-    semanticEnabled,
     subagent,
     identity,
     facts
@@ -722,7 +716,7 @@ function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime }) {
   const label = ready ? t("recap.ariaLabel") : isHistorical ? t("recap.historicalLabel") : t("recap.excerptLabel");
   const status = composeRecap(facts, t);
   const loading = reason === "loading";
-  const noContext = semanticEnabled && facts.reasonKind === "completed" && facts.hasReply === true && facts.finalReply !== true && currentRequest === null;
+  const noContext = enabled && facts.reasonKind === "completed" && facts.hasReply === true && facts.finalReply !== true && currentRequest === null;
   return h("section", { className: "dca-recap", "aria-label": label }, ready ? null : h("div", { className: "dca-recap-heading" }, isHistorical ? h("strong", null, label) : null, loading ? h("span", { className: "dca-recap-state" }, t("recap.loading")) : null, !loading && !isHistorical ? h("strong", null, label) : null), ready ? h("p", { className: "dca-recap-copy" }, t("recap.prefix"), currentRequest.recap) : excerpt2(facts, t), ready && currentRequest.persisted === false ? h("p", { className: "dca-recap-status" }, t("recap.notPersisted")) : null, status !== "" ? h("p", { className: "dca-recap-status" }, status) : null, reason !== undefined && !loading ? h("p", { className: "dca-recap-status" }, reasonText(reason, t)) : null, noContext ? h("p", { className: "dca-recap-status" }, reasonText("no-context", t)) : null);
 }
 
@@ -750,7 +744,7 @@ function HintIcon({ className, size = 16 }) {
 // packages/dsh-conversation-assist/src/ui/settings.js
 var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
 var h3 = import_react3.default.createElement;
-function Row({ setting, name, description, checked, pending, failed, errorText, t, onChange }) {
+function Row({ setting, name, description, checked, pending, failed, errorText, onChange }) {
   const Switch2 = typeof primitives?.Switch === "function" ? primitives.Switch : undefined;
   const control = Switch2 === undefined ? h3("button", {
     type: "button",
@@ -785,17 +779,6 @@ function SettingsSection({ t, useSettings, store }) {
     pending: state.pending.recap,
     failed: state.failed === "recap",
     errorText: t("settings.error"),
-    t,
-    onChange: change
-  }), h3(Row, {
-    setting: "semanticRecap",
-    name: t("settings.semanticRecap.name"),
-    description: t("settings.semanticRecap.desc"),
-    checked: state.semanticRecap,
-    pending: state.pending.semanticRecap,
-    failed: state.failed === "semanticRecap",
-    errorText: t("settings.error"),
-    t,
     onChange: change
   }), h3(Row, {
     setting: "prediction",
@@ -805,7 +788,6 @@ function SettingsSection({ t, useSettings, store }) {
     pending: state.pending.prediction,
     failed: state.failed === "prediction",
     errorText: t("settings.error"),
-    t,
     onChange: change
   }), h3("div", { className: "dca-note" }, h3("div", { className: "dca-note-title" }, t("settings.note.title")), h3("div", null, t("settings.note.body"))));
 }
@@ -1276,12 +1258,11 @@ function translate(language, key, values) {
 function createSettingsStore({ language }) {
   let state = {
     recap: true,
-    semanticRecap: true,
     prediction: false,
     predictionOffEpoch: 0,
     loaded: false,
     error: false,
-    pending: { recap: false, semanticRecap: false, prediction: false },
+    pending: { recap: false, prediction: false },
     failed: null
   };
   let mutations = 0;
@@ -1322,7 +1303,6 @@ function createSettingsStore({ language }) {
         const prediction = typeof value?.prediction === "boolean" ? value.prediction : false;
         set({
           recap: typeof value?.recap === "boolean" ? value.recap : true,
-          semanticRecap: typeof value?.semanticRecap === "boolean" ? value.semanticRecap : true,
           prediction,
           predictionOffEpoch: state.prediction === true && prediction === false ? state.predictionOffEpoch + 1 : state.predictionOffEpoch,
           loaded: true,
@@ -1336,11 +1316,14 @@ function createSettingsStore({ language }) {
     },
     async update(patch) {
       const previous = state;
-      const keys = Object.keys(patch).filter((key) => typeof patch[key] === "boolean");
+      const keys = ["recap", "prediction"].filter((key) => typeof patch?.[key] === "boolean");
+      if (keys.length === 0)
+        return false;
+      const acceptedPatch = Object.fromEntries(keys.map((key) => [key, patch[key]]));
       mutations += 1;
       set({
-        ...patch,
-        predictionOffEpoch: Object.hasOwn(patch, "prediction") && patch.prediction === false ? state.predictionOffEpoch + 1 : state.predictionOffEpoch,
+        ...acceptedPatch,
+        predictionOffEpoch: Object.hasOwn(acceptedPatch, "prediction") && acceptedPatch.prediction === false ? state.predictionOffEpoch + 1 : state.predictionOffEpoch,
         failed: null,
         pending: pendingFor(keys, true)
       });
@@ -1348,7 +1331,7 @@ function createSettingsStore({ language }) {
         const response = await fetch(urlOf(SETTINGS_ROUTE), {
           method: "POST",
           headers: { "content-type": "application/json", accept: "application/json" },
-          body: JSON.stringify(patch)
+          body: JSON.stringify(acceptedPatch)
         });
         if (!response.ok)
           throw new Error(`settings ${response.status}`);

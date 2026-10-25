@@ -17,12 +17,12 @@ export function isBriefCompletedReply(facts) {
 }
 
 /**
- * Decide whether this Turn needs a smart recap request.
+ * Decide whether this Turn needs a model recap request.
  * @param options - settings and folded Turn facts.
  * @returns true when the exact final reply can be requested.
  */
-export function shouldRequestRecap({ settingsLoaded, enabled, semanticEnabled, subagent, identity, facts }) {
-  return settingsLoaded === true && enabled === true && semanticEnabled === true && subagent == null
+export function shouldRequestRecap({ settingsLoaded, enabled, subagent, identity, facts }) {
+  return settingsLoaded === true && enabled === true && subagent == null
     && identity !== null && facts?.reasonKind === 'completed'
     && facts.finalReply === true && typeof facts.replyHash === 'string'
     && !isBriefCompletedReply(facts)

@@ -1,16 +1,16 @@
 /**
- * Persisted preferences for the three independent presentation controls.
+ * Persisted preferences for recap display and next-prompt suggestions.
  *
  * The Host owns one settings document per DSH home, so the choice is shared by
  * every browser that talks to that Host. Unknown and malformed fields fall back
  * to the defaults instead of failing the whole document.
  */
 
-/** Model-generated recaps are enabled; suggestions remain opt-in. */
-export const DEFAULT_SETTINGS = Object.freeze({ recap: true, semanticRecap: true, prediction: false })
+/** Recap display is enabled; suggestions remain opt-in. */
+export const DEFAULT_SETTINGS = Object.freeze({ recap: true, prediction: false })
 
 /** Accepted preference keys, in display order. */
-export const SETTINGS_KEYS = Object.freeze(['recap', 'semanticRecap', 'prediction'])
+export const SETTINGS_KEYS = Object.freeze(['recap', 'prediction'])
 
 /**
  * Coerce a stored document into a complete settings value.

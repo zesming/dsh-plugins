@@ -92,7 +92,6 @@ export function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime
   // between closed and unavailable states as history is reconciled.
   const subagent = useSession(state => state.subagent)
   const enabled = useSettings(state => state.recap === true)
-  const semanticEnabled = useSettings(state => state.semanticRecap === true)
   const settingsLoaded = useSettings(state => state.loaded === true)
   const [request, setRequest] = React.useState(null)
 
@@ -109,9 +108,9 @@ export function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime
   }
   const recapKey = identity === null
     ? ''
-    : `${identityKey(identity)}:${facts.replyHash ?? ''}:${semanticEnabled ? 'on' : 'off'}`
+    : `${identityKey(identity)}:${facts.replyHash ?? ''}`
   const shouldRequest = shouldRequestRecap({
-    settingsLoaded, enabled, semanticEnabled, subagent, identity, facts,
+    settingsLoaded, enabled, subagent, identity, facts,
   })
 
   React.useEffect(() => {
@@ -154,7 +153,7 @@ export function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime
     : isHistorical ? t('recap.historicalLabel') : t('recap.excerptLabel')
   const status = composeRecap(facts, t)
   const loading = reason === 'loading'
-  const noContext = semanticEnabled && facts.reasonKind === 'completed' && facts.hasReply === true
+  const noContext = enabled && facts.reasonKind === 'completed' && facts.hasReply === true
     && facts.finalReply !== true && currentRequest === null
 
   return h('section', { className: 'dca-recap', 'aria-label': label },

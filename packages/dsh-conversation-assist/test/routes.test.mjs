@@ -9,7 +9,7 @@ import { PROMPT_VERSION } from '../src/host/predict.mjs'
 import { apply, RECAP_PATH, SETTINGS_PATH, SUGGEST_PATH } from '../src/index.js'
 import { replyFingerprint } from '../src/shared/identity.mjs'
 
-const settingsOn = { recap: true, semanticRecap: true, prediction: true }
+const settingsOn = { recap: true, prediction: true }
 const identity = { sessionId: 's1', turn: 2, endSeq: 8 }
 const route = { provider: 'p', model: 'm', reasoningEffort: 'high' }
 const session = { id: 's1', header: {}, surface: { contentGeneration: 4 } }
@@ -28,7 +28,7 @@ const post = body => new Request('http://host/api/x', {
   body: typeof body === 'string' ? body : JSON.stringify(body),
 })
 
-test('settings route reads and persists the independent feature settings', async () => {
+test('settings route reads and persists recap and suggestion settings only', async () => {
   let current = { ...settingsOn }
   const handler = createSettingsHandler({
     getSettings: () => current,
@@ -36,8 +36,9 @@ test('settings route reads and persists the independent feature settings', async
   })
   assert.deepEqual(await (await handler(new Request('http://host/api/x'))).json(), settingsOn)
   const write = await handler(post({ semanticRecap: false, prediction: false }))
-  assert.deepEqual(await write.json(), { recap: true, semanticRecap: false, prediction: false })
+  assert.deepEqual(await write.json(), { recap: true, prediction: false })
   assert.equal(current.prediction, false)
+  assert.equal((await handler(post({ semanticRecap: false }))).status, 400)
 })
 
 test('suggest route requires the exact completed latest Turn and returns the main source selection', async () => {
@@ -115,6 +116,78 @@ test('recap route reads a cached summary for a historical Turn without requiring
   assert.deepEqual(await (await handler(post({ ...identity, replyHash }))).json(), {
     ...identity, replyHash, state: 'ready', recap: '历史摘要。', persisted: true,
   })
+})
+
+test('recap off makes no recap-only request while next suggestions stay independent', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'dca-recap-off-'))
+  const routes = new Map()
+  const listeners = new Map()
+  const cleanups = []
+  const sessions = new Map([
+    ['disabled', { id: 'disabled', header: {}, surface: { contentGeneration: 1 } }],
+    ['suggestion-only', { id: 'suggestion-only', header: {}, surface: { contentGeneration: 1 } }],
+  ])
+  const sourceRoute = { provider: 'p', model: 'm' }
+  const calls = []
+  const llm = {
+    async prepareCall(config, _signal, configure) {
+      const controls = configure({ maxTokens: config.maxTokens }, { reasoning: { efforts: [{ id: 'low' }] } })
+      return {
+        config: { ...config, ...controls },
+        stream: async function* (options) {
+          calls.push(options)
+          yield { type: 'text-delta', text: JSON.stringify({ recap: 'Generated recap.', suggestion: 'Continue checking the remaining item.' }) }
+          yield { type: 'finish', reason: { kind: 'stop' } }
+        },
+      }
+    },
+  }
+  const scope = { connection: { fetch: { register(route) { routes.set(route.path, route); return () => routes.delete(route.path) } } }, effect(effect) { cleanups.push(effect()) } }
+  const ctx = {
+    get(name) {
+      if (name === 'dshHomePath') return () => home
+      if (name === 'llm') return llm
+      if (name === 'sessions') return { get: id => sessions.get(id) }
+      if (name === 'sessionProjections') return { snapshot: () => ({ values: { modelSelection: { next: sourceRoute } } }) }
+      return undefined
+    },
+    effect(effect) { cleanups.push(effect()) },
+    on(name, listener) { listeners.set(name, listener) },
+    inject(_dependencies, callback) { callback(scope) },
+  }
+  const observe = (sessionId, event) => listeners.get('session/event')(sessions.get(sessionId), event)
+  const completeTurn = (sessionId, baseSeq) => {
+    observe(sessionId, { type: 'turn/start', seq: baseSeq, time: baseSeq, data: { turn: 1 } })
+    observe(sessionId, { type: 'user/message', seq: baseSeq + 1, time: baseSeq + 1, surfaceOp: 'append', data: { id: `user-${sessionId}`, role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'Please finish the work and check the remaining items.' }] } })
+    const reply = 'The change is complete. Validation passed. One item remains.'
+    observe(sessionId, { type: 'assistant/message', seq: baseSeq + 2, time: baseSeq + 2, surfaceOp: 'append', data: { turn: 1, message: { id: `assistant-${sessionId}`, role: 'assistant', source: { kind: 'model' }, content: [{ type: 'text', text: reply }] } } })
+    observe(sessionId, { type: 'turn/end', seq: baseSeq + 3, time: baseSeq + 3, data: { turn: 1, reason: { kind: 'completed' } } })
+    return { sessionId, turn: 1, endSeq: baseSeq + 3, replyHash: replyFingerprint(reply) }
+  }
+
+  try {
+    apply(ctx)
+    await routes.get(SETTINGS_PATH).fetch(new Request('http://host/settings'))
+    await routes.get(SETTINGS_PATH).fetch(post({ recap: false }))
+
+    const disabled = completeTurn('disabled', 1)
+    assert.deepEqual(await (await routes.get(RECAP_PATH).fetch(post(disabled))).json(), { state: 'none', reason: 'disabled' })
+    assert.deepEqual(await (await routes.get(SUGGEST_PATH).fetch(post({ sessionId: disabled.sessionId, turn: disabled.turn, endSeq: disabled.endSeq }))).json(), { state: 'disabled' })
+    assert.equal(calls.length, 0)
+
+    await routes.get(SETTINGS_PATH).fetch(post({ prediction: true }))
+    const suggestionOnly = completeTurn('suggestion-only', 10)
+    assert.deepEqual(await (await routes.get(SUGGEST_PATH).fetch(post({ sessionId: suggestionOnly.sessionId, turn: suggestionOnly.turn, endSeq: suggestionOnly.endSeq }))).json(), {
+      state: 'ready', sessionId: suggestionOnly.sessionId, turn: suggestionOnly.turn, endSeq: suggestionOnly.endSeq,
+      text: 'Continue checking the remaining item.', route: sourceRoute,
+    })
+    assert.deepEqual(await (await routes.get(RECAP_PATH).fetch(post(suggestionOnly))).json(), { state: 'none', reason: 'disabled' })
+    assert.equal(calls.length, 1)
+    assert.match(calls[0].system, /Enabled outputs: recap=false; suggestion=true/u)
+  } finally {
+    for (const cleanup of cleanups) cleanup?.()
+    await rm(home, { recursive: true, force: true })
+  }
 })
 
 test('recap route only waits for the current shared attempt and checks the content hash', async () => {
@@ -501,7 +574,7 @@ test('prediction off clears completed suggestions and an off/on epoch suppresses
     const third = endTurn(3, 20)
     const thirdSuggestion = routes.get(SUGGEST_PATH).fetch(post({ sessionId: third.sessionId, turn: third.turn, endSeq: third.endSeq }))
     await thirdStarted
-    await routes.get(SETTINGS_PATH).fetch(post({ recap: false, semanticRecap: false, prediction: false }))
+    await routes.get(SETTINGS_PATH).fetch(post({ recap: false, prediction: false }))
     assert.equal(thirdSignal.aborted, true)
     releaseThird()
     assert.deepEqual(await (await thirdSuggestion).json(), { state: 'none', reason: 'historical' })

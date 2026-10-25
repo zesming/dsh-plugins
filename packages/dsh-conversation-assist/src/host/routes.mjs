@@ -114,7 +114,7 @@ export function createRecapValueHandler({ getSettings, getSession, getTurn, getR
     const identity = parseRecapBody(value)
     if (identity === null) return json({ state: 'error', error: 'invalid-body' }, 400)
     const settings = getSettings()
-    if (settings.recap !== true || settings.semanticRecap !== true) return json({ state: 'none', reason: 'disabled' })
+    if (settings.recap !== true) return json({ state: 'none', reason: 'disabled' })
     const session = getSession(identity.sessionId)
     if (session?.header?.origin === 'subagent') return json({ state: 'none', reason: 'historical' })
     const turn = getTurn(identity.sessionId)
@@ -136,7 +136,7 @@ export function createRecapValueHandler({ getSettings, getSession, getTurn, getR
     try {
       const result = await getResult({ ...identity, generation: turn.generation })
       const latestSettings = getSettings()
-      if (latestSettings.recap !== true || latestSettings.semanticRecap !== true) return json({ state: 'none', reason: 'disabled' })
+      if (latestSettings.recap !== true) return json({ state: 'none', reason: 'disabled' })
       const latestSession = getSession(identity.sessionId)
       const latestTurn = getTurn(identity.sessionId)
       if (latestSession !== session || !validCompletedTurn(latestTurn, identity)

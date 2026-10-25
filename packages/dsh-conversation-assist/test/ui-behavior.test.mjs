@@ -240,18 +240,26 @@ test('recap loading persists for the same key until a delayed result resolves', 
   })
 })
 
-test('brief completed replies skip the recap request and omit the excerpt row', () => {
+test('recap visibility requests model summaries while brief replies are omitted', () => {
   const facts = {
     reasonKind: 'completed', finalReply: true, replyHash: 'brief-reply',
     lastText: '检查通过，未发现问题。', excerptTruncated: false,
   }
   const options = {
-    settingsLoaded: true, enabled: true, semanticEnabled: true,
+    settingsLoaded: true, enabled: true,
     subagent: null, identity, facts,
   }
   assert.equal(isBriefCompletedReply(facts), true)
   assert.equal(shouldRequestRecap(options), false)
   assert.equal(shouldOmitRecap(facts, { state: 'idle' }), true)
+
+  const complete = {
+    ...facts,
+    reasonKind: 'completed', finalReply: true, replyHash: 'complete-reply',
+    lastText: 'The change is complete. Validation passed. One item remains.',
+  }
+  assert.equal(shouldRequestRecap({ ...options, facts: complete }), true)
+  assert.equal(shouldRequestRecap({ ...options, enabled: false, facts: complete }), false)
 
   const abnormal = { ...facts, reasonKind: 'blocked' }
   assert.equal(isBriefCompletedReply(abnormal), false)

@@ -28,22 +28,32 @@ test('translate follows the interface language and falls back to English', () =>
   assert.equal(translate('en', 'missing.key'), 'missing.key')
 })
 
-test('settings migrate missing smart recap to enabled and preserve older switches', async () => {
+test('settings ignore the retired recap mode and preserve recap and suggestion preferences', async () => {
   const originalDocument = globalThis.document
   const originalFetch = globalThis.fetch
+  const writes = []
   globalThis.document = { baseURI: 'http://host/' }
-  globalThis.fetch = async url => {
+  globalThis.fetch = async (url, init) => {
     assert.equal(String(url), 'http://host/api/dsh-conversation-assist.settings')
-    return response({ recap: false, prediction: true })
+    if (init?.method === 'POST') {
+      const patch = JSON.parse(init.body)
+      writes.push(patch)
+      return response({ recap: true, prediction: patch.prediction ?? true })
+    }
+    return response({ recap: true, semanticRecap: false, prediction: true })
   }
   try {
     const settings = createSettingsStore({ language: () => 'en' })
     await settings.start()
-    assert.deepEqual({
-      recap: settings.getSnapshot().recap,
-      semanticRecap: settings.getSnapshot().semanticRecap,
-      prediction: settings.getSnapshot().prediction,
-    }, { recap: false, semanticRecap: true, prediction: true })
+    assert.deepEqual({ recap: settings.getSnapshot().recap, prediction: settings.getSnapshot().prediction }, {
+      recap: true, prediction: true,
+    })
+    assert.equal('semanticRecap' in settings.getSnapshot(), false)
+    assert.equal(await settings.update({ semanticRecap: false }), false)
+    assert.deepEqual(writes, [])
+    assert.equal(await settings.update({ prediction: false, semanticRecap: false }), true)
+    assert.deepEqual(writes, [{ prediction: false }])
+    assert.equal(settings.getSnapshot().prediction, false)
   } finally {
     if (originalDocument === undefined) delete globalThis.document
     else globalThis.document = originalDocument
@@ -61,14 +71,13 @@ test('a failed setting write rolls back only that setting and clears its pending
   try {
     const settings = createSettingsStore({ language: () => 'en' })
     await settings.start()
-    assert.equal(await settings.update({ semanticRecap: false }), false)
+    assert.equal(await settings.update({ recap: true }), false)
     assert.deepEqual({
       recap: settings.getSnapshot().recap,
-      semanticRecap: settings.getSnapshot().semanticRecap,
       prediction: settings.getSnapshot().prediction,
-      pending: settings.getSnapshot().pending.semanticRecap,
+      pending: settings.getSnapshot().pending.recap,
       failed: settings.getSnapshot().failed,
-    }, { recap: false, semanticRecap: true, prediction: true, pending: false, failed: 'semanticRecap' })
+    }, { recap: false, prediction: true, pending: false, failed: 'recap' })
   } finally {
     if (originalDocument === undefined) delete globalThis.document
     else globalThis.document = originalDocument

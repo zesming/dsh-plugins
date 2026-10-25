@@ -148,7 +148,7 @@ export function apply(ctx) {
         await ready
         if (!isLive(session, turn) || controller.signal.aborted || lifetime.signal.aborted) return { state: 'none', reason: 'historical' }
         const settings = state.getSettings()
-        const recapEnabled = settings.recap === true && settings.semanticRecap === true
+        const recapEnabled = settings.recap === true
         const recapNotNeeded = recapEnabled && isBriefReply(turn.finalText)
         const features = {
           recap: recapEnabled && !recapNotNeeded,
@@ -187,7 +187,7 @@ export function apply(ctx) {
             replyHash,
             route: sourceSelection,
             recapReason: recapNotNeeded ? 'not-needed' : generated.recapReason,
-            recap: currentSettings.recap === true && currentSettings.semanticRecap === true ? generated.recap : null,
+            recap: currentSettings.recap === true ? generated.recap : null,
             suggestion: currentSettings.prediction === true && entry.predictionEpoch === predictionEpoch && !suggestionInvalidated ? generated.suggestion : null,
             suggestionReason: suggestionInvalidated ? 'selection-changed' : generated.suggestionReason,
           }
@@ -203,7 +203,7 @@ export function apply(ctx) {
               recap: result.recap,
             }) === true
           } else if (features.recap === true && currentSettings.recap === true
-            && currentSettings.semanticRecap === true && generated.recapReason === 'not-needed') {
+            && generated.recapReason === 'not-needed') {
             const generation = turn.surfaceGeneration ?? turn.generation
             result.persisted = await state.saveSummary({
               sessionId: session.id,
@@ -264,7 +264,7 @@ export function apply(ctx) {
       }
       const settings = await state.saveSettings(patch)
       for (const entry of inflight.values()) {
-        const stillNeeded = (entry.features.recap && settings.recap && settings.semanticRecap)
+        const stillNeeded = (entry.features.recap && settings.recap)
           || (entry.features.prediction && settings.prediction)
         if (!stillNeeded) entry.controller.abort()
       }
