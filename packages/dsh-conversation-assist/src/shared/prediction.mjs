@@ -1,4 +1,4 @@
-/** Pure decisions for the next-suggestion request: eligibility, trimming, parsing. */
+/** Pure decisions for suggestion eligibility, output and route identities. */
 
 import { LIMITS } from './limits.mjs'
 
@@ -15,6 +15,8 @@ export function canRequest({ prediction, sessionId, input, session }) {
   if (typeof sessionId !== 'string' || sessionId === '') return false
   if (session === undefined || session === null) return false
   if (session.running === true || session.removed === true) return false
+  if (session.awaitingFirstTurn === true) return false
+  if ((session.pendingSubmissions?.length ?? 0) > 0) return false
   if (session.subagent !== null && session.subagent !== undefined) return false
   if (input === undefined || input === null) return false
   if (input.draft !== '') return false
@@ -27,94 +29,42 @@ export function canRequest({ prediction, sessionId, input, session }) {
 }
 
 /**
- * Keep the newest messages that fit the byte and count caps.
- * @param messages - durable derived history.
- * @param maxBytes - UTF-8 byte ceiling.
- * @param maxMessages - message-count ceiling.
- * @returns a new tail array; at least the last message when the history is non-empty.
- */
-export function trimHistory(messages, maxBytes = LIMITS.maxContextBytes, maxMessages = LIMITS.maxMessages) {
-  if (!Array.isArray(messages) || messages.length === 0) return []
-  const encoder = new TextEncoder()
-  // Group by user Turn. A Turn's tool calls and results must be kept or dropped
-  // together: a partial group is an invalid conversation for the adapter.
-  const groups = []
-  let current = null
-  for (const message of messages) {
-    if (message?.role === 'system' || message?.role === 'developer') continue
-    if (message?.role === 'user') {
-      current = [message]
-      groups.push(current)
-    } else if (current !== null) {
-      current.push(message)
-    }
-    // A tool/assistant message before the first user Turn is an orphan; drop it.
-  }
-  const out = []
-  let bytes = 0
-  let count = 0
-  for (let index = groups.length - 1; index >= 0; index -= 1) {
-    const group = groups[index]
-    let size = 0
-    try {
-      size = encoder.encode(JSON.stringify(group)).length
-    } catch {
-      continue
-    }
-    // Keep whole Turns only; an oversized Turn is skipped rather than split.
-    if (size > maxBytes) continue
-    if (count + group.length > maxMessages) break
-    if (out.length > 0 && bytes + size > maxBytes) break
-    out.unshift(...group)
-    bytes += size
-    count += group.length
-  }
-  return out
-}
-
-/**
  * Accept only a single short line that can be inserted as a draft.
  * @param raw - model output.
  * @returns cleaned text, or null when the output is unusable.
  */
 export function sanitizeSuggestion(raw) {
   if (typeof raw !== 'string') return null
-  const firstLine = raw.split(/\r?\n/u).map(line => line.trim()).find(line => line !== '')
-  if (firstLine === undefined) return null
-  let text = firstLine
-  if (text.startsWith('```')) return null
-  text = text.replace(/^[“”"'‘’]+|[“”"'‘’]+$/gu, '')
-  text = text.replace(/^(?:suggestion|建议|用户|user)\s*[:：]\s*/iu, '')
-  text = text.replace(/\s+/gu, ' ').trim()
-  if (text === '' || text.length > LIMITS.maxSuggestionChars) return null
+  let text = raw.trim()
+  if (text === '' || text.includes('\n') || text.includes('\r') || text.startsWith('```')) return null
+  text = text.replace(/^[“”"'‘’]+|[“”"'‘’]+$/gu, '').trim()
+  if (text === '' || [...text].length > LIMITS.maxSuggestionChars) return null
   return text
 }
 
 /**
  * Validate the suggestion route body.
  * @param value - parsed JSON.
- * @returns `{ sessionId, language }`, or null for a malformed body.
+ * @returns `{ sessionId, turn, endSeq }`, or null for a malformed body.
  */
 export function parseSuggestBody(value) {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
-  const sessionId = value.sessionId
-  if (typeof sessionId !== 'string' || sessionId === '' || sessionId.length > 128) return null
-  const language = typeof value.language === 'string' && /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/u.test(value.language)
-    ? value.language
-    : 'en'
-  const notBefore = typeof value.notBefore === 'number' && Number.isFinite(value.notBefore)
-    ? value.notBefore
-    : undefined
-  return { sessionId, language, ...(notBefore === undefined ? {} : { notBefore }) }
+  return parseTurnIdentity(value)
 }
 
-/**
- * Language name for the prediction instruction.
- * @param language - BCP-47-ish tag from the browser.
- * @returns `Chinese` for Chinese tags, otherwise `English`.
- */
-export function languageName(language) {
-  return typeof language === 'string' && language.toLowerCase().startsWith('zh') ? 'Chinese' : 'English'
+/** Validate the recap request's content identity. */
+export function parseRecapBody(value) {
+  const identity = parseTurnIdentity(value)
+  if (identity === null || typeof value.replyHash !== 'string' || !/^[a-f0-9]{16}$/iu.test(value.replyHash)) return null
+  return { ...identity, replyHash: value.replyHash.toLowerCase() }
+}
+
+/** Validate the common live-turn request identity. */
+export function parseTurnIdentity(value) {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const { sessionId, turn, endSeq } = value
+  if (typeof sessionId !== 'string' || sessionId === '' || sessionId.length > 128) return null
+  if (!Number.isSafeInteger(turn) || turn < 0 || !Number.isSafeInteger(endSeq) || endSeq < 0) return null
+  return { sessionId, turn, endSeq }
 }
 
 /**
@@ -123,6 +73,6 @@ export function languageName(language) {
  * @param turn - Turn number.
  * @returns the cache key.
  */
-export function candidateKey(sessionId, turn) {
-  return `${sessionId}:${turn}`
+export function candidateKey(sessionId, turn, endSeq, promptVersion, generation = '') {
+  return JSON.stringify([sessionId, turn, endSeq, promptVersion, generation])
 }

@@ -1,122 +1,134 @@
 # dsh-conversation-assist
 
-A short factual recap after each turn, and an optional next-prompt suggestion you can insert as a
-draft or send. Recaps use no model call; suggestions are off by default and make at most one small
-auxiliary request per completed turn, subject to the daily and concurrency caps.
+A short model recap after each completed main-session turn, with an optional next-prompt
+suggestion that you can accept as an editable draft. Smart recaps are on by default; suggestions
+are off. When both are enabled they share at most one bounded auxiliary generation attempt per
+turn. Auxiliary calls use the existing model provider and may incur additional usage.
 
-## What it does
+## Recaps
 
-**Turn recap.** After a turn closes, a secondary-ink sentence appears below the last message and above
-the action row. It carries the opening paragraph of the final reply, so a completed turn reads as
-work rather than a count, and names how the turn ended when it did not complete — stopped, blocked,
-failed, truncated, or closed during recovery. Tool counts and failure tallies are deliberately not
-shown. The copy never claims a task is done, deployed, or published when the turn only closed.
-Recaps are derived in the browser from the loaded Session events, so every loaded main-session Turn
-carries one, including after a restart, and they need no network and make no model request. Subagent
-Turns are skipped.
+A **Recap:** line appears below the final reply, without a separate heading. It summarizes the turn's
+outcome, validation, limitations, and pending decisions. It is a model's reading of the recorded
+reply and bounded tool evidence, not an independent verification that the work succeeded.
+A completed turn does not necessarily mean a completed task.
 
-**Next suggestion.** When enabled, a completed turn may place one suggestion above the composer, in
-the input zone: the text, a small **↙** insert control, **Send**, and a dismiss control. Send places
-the suggestion in the draft and submits it; ↙ only inserts it as an editable draft; nothing else is
-sent. The row exists only while the composer is empty, ordinary, idle and
-free of attachments or reference chips; it disappears as soon as you type, attach something, send,
-switch model, or close the plugin, and returns immediately from the retained candidate when the
-composer is empty again. Switching Session unmounts the row and clears its local candidate; coming
-back asks the Host again. The Host caches a Turn that actually reached the model while it still holds it, so the same
-suggestion returns without a second model call, after the usual short delay. A cap-rejected Turn is
-deliberately not cached and may be tried again later. Switching the model consumes that Turn, because the
-suggestion belongs to the route that produced it.
+The Host captures the live turn: human prompts, all text blocks in its final reply, and bounded
+results associated with individual tool calls. It does not send hidden reasoning, unsent drafts,
+attachments, or full raw tool output to the auxiliary model. Earlier captured turns may clarify
+references such as “continue”; they cannot replace an oversized current turn. If the current
+intent or reply cannot fit completely within the context budget, generation is skipped.
 
-The auxiliary request reads the recent conversation, not a generated recap. The prompt asks for one
-concrete next prompt, forbids summarizing or quoting the assistant, and returns nothing when the
-recent exchange is meta (about this suggestion or another UI control), matching the ghost-text
-composer predictions in Claude Code and ChatGPT Codex. The row is above the composer card, not inside the editor, so it uses a lightbulb marker and an
-explicit Send control instead of accepting inline. The public composer contract exposes the dock,
-but not an editor-inline decoration; drawing ghost text over the editor would depend on host
-internals, so that remains an upstream request rather than part of this plugin.
+For a normal reply that is plainly one or two short sentences, the plugin omits the recap and
+does not replace it with an excerpt. The code prefilter handles unstructured replies up to 160
+Unicode characters; longer replies, lists, code, and tables remain eligible for the model to
+judge. The model may also return no recap when another summary adds no value. Suggestions are
+independent: when they are off too, a short reply needs no auxiliary attempt.
 
-The Settings row's label carries the plugin's lightbulb marker. The slot type declares `label` as a
-string, but the shell renders it as React children at runtime and falls back to the settings gear
-per section id; the plugin's stylesheet hides that glyph only in its own row and lays the marker in
-the gear's seat, so every other row keeps the shipped icon. This is a deliberate runtime exception
-that depends on the shell nav DOM and `button:has(...)`; verify 125%/dark/narrow.
+Recaps and suggestions wrap without a single-line ellipsis. When a model recap is unavailable,
+a clearly labeled **Reply excerpt** explains the fallback. You can expand the excerpt; replies
+longer than 4,000 characters have an explicit excerpt limit and remain available in the transcript
+above. Stopped, blocked, failed, truncated, recovered, and inherited turns retain their actual
+ending and use excerpts without an auxiliary call. Empty replies have a neutral empty state.
 
-## Install
+Up to 200 model recaps or intentional-omission markers are stored locally, bound to Session, turn, end sequence, prompt version,
+and full reply fingerprint. Reopening a historical turn reads its cache or shows a historical
+excerpt; it never starts a batch of model calls to fill old turns.
 
-```bash
-dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-conversation-assist"
-```
+## Next-prompt suggestions
 
-Restart DSH after installing or rebuilding; a profile applies its bundle list at startup. The plugin
-adds one row to the plugin list and one **Conversation assist** page in Settings. It does not replace
-a shipped component or occupy another package's single-occupant slot. Both plugin routes are served
-only to the profile owner; another viewer receives 403 and simply sees no suggestions. The
-suggestion route is `/api/dsh-conversation-assist.rpc`; the old `.next` and `.debug` paths are
-not registered.
+Enable **Next suggestion** in Settings → **Conversation assist**. After a new turn completes,
+one useful candidate may appear in the full-width suggestion card above the composer. No clear unfinished next step means no row.
+A suggestion should continue the user's existing intent, rather than restating the reply,
+redoing completed work, accepting an optional offer, or granting an undecided approval.
 
-To remove it, use `dsh plugin --profile <profile> remove dsh-conversation-assist`, then restart. The
-settings and audit files described below are plugin-owned state and are left in place; delete that
-directory to discard them.
+The row keeps the lightbulb, candidate text, arrow insert control, **Send**, and close control.
+It uses the host's theme colors and corner radii, with visible vertical padding, comfortable
+line spacing, and wrapping controls in narrow windows.
+The arrow fills an editable draft without sending. **Send** inserts the candidate through the
+same guarded edit and then submits it as a normal message. If submission fails, the draft remains
+available for editing. Only an explicit click on **Send** submits a suggestion.
+
+Tab and Shift+Tab keep normal focus navigation; the plugin does not bind Tab to accept a card.
+**Esc** dismisses the current candidate. The model's wording can still be wrong, so review the
+complete text before using either action.
+
+The row hides for drafts, attachments, reference chips, queues, commands, input-method composition,
+and active submissions. A temporarily hidden, unconsumed candidate may return when the composer
+is empty again. Accepting, dismissing, switching model, disabling suggestions, or starting another
+turn consumes it. Requests and responses use the exact Session, turn, and `turn/end` sequence;
+a late result cannot become the next turn's suggestion. Candidate text stays in memory and is not
+restored after a Host restart.
+
+The public DSH contract has no editor-inline prediction decoration. This plugin uses the public
+input dock and locally arbitrated shortcut observer; it does not replace the editor, draw over
+its text, reserve Tab globally, or occupy a shipped single-occupant slot.
 
 ## Settings
 
 | Setting | Default | Effect |
 |---|---|---|
-| Turn recap | On | Every loaded main-session turn closes with a recap, including turns replayed after a restart. Turning it off hides all recaps; turning it back on shows them again. |
-| Next-suggestion | Off | No row and no request while off. When on, every completed turn may send one auxiliary model request. |
+| Show recaps | On | Show smart recaps or clearly labeled reply excerpts. |
+| Smart recap | On | Request a model recap for new completed main-session turns. Turning it off uses excerpts. |
+| Next suggestion | Off | Request an optional draftable next prompt for new completed main-session turns. |
 
-Changes apply immediately and survive a restart. The plugin registers no composer shortcuts: **↙**
-fills the draft, **Send** submits it, the dismiss control hides it, and `Shift+Tab` stays focus
-navigation.
+Preferences apply immediately and survive restart. Existing recap and suggestion preferences are
+preserved; the new smart-recap preference defaults to on. Turning recap display off prevents
+recap-only calls; suggestions can remain enabled independently. Enabling a feature does not
+regenerate an already-ended turn. A failed preference write rolls back and shows an inline error.
 
-## Cost and audit
+## Limits, storage, and usage
 
-Turning suggestions on sends **at most one extra model request per completed turn**, subject to the
-plugin's caps: 50 attempts per Session per local day and 2 concurrent across the profile. When a cap
-is hit the Host returns no suggestion for that request without calling the model and does not cache
-the Turn. **That request does not
-appear on the DSH usage page** — the Host records usage only from Session events, and an auxiliary
-request writes none. The plugin does not show or estimate any currency amount, and it does not
-describe the feature as free.
+Each eligible turn makes at most one shared auxiliary generation attempt. The context cap is
+24 KiB of serialized source messages plus the fixed, versioned system instruction; the output cap
+is 1,024 tokens, and the end-to-end attempt timeout is eight seconds. At most two attempts run
+concurrently across the Host, and each Session has 50 attempts per Host-local calendar day.
+The daily reservation is persisted before dispatch and survives a restart. The local ledger assumes one Host writer per DSH home; concurrent independent Hosts sharing that directory are not coordinated by this plugin. Multiple browsers attached to one Host share the same attempt. Empty, failed, or
+invalid results are not automatically retried. Budget or concurrency exhaustion falls back to an
+excerpt and no candidate.
 
-The plugin keeps its own audit trail, without message content. Rows are written for attempts that
-reach the model; requests rejected earlier (off, no Session, no route, empty history) may write
-none, and a failed audit write is best-effort:
+The auxiliary call uses the turn's provider/model and the lowest reasoning effort advertised by
+that route. Its actual effort is recorded separately from the main conversation's model selection.
+It has no tools and writes no Session messages. **Auxiliary usage is not included in DSH's usage
+page**. The plugin does not estimate a currency amount. Provider/runtime transport retries are
+subject to their own policies and the attempt deadline.
 
-```
-$DSH_HOME/dsh-conversation-assist/audit.jsonl
-```
+Files belong to the plugin under `$DSH_HOME/dsh-conversation-assist/` (default `~/.dsh/`):
 
-Each line carries the time, Session, turn, `endSeq`, provider/model, message count and input bytes,
-the output-token cap, the finish reason, the output length, duration, token usage, the prompt
-version and an error code.
-It never contains prompts, drafts, tool output, or the suggestion text. The file rotates once at 1
-MiB, keeping `audit.jsonl` and one previous file. If the audit directory is not writable the audit row is
-dropped with a single warning and suggestions keep working. A failed settings write returns an
-error, the toggle rolls back, and the page shows an inline error; only an unreadable settings
-document falls back to the in-memory defaults.
+| File | Contents |
+|---|---|
+| `settings.json` | The three preferences. |
+| `assistance.json` | Up to 200 generated recaps or omission markers with source identities, plus the current-day attempt ledger. No suggestion text or original transcript. |
+| `audit.jsonl` | Best-effort attempt metadata: Session, turn, source/auxiliary route, feature flags, bytes, usage, finish, timing, and error. No prompts, drafts, tool output, recap, or candidate text. |
 
-Settings live next to it in `settings.json`. Both files are shared by every browser connected to this
-Host.
+The audit rotates at 1 MiB and retains one previous file. An unavailable audit sink does not break
+the plugin. If a daily reservation cannot be persisted reliably, no new model call starts.
+A recap cache write failure still allows the result in memory; after restart it may fall back to an
+excerpt. Removing the package leaves these files in place.
 
-## Limits
+## Install and develop
 
-- Facts-only recap: no semantic summary mode in this version.
-- Suggestions only after `completed` turns, never after stop, block, error, truncation or a resumed
-  fork; only the main Session, never a subagent.
-- No suggestion backfill: a Turn completed before the Host plugin started shows no suggestion. Recaps
-  rebuild from the loaded Session events for every main-session Turn, including after a restart.
-- No tools, no `followup` / `inject`, and no Session writes: the auxiliary request is logged only in
-  the plugin's audit file.
-- The suggestion never reads an unsent draft; only the ↙ insert or Send writes it into the draft,
-  and Send also submits it. It never uses the clipboard.
-
-## Development
+For a CLI-managed profile:
 
 ```bash
-node scripts/build.mjs dsh-conversation-assist   # rebuild lib/
+dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-conversation-assist"
+```
+
+For the Electron-managed desktop profile, use **Plugins → Add plugin** and choose the local
+package directory. Rebuild before loading it and restart the app to ensure the resident Host and
+browser have the new code. An existing dependency specification alone does not prove that its
+installed link points to a valid directory; check the plugin page for resolution errors.
+
+```bash
+node scripts/build.mjs dsh-conversation-assist
 node --test packages/dsh-conversation-assist/test/*.test.mjs
 ```
 
-The package has no runtime dependencies beyond the modules DSH already provides; `src/` is the source
-and `lib/` is generated.
+Edit `src/`, rebuild generated `lib/`, and run the root `npm run check` before committing. There
+are no runtime dependencies beyond DSH's shared modules. All three exact routes are owner-only:
+`.settings`, `.rpc`, and `.recap` under `/api/dsh-conversation-assist`; `.next` and `.debug` are not
+registered by this plugin.
+
+See the [design and source research](../../docs/conversation-assist-design.md),
+[manual checks](test/manual-checklist.md), and [synthetic quality cases](test/quality-cases.json).
+Automated lifecycle and protocol tests do not establish real-model semantic accuracy; evaluate
+results against source facts and required omissions separately.

@@ -87,15 +87,23 @@ module.exports = __toCommonJS(exports_client);
 // packages/dsh-conversation-assist/src/shared/locales.mjs
 var NS = "conversation-assist";
 var zh = {
-  "recap.completed": "回顾：{snippet}",
-  "recap.aborted": "已停止（{cause}）。{snippet}",
-  "recap.blocked": "被阻塞：需要你处理后才能继续。{snippet}",
-  "recap.error": "本轮失败{code}。{snippet}",
-  "recap.maxTokens": "输出达到上限被截断。{snippet}",
-  "recap.interrupted": "这是恢复闭合的轮次，不是新的完成轮。",
-  "recap.forked": "这是分叉时继承截断的轮次，不是新的完成轮。",
-  "recap.unknown": "本轮以未知原因结束；不假定成功或失败。",
+  "recap.ariaLabel": "智能回顾",
+  "recap.prefix": "回顾：",
+  "recap.excerptLabel": "回复摘录",
+  "recap.historicalLabel": "历史轮次 · 回复摘录",
+  "recap.loading": "正在生成智能回顾…",
+  "recap.notPersisted": "本次回顾仅在内存中可用，重启后可能无法显示。",
+  "recap.expand": "展开摘录",
+  "recap.longExcerpt": "原回复较长，摘录仅保留前 {count} 个字符；完整内容见上方回复。",
   "recap.noReply": "本轮没有文字回复。",
+  "recap.completed": "本轮正常结束。",
+  "recap.aborted": "本轮已停止（{cause}）。",
+  "recap.blocked": "本轮被阻塞，尚待处理。",
+  "recap.error": "本轮失败{code}。",
+  "recap.maxTokens": "本轮输出达到上限并被截断。",
+  "recap.interrupted": "本轮在恢复时闭合，回复可能不完整。",
+  "recap.forked": "本轮继承自截断的分叉，回复可能不完整。",
+  "recap.unknown": "本轮以未知原因结束。",
   "recap.code": "（{code}）",
   "recap.cause.user": "用户取消",
   "recap.cause.parent": "父会话取消",
@@ -103,32 +111,47 @@ var zh = {
   "recap.cause.disposed": "会话被释放",
   "recap.cause.legacy": "旧记录未注明原因",
   "recap.cause.unknown": "原因未知",
+  "recap.reason.historical": "此历史轮次没有已缓存的智能回顾。",
+  "recap.reason.unavailable": "智能回顾暂不可用。",
+  "recap.reason.budget": "已达到辅助请求限额。",
+  "recap.reason.disabled": "智能回顾已关闭。",
+  "recap.reason.no-context": "本轮缺少可供回顾的完整回复。",
+  "recap.reason.unknown": "智能回顾暂不可用。",
   "suggestion.label": "下一条建议",
-  "suggestion.send": "发送",
   "suggestion.dismiss": "关闭建议",
-  "suggestion.insert": "填入输入框",
-  "suggestion.hint": "直接发送这条建议",
+  "suggestion.insert": "填入聊天",
+  "suggestion.send": "发送",
   "settings.nav": "对话辅助",
   "settings.title": "对话辅助",
-  "settings.intro": "两个开关在同一处；改动即时生效，重启 DSH 后保留。",
-  "settings.recap.name": "轮次回顾",
-  "settings.recap.desc": "每轮结束后摘录本轮回复的开头一段作为要点。默认开启，不调用模型；关闭后所有回顾隐藏，正文与输入不变。",
+  "settings.intro": "三个独立开关；改动即时生效，重启 DSH 后保留。",
+  "settings.recap.name": "显示回顾",
+  "settings.recap.desc": "显示每轮的智能回顾或回复摘录。关闭后，所有回顾隐藏。",
+  "settings.semanticRecap.name": "智能回顾",
+  "settings.semanticRecap.desc": "正常结束后生成简短的模型回顾。默认开启；失败或历史轮次会显示明确标注的回复摘录。",
   "settings.prediction.name": "下一条建议",
-  "settings.prediction.desc": "一轮正常完成后在输入框上方给出一条下一条提示词，可填入草稿或直接发送。默认关闭；开启后每轮最多一次模型请求，受每日/并发上限约束，可能不发；关闭后无建议行、无请求。",
+  "settings.prediction.desc": "有明确后续意图时，在输入框上方显示一条建议，可填入聊天或点击发送。默认关闭；关闭后不显示也不请求。",
   "settings.note.title": "用量说明",
-  "settings.note.body": "开启「下一条建议」后每轮最多产生一次辅助模型请求（受每日/并发上限约束），该请求不显示在 DSH 用量页，只写入插件审计（尽力而为）。",
+  "settings.note.body": "智能回顾和下一条建议共用每轮最多一次受限辅助请求；只开启一项时只请求该项。请求受每日、并发、输入和输出上限约束，可能跳过；不计入 DSH 用量页。",
   "settings.error": "设置未保存，请重试。"
 };
 var en = {
-  "recap.completed": "Recap: {snippet}",
-  "recap.aborted": "Stopped ({cause}). {snippet}",
-  "recap.blocked": "Blocked: your action is needed before continuing. {snippet}",
-  "recap.error": "Turn failed{code}. {snippet}",
-  "recap.maxTokens": "Output hit the token limit and was truncated. {snippet}",
-  "recap.interrupted": "This turn was closed during recovery; it is not a new completed turn.",
-  "recap.forked": "This turn was inherited from a truncated fork; it is not a new completed turn.",
-  "recap.unknown": "This turn ended for an unknown reason; success is not assumed.",
+  "recap.ariaLabel": "Smart recap",
+  "recap.prefix": "Recap: ",
+  "recap.excerptLabel": "Reply excerpt",
+  "recap.historicalLabel": "Historical turn · Reply excerpt",
+  "recap.loading": "Generating smart recap…",
+  "recap.notPersisted": "This recap is in memory only and may be unavailable after a restart.",
+  "recap.expand": "Expand excerpt",
+  "recap.longExcerpt": "The reply is long. This excerpt keeps the first {count} characters; the full text is above.",
   "recap.noReply": "No reply text this turn.",
+  "recap.completed": "This turn ended normally.",
+  "recap.aborted": "This turn stopped ({cause}).",
+  "recap.blocked": "This turn is blocked and needs attention.",
+  "recap.error": "This turn failed{code}.",
+  "recap.maxTokens": "This turn hit the output limit and was truncated.",
+  "recap.interrupted": "This turn closed during recovery; its reply may be incomplete.",
+  "recap.forked": "This turn was inherited from a truncated fork; its reply may be incomplete.",
+  "recap.unknown": "This turn ended for an unknown reason.",
   "recap.code": " ({code})",
   "recap.cause.user": "cancelled by the user",
   "recap.cause.parent": "cancelled by the parent",
@@ -136,20 +159,27 @@ var en = {
   "recap.cause.disposed": "the session was disposed",
   "recap.cause.legacy": "cancelled for a legacy reason",
   "recap.cause.unknown": "an unknown reason",
-  "suggestion.label": "Suggestion",
-  "suggestion.send": "Send",
+  "recap.reason.historical": "No cached smart recap is available for this historical turn.",
+  "recap.reason.unavailable": "The smart recap is temporarily unavailable.",
+  "recap.reason.budget": "The auxiliary request limit was reached.",
+  "recap.reason.disabled": "Smart recap is turned off.",
+  "recap.reason.no-context": "This turn has no complete reply to recap.",
+  "recap.reason.unknown": "The smart recap is temporarily unavailable.",
+  "suggestion.label": "Next suggestion",
   "suggestion.dismiss": "Dismiss suggestion",
-  "suggestion.insert": "Insert into the composer",
-  "suggestion.hint": "Send this suggestion",
+  "suggestion.insert": "Insert into chat",
+  "suggestion.send": "Send",
   "settings.nav": "Conversation assist",
   "settings.title": "Conversation assist",
-  "settings.intro": "Both switches live here. Changes apply immediately and survive a restart.",
-  "settings.recap.name": "Turn recap",
-  "settings.recap.desc": "After each turn, the opening paragraph of the final reply appears below it. On by default; no model call. When off, every recap is hidden and the transcript and composer are unchanged.",
-  "settings.prediction.name": "Next-suggestion",
-  "settings.prediction.desc": "After a completed turn, suggests a next prompt above the composer that you can insert as a draft or send. Off by default; when on, at most one model request per completed turn, subject to the daily and concurrency caps, so it may not fire. When off, there is no row and no request.",
+  "settings.intro": "Three independent switches. Changes apply immediately and survive a restart.",
+  "settings.recap.name": "Show recaps",
+  "settings.recap.desc": "Show a smart recap or reply excerpt for each turn. Turning this off hides all recaps.",
+  "settings.semanticRecap.name": "Smart recap",
+  "settings.semanticRecap.desc": "Generate a short model recap after a normal turn. On by default; failures and historical turns show a clearly labeled reply excerpt.",
+  "settings.prediction.name": "Next suggestion",
+  "settings.prediction.desc": "Show one next-step suggestion above the composer when the turn has a clear next step. Fill it into chat or click Send. Off by default; when off, no row or request appears.",
   "settings.note.title": "Usage",
-  "settings.note.body": "With next-suggestion on, each turn makes at most one auxiliary model request (subject to the daily and concurrency caps); it is not shown on the DSH usage page and is recorded only in the plugin audit (best effort).",
+  "settings.note.body": "Smart recap and next suggestion share at most one bounded auxiliary request per turn; when only one is enabled, only that item is requested. Daily, concurrency, input, and output caps apply, so a request may be skipped. It is not counted on the DSH usage page.",
   "settings.error": "Settings were not saved. Try again."
 };
 function dictionaryFor(language) {
@@ -167,13 +197,41 @@ function formatRow(text, values = {}) {
 // packages/dsh-conversation-assist/src/ui/recap.js
 var import_react = __toESM(require("react"), 1);
 
+// packages/dsh-conversation-assist/src/shared/identity.mjs
+function textOfMessage(message) {
+  if (typeof message === "string")
+    return message;
+  if (typeof message?.content === "string")
+    return message.content;
+  if (!Array.isArray(message?.content))
+    return "";
+  return message.content.filter((block) => block?.type === "text" && typeof block.text === "string").map((block) => block.text).join(`
+
+`);
+}
+function replyFingerprint(text) {
+  const bytes = new TextEncoder().encode(typeof text === "string" ? text : "");
+  let first = 2166136261;
+  let second = 2654435769;
+  for (const byte of bytes) {
+    first = Math.imul(first ^ byte, 16777619) >>> 0;
+    second = Math.imul(second ^ byte, 2246822507) >>> 0;
+    second = (second ^ second >>> 13) >>> 0;
+  }
+  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}`;
+}
+
 // packages/dsh-conversation-assist/src/shared/facts.mjs
+var MAX_EXCERPT_CHARS = 4000;
 function emptyFacts(turn) {
   return {
     turn,
     calls: new Map,
     hasReply: false,
     lastText: undefined,
+    excerptTruncated: false,
+    replyHash: undefined,
+    finalReply: false,
     reasonKind: undefined,
     cancelKind: undefined,
     errorCode: undefined,
@@ -184,17 +242,26 @@ function emptyFacts(turn) {
 function copy(state) {
   return { ...state, calls: new Map(state.calls) };
 }
+function excerpt(text) {
+  const characters = [...text];
+  if (characters.length <= MAX_EXCERPT_CHARS)
+    return { text, truncated: false };
+  return {
+    text: `${characters.slice(0, MAX_EXCERPT_CHARS).join("")}…`,
+    truncated: true
+  };
+}
 function foldFacts(state, event) {
   const turn = event?.data?.turn;
   if (typeof turn !== "number" || turn !== state.turn)
     return state;
   if (event.type === "tool/call") {
     const callId = String(event.data.callId ?? "");
-    if (callId === "")
-      return state;
     const next = copy(state);
-    if (!next.calls.has(callId))
+    if (callId !== "" && !next.calls.has(callId))
       next.calls.set(callId, "pending");
+    next.replyHash = undefined;
+    next.finalReply = false;
     return next;
   }
   if (event.type === "tool/result") {
@@ -208,14 +275,26 @@ function foldFacts(state, event) {
     return next;
   }
   if (event.type === "assistant/message") {
-    const blocks = event.data.message?.content;
-    const text = Array.isArray(blocks) ? blocks.find((block) => block?.type === "text" && typeof block.text === "string" && block.text.trim() !== "")?.text : undefined;
-    if (typeof text !== "string")
-      return state;
+    const message = event.data.message;
+    const text = textOfMessage(message);
+    const hasVisibleText = text.trim() !== "";
+    const blocks = Array.isArray(message?.content) ? message.content : [];
+    if (!hasVisibleText) {
+      return {
+        ...state,
+        replyHash: undefined,
+        finalReply: false
+      };
+    }
+    const isFinalText = hasVisibleText && event.data.interrupted !== true && message?.interrupted !== true && !blocks.some((block) => block?.type === "tool-call");
+    const bounded = excerpt(text);
     return {
       ...state,
-      hasReply: true,
-      lastText: text.trim().slice(0, 1200)
+      hasReply: hasVisibleText,
+      lastText: bounded.text,
+      excerptTruncated: bounded.truncated,
+      replyHash: isFinalText ? replyFingerprint(text) : undefined,
+      finalReply: isFinalText
     };
   }
   if (event.type === "turn/end") {
@@ -251,6 +330,9 @@ function factsValue(state) {
     turn: state.turn,
     calls: state.calls.size,
     lastText: state.lastText,
+    excerptTruncated: state.excerptTruncated,
+    replyHash: state.replyHash,
+    finalReply: state.finalReply,
     failures,
     unknown,
     pending,
@@ -263,73 +345,277 @@ function factsValue(state) {
   };
 }
 
-// packages/dsh-conversation-assist/src/shared/limits.mjs
-var LIMITS = Object.freeze({
-  maxOutputTokens: 1024,
-  timeoutMs: 8000,
-  maxContextBytes: 24576,
-  maxMessages: 24,
-  dailyPerSession: 50,
-  maxConcurrent: 2,
-  auditMaxBytes: 1048576,
-  maxSuggestionChars: 160,
-  maxRecapChars: 400
-});
-
 // packages/dsh-conversation-assist/src/shared/recap-text.mjs
 function cause(t, kind) {
   const key = `recap.cause.${kind}`;
   const row = t(key);
   return row === key ? t("recap.cause.unknown") : row;
 }
-function snippet(value) {
-  if (typeof value.lastText !== "string" || value.lastText === "")
-    return "";
-  const withoutFences = value.lastText.replace(/```[\s\S]*?```/gu, " ");
-  const paragraphs = withoutFences.split(/\n\s*\n/u).map((paragraph) => paragraph.replace(/^\s*[#>*-]+\s*/gmu, "").trim()).filter((paragraph) => paragraph !== "");
-  let text = paragraphs[0] ?? withoutFences;
-  text = text.replace(/!?\[([^\]]+)\]\([^)]*\)/gu, "$1").replace(/[*_`~]/gu, "").replace(/\s+/gu, " ").trim();
-  return text;
-}
-function truncateRecap(text, max = LIMITS.maxRecapChars) {
-  const chars = [...text];
-  return chars.length <= max ? text : `${chars.slice(0, Math.max(0, max - 1)).join("")}…`;
-}
 function composeRecap(value, t) {
   if (typeof value !== "object" || value === null)
     return "";
   const kind = typeof value.reasonKind === "string" ? value.reasonKind : "unknown";
-  const lead = snippet(value);
-  let text;
   switch (kind) {
     case "completed":
-      text = lead === "" ? t("recap.noReply") : formatRow(t("recap.completed"), { snippet: lead });
-      break;
+      return value.hasReply === true ? "" : t("recap.noReply");
     case "aborted":
-      text = formatRow(t("recap.aborted"), { cause: cause(t, value.cancelKind ?? "unknown"), snippet: lead });
-      break;
+      return formatRow(t("recap.aborted"), { cause: cause(t, value.cancelKind ?? "unknown") });
     case "blocked":
-      text = formatRow(t("recap.blocked"), { snippet: lead });
-      break;
+      return t("recap.blocked");
     case "error":
-      text = formatRow(t("recap.error"), {
-        code: typeof value.errorCode === "string" && value.errorCode !== "" ? formatRow(t("recap.code"), { code: value.errorCode }) : "",
-        snippet: lead
+      return formatRow(t("recap.error"), {
+        code: typeof value.errorCode === "string" && value.errorCode !== "" ? formatRow(t("recap.code"), { code: value.errorCode }) : ""
       });
-      break;
     case "max-tokens":
-      text = formatRow(t("recap.maxTokens"), { snippet: lead });
-      break;
+      return t("recap.maxTokens");
     case "interrupted":
-      text = t("recap.interrupted");
-      break;
+      return t("recap.interrupted");
     case "forked":
-      text = t("recap.forked");
-      break;
+      return t("recap.forked");
     default:
-      text = t("recap.unknown");
+      return t("recap.unknown");
   }
-  return truncateRecap(String(text).trim());
+}
+function excerptPreview(text, max = 180) {
+  if (typeof text !== "string")
+    return "";
+  const characters = [...text];
+  return characters.length <= max ? text : `${characters.slice(0, max).join("")}…`;
+}
+
+// packages/dsh-conversation-assist/src/shared/limits.mjs
+var LIMITS = Object.freeze({
+  maxOutputTokens: 1024,
+  timeoutMs: 8000,
+  maxContextBytes: 24576,
+  maxEvidence: 24,
+  dailyPerSession: 50,
+  maxConcurrent: 2,
+  maxSummaryCache: 200,
+  auditMaxBytes: 1048576,
+  maxSuggestionChars: 160,
+  maxRecapChars: 400
+});
+
+// packages/dsh-conversation-assist/src/shared/prediction.mjs
+function canRequest({ prediction, sessionId, input, session }) {
+  if (prediction !== true)
+    return false;
+  if (typeof sessionId !== "string" || sessionId === "")
+    return false;
+  if (session === undefined || session === null)
+    return false;
+  if (session.running === true || session.removed === true)
+    return false;
+  if (session.awaitingFirstTurn === true)
+    return false;
+  if ((session.pendingSubmissions?.length ?? 0) > 0)
+    return false;
+  if (session.subagent !== null && session.subagent !== undefined)
+    return false;
+  if (input === undefined || input === null)
+    return false;
+  if (input.draft !== "")
+    return false;
+  if ((input.attachmentIds?.length ?? 0) > 0)
+    return false;
+  if ((input.occurrences?.length ?? 0) > 0)
+    return false;
+  if ((input.queue?.length ?? 0) > 0)
+    return false;
+  if (input.phase !== undefined && input.phase !== "plain")
+    return false;
+  if (input.claim !== undefined && input.claim !== null)
+    return false;
+  return true;
+}
+
+// packages/dsh-conversation-assist/src/ui/behavior.mjs
+function turnIdentity(sessionId, turn, endSeq) {
+  if (typeof sessionId !== "string" || sessionId === "" || !Number.isSafeInteger(turn) || turn < 0 || !Number.isSafeInteger(endSeq) || endSeq < 0)
+    return null;
+  return { sessionId, turn, endSeq };
+}
+function identityKey(identity) {
+  return identity === null || identity === undefined ? "" : JSON.stringify([identity.sessionId, identity.turn, identity.endSeq]);
+}
+function routeValue(selection) {
+  if (typeof selection?.provider !== "string" || selection.provider === "" || typeof selection?.model !== "string" || selection.model === "")
+    return null;
+  return {
+    provider: selection.provider,
+    model: selection.model,
+    reasoningEffort: typeof selection.reasoningEffort === "string" ? selection.reasoningEffort : undefined
+  };
+}
+function sameRoute(left, right) {
+  const a = routeValue(left);
+  const b = routeValue(right);
+  return a !== null && b !== null && a.provider === b.provider && a.model === b.model && a.reasoningEffort === b.reasoningEffort;
+}
+function candidateMatches(candidate, identity, route, predictionOffEpoch) {
+  return candidate?.state === "ready" && candidate.sessionId === identity?.sessionId && candidate.turn === identity?.turn && candidate.endSeq === identity?.endSeq && typeof candidate.text === "string" && candidate.text.trim() !== "" && (predictionOffEpoch === undefined || candidate.predictionOffEpoch === predictionOffEpoch) && sameRoute(candidate.route, route);
+}
+function recapResultMatches(recap, identity, replyHash) {
+  return recap?.state === "ready" && recap.sessionId === identity?.sessionId && recap.turn === identity?.turn && recap.endSeq === identity?.endSeq && recap.replyHash === replyHash && typeof recap.recap === "string" && recap.recap.trim() !== "";
+}
+function recapRequestView(request, key, shouldRequest) {
+  const current = request?.key === key ? request : null;
+  if (current?.state === "ready")
+    return { current, state: "ready" };
+  if (current?.state === "none")
+    return { current, state: "none", reason: current.reason };
+  if (current?.state === "loading" || shouldRequest)
+    return { current, state: "loading" };
+  return { current, state: "idle" };
+}
+function submissionStarted(session, input) {
+  return session?.running === true || session?.removed === true || (session?.pendingSubmissions?.length ?? 0) > 0 || session?.awaitingFirstTurn === true || input?.phase !== undefined && input.phase !== "plain" || input?.claim !== undefined && input.claim !== null;
+}
+function canShowSuggestion({ prediction, sessionId, input, session, identity, route, composing = false }) {
+  if (composing || identity === null || identity === undefined || routeValue(route) === null)
+    return false;
+  if (identity.sessionId !== sessionId)
+    return false;
+  if (submissionStarted(session, input))
+    return false;
+  return canRequest({ prediction, sessionId, input, session });
+}
+function editableComposerFor(row, sessionId, target) {
+  if (typeof sessionId !== "string" || sessionId === "")
+    return null;
+  const rowSeat = row?.closest?.("[data-composer-seat]") ?? null;
+  const targetSeat = target?.closest?.("[data-composer-seat]") ?? null;
+  const rowOccurrence = row?.closest?.("[data-conversation-session]") ?? null;
+  const targetOccurrence = target?.closest?.("[data-conversation-session]") ?? null;
+  const seat = rowSeat ?? targetSeat;
+  const occurrence = rowOccurrence ?? targetOccurrence ?? seat?.closest?.("[data-conversation-session]") ?? null;
+  const input = seat?.querySelector?.("[data-composer-input]") ?? null;
+  if (seat === null || occurrence === null || input === null || rowSeat !== null && targetSeat !== null && rowSeat !== targetSeat || target !== undefined && target !== null && target.closest?.("[data-composer-input]") !== input || occurrence.dataset?.conversationSession !== sessionId || occurrence.contains?.(seat) !== true || seat.closest?.("[data-conversation-session]") !== occurrence || input.closest?.("[data-composer-seat]") !== seat || row !== undefined && row !== null && row.closest?.("[data-composer-seat]") !== seat)
+    return null;
+  const visible = (node) => {
+    if (node === null || node === undefined || node.isConnected === false || node.hidden === true || node.closest?.("[hidden]") != null || node.closest?.("[inert]") != null)
+      return false;
+    if (typeof node.getAttribute === "function" && node.getAttribute("hidden") !== null)
+      return false;
+    if (typeof node.getClientRects === "function" && node.getClientRects().length === 0)
+      return false;
+    const view = node.ownerDocument?.defaultView;
+    const style = typeof view?.getComputedStyle === "function" ? view.getComputedStyle(node) : null;
+    return style?.display !== "none" && style?.visibility !== "hidden" && style?.visibility !== "collapse" && style?.opacity !== "0";
+  };
+  const getInputAttribute = (name) => typeof input.getAttribute === "function" ? input.getAttribute(name) : null;
+  const contentEditable = getInputAttribute("contenteditable");
+  if (![row, occurrence, seat, input].filter(Boolean).every(visible) || input.disabled === true || input.readOnly === true || getInputAttribute("disabled") !== null || getInputAttribute("readonly") !== null || getInputAttribute("aria-disabled") === "true" || getInputAttribute("aria-readonly") === "true" || contentEditable === "false" || input.isContentEditable !== true && contentEditable !== "true" && contentEditable !== "plaintext-only")
+    return null;
+  return { input, seat, occurrence };
+}
+function shortcutAction(event, { sessionId, row, eligible, composing = false }) {
+  if (eligible !== true || composing || event?.type !== "keydown")
+    return null;
+  const { gesture, context } = event;
+  if (gesture === undefined || context === undefined || gesture.repeat || gesture.composing || gesture.defaultPrevented || gesture.control || gesture.alt || gesture.shift || gesture.meta || context.modal !== null || context.target === null || context.target === undefined)
+    return null;
+  const target = context.target;
+  if (editableComposerFor(row, sessionId, target) === null)
+    return null;
+  if (gesture.code === "Escape")
+    return "dismiss";
+  return null;
+}
+function insertCandidate(inputActions, text, focus, { expectedDraftRev, canInsert = () => true } = {}) {
+  if (inputActions === undefined || typeof inputActions?.captureInsertion !== "function" || typeof inputActions?.insertText !== "function" || typeof text !== "string" || text === "")
+    return false;
+  try {
+    if (canInsert() !== true)
+      return false;
+    const span = inputActions.captureInsertion();
+    if (!Number.isSafeInteger(span?.draftRev) || expectedDraftRev !== undefined && span.draftRev !== expectedDraftRev)
+      return false;
+    if (focus !== undefined && focus() !== true)
+      return false;
+    if (canInsert() !== true)
+      return false;
+    const current = inputActions.captureInsertion();
+    if (!Number.isSafeInteger(current?.draftRev) || current.draftRev !== span.draftRev || expectedDraftRev !== undefined && current.draftRev !== expectedDraftRev || canInsert() !== true)
+      return false;
+    return inputActions.insertText(text, span) === true;
+  } catch {
+    return false;
+  }
+}
+function sendCandidate(inputActions, text, focus, options) {
+  if (typeof inputActions?.submit !== "function")
+    return false;
+  if (!insertCandidate(inputActions, text, focus, options))
+    return false;
+  inputActions.submit();
+  return true;
+}
+
+// packages/dsh-conversation-assist/src/shared/recap-policy.mjs
+var URL2 = /\b(?:https?:\/\/|www\.)[^\s<>]+/giu;
+var LIST_PREFIX = /^\s*(?:[-*+]\s+|\d+[.)]\s+|[•‣]\s+)/u;
+var TERMINATOR = /[.!?。！？]/u;
+function hasComplexStructure(text) {
+  if (/(?:^|\n)\s*(?:```|~~~)/u.test(text))
+    return true;
+  const lines = text.split(/\r?\n/u);
+  if (lines.some((line) => /^\s*\|.*\|\s*$/u.test(line)))
+    return true;
+  const listItems = lines.filter((line) => LIST_PREFIX.test(line));
+  return listItems.length >= 2;
+}
+function substantiveSentenceCount(text) {
+  const normalized = text.replace(URL2, (match) => ` ${match.match(/[.!?]+$/u)?.[0] ?? ""}`).replace(/\b\d+\.\d+\b/gu, " ").split(/\r?\n/u).map((line) => line.replace(LIST_PREFIX, "").trim()).join(`
+`);
+  const chars = [...normalized];
+  let sentences = 0;
+  let hasSubstance = false;
+  for (let index = 0;index < chars.length; index += 1) {
+    const char = chars[index];
+    if (/[\p{L}\p{N}]/u.test(char))
+      hasSubstance = true;
+    if (!TERMINATOR.test(char))
+      continue;
+    if (char === ".") {
+      const previous = chars[index - 1] ?? "";
+      const next = chars[index + 1] ?? "";
+      if (/\p{L}/u.test(previous) && /\p{L}/u.test(next) || /\p{N}/u.test(previous) && /\p{N}/u.test(next))
+        continue;
+    }
+    let end = index + 1;
+    while (end < chars.length && TERMINATOR.test(chars[end]))
+      end += 1;
+    if (hasSubstance)
+      sentences += 1;
+    hasSubstance = false;
+    index = end - 1;
+  }
+  if (hasSubstance)
+    sentences += 1;
+  return sentences;
+}
+function isBriefReply(text) {
+  if (typeof text !== "string")
+    return true;
+  const value = text.trim();
+  if (value === "")
+    return true;
+  if ([...value].length > 160 || hasComplexStructure(value))
+    return false;
+  return substantiveSentenceCount(value) < 3;
+}
+
+// packages/dsh-conversation-assist/src/ui/recap-policy.mjs
+function isBriefCompletedReply(facts) {
+  return facts?.reasonKind === "completed" && facts.finalReply === true && facts.excerptTruncated === false && typeof facts.lastText === "string" && isBriefReply(facts.lastText);
+}
+function shouldRequestRecap({ settingsLoaded, enabled, semanticEnabled, subagent, identity, facts }) {
+  return settingsLoaded === true && enabled === true && semanticEnabled === true && subagent == null && identity !== null && facts?.reasonKind === "completed" && facts.finalReply === true && typeof facts.replyHash === "string" && !isBriefCompletedReply(facts);
+}
+function shouldOmitRecap(facts, requestView) {
+  return isBriefCompletedReply(facts) || requestView?.state === "none" && requestView.reason === "not-needed";
 }
 
 // packages/dsh-conversation-assist/src/ui/recap.js
@@ -365,23 +651,79 @@ function createRecapDefinition() {
     }
   };
 }
-function RecapTail({ turn, t, useSession, useSettings }) {
+function reasonText(reason, t) {
+  const known = new Set(["historical", "unavailable", "budget", "disabled", "no-context"]);
+  return t(`recap.reason.${known.has(reason) ? reason : "unknown"}`);
+}
+function excerpt2(value, t) {
+  if (typeof value.lastText !== "string" || value.lastText === "") {
+    return h("p", { className: "dca-recap-copy" }, t("recap.noReply"));
+  }
+  return h(import_react.default.Fragment, null, h("details", { className: "dca-recap-details" }, h("summary", null, h("span", null, excerptPreview(value.lastText)), h("span", { className: "dca-recap-expand" }, t("recap.expand"))), h("div", { className: "dca-recap-source" }, value.lastText)), value.excerptTruncated === true ? h("p", { className: "dca-recap-note" }, t("recap.longExcerpt", { count: MAX_EXCERPT_CHARS })) : null);
+}
+function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime }) {
   const subagent = useSession((state) => state.subagent);
   const enabled = useSettings((state) => state.recap === true);
-  if (subagent !== null && subagent !== undefined)
+  const semanticEnabled = useSettings((state) => state.semanticRecap === true);
+  const settingsLoaded = useSettings((state) => state.loaded === true);
+  const [request, setRequest] = import_react.default.useState(null);
+  const end = turn?.end;
+  const endSeq = Number.isSafeInteger(end?.seq) ? end.seq : null;
+  const identity = turnIdentity(sessionId, turn?.turn, endSeq);
+  const value = turn?.data?.get(RECAP_KIND);
+  const facts = value ?? {
+    turn: turn?.turn,
+    hasReply: false,
+    finalReply: false,
+    reasonKind: end?.data?.reason?.kind ?? "unknown",
+    lastText: undefined
+  };
+  const recapKey = identity === null ? "" : `${identityKey(identity)}:${facts.replyHash ?? ""}:${semanticEnabled ? "on" : "off"}`;
+  const shouldRequest = shouldRequestRecap({
+    settingsLoaded,
+    enabled,
+    semanticEnabled,
+    subagent,
+    identity,
+    facts
+  });
+  import_react.default.useEffect(() => {
+    if (!shouldRequest || typeof runtime?.requestRecap !== "function") {
+      setRequest(null);
+      return;
+    }
+    const controller = new AbortController;
+    let active = true;
+    setRequest({ key: recapKey, state: "loading" });
+    runtime.requestRecap(identity.sessionId, identity.turn, identity.endSeq, facts.replyHash, controller.signal).then((result) => {
+      if (!active || controller.signal.aborted)
+        return;
+      if (recapResultMatches(result, identity, facts.replyHash)) {
+        setRequest({ key: recapKey, state: "ready", recap: result.recap, persisted: result.persisted !== false });
+        return;
+      }
+      setRequest({ key: recapKey, state: "none", reason: result?.reason ?? "unavailable" });
+    }).catch(() => {
+      if (active && !controller.signal.aborted)
+        setRequest({ key: recapKey, state: "none", reason: "unavailable" });
+    });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [shouldRequest, recapKey, identity?.sessionId, identity?.turn, identity?.endSeq, facts.replyHash, runtime]);
+  const requestView = recapRequestView(request, recapKey, shouldRequest);
+  if (subagent != null || !enabled || end === undefined || identity === null || shouldOmitRecap(facts, requestView))
     return null;
-  if (!enabled)
-    return null;
-  const end = turn.end;
-  if (end === undefined || typeof end.time !== "number")
-    return null;
-  const data = turn.data.get(RECAP_KIND);
-  if (data === undefined)
-    return null;
-  const text = composeRecap(data, t);
-  if (text === "")
-    return null;
-  return h("p", { className: "dca-recap" }, text);
+  const currentRequest = requestView.current;
+  const ready = requestView.state === "ready";
+  const reason = requestView.state === "none" ? requestView.reason : requestView.state === "loading" ? "loading" : undefined;
+  const isHistorical = reason === "historical";
+  const label = ready ? t("recap.ariaLabel") : isHistorical ? t("recap.historicalLabel") : t("recap.excerptLabel");
+  const status = composeRecap(facts, t);
+  const loading = reason === "loading";
+  const noContext = semanticEnabled && facts.reasonKind === "completed" && facts.hasReply === true && facts.finalReply !== true && currentRequest === null;
+  return h("section", { className: "dca-recap", "aria-label": label }, ready ? null : h("div", { className: "dca-recap-heading" }, isHistorical ? h("strong", null, label) : null, loading ? h("span", { className: "dca-recap-state" }, t("recap.loading")) : null, !loading && !isHistorical ? h("strong", null, label) : null), ready ? h("p", { className: "dca-recap-copy" }, t("recap.prefix"), currentRequest.recap) : excerpt2(facts, t), ready && currentRequest.persisted === false ? h("p", { className: "dca-recap-status" }, t("recap.notPersisted")) : null, status !== "" ? h("p", { className: "dca-recap-status" }, status) : null, reason !== undefined && !loading ? h("p", { className: "dca-recap-status" }, reasonText(reason, t)) : null, noContext ? h("p", { className: "dca-recap-status" }, reasonText("no-context", t)) : null);
 }
 
 // packages/dsh-conversation-assist/src/ui/settings.js
@@ -446,6 +788,16 @@ function SettingsSection({ t, useSettings, store }) {
     t,
     onChange: change
   }), h3(Row, {
+    setting: "semanticRecap",
+    name: t("settings.semanticRecap.name"),
+    description: t("settings.semanticRecap.desc"),
+    checked: state.semanticRecap,
+    pending: state.pending.semanticRecap,
+    failed: state.failed === "semanticRecap",
+    errorText: t("settings.error"),
+    t,
+    onChange: change
+  }), h3(Row, {
     setting: "prediction",
     name: t("settings.prediction.name"),
     description: t("settings.prediction.desc"),
@@ -467,167 +819,246 @@ function navLabel(text) {
 
 // packages/dsh-conversation-assist/src/ui/suggestion.js
 var import_react5 = __toESM(require("react"), 1);
-
-// packages/dsh-conversation-assist/src/shared/prediction.mjs
-function canRequest({ prediction, sessionId, input, session }) {
-  if (prediction !== true)
-    return false;
-  if (typeof sessionId !== "string" || sessionId === "")
-    return false;
-  if (session === undefined || session === null)
-    return false;
-  if (session.running === true || session.removed === true)
-    return false;
-  if (session.subagent !== null && session.subagent !== undefined)
-    return false;
-  if (input === undefined || input === null)
-    return false;
-  if (input.draft !== "")
-    return false;
-  if ((input.attachmentIds?.length ?? 0) > 0)
-    return false;
-  if ((input.occurrences?.length ?? 0) > 0)
-    return false;
-  if ((input.queue?.length ?? 0) > 0)
-    return false;
-  if (input.phase !== undefined && input.phase !== "plain")
-    return false;
-  if (input.claim !== undefined && input.claim !== null)
-    return false;
-  return true;
-}
-
-// packages/dsh-conversation-assist/src/ui/suggestion.js
 var h5 = import_react5.default.createElement;
 var ASK_DELAY_MS = 400;
-function focusComposer(row) {
-  if (typeof document === "undefined")
-    return;
-  const scope = row?.parentElement ?? document;
-  const input = scope.querySelector("[data-composer-input]");
-  if (input instanceof HTMLElement)
-    input.focus();
+function focusComposer(row, sessionId) {
+  const composer = editableComposerFor(row, sessionId);
+  if (composer === null || typeof composer.input.focus !== "function")
+    return false;
+  try {
+    composer.input.focus();
+    return true;
+  } catch {
+    return false;
+  }
 }
-function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSettings, inputActions, t, runtime }) {
+function composerInput(row, sessionId) {
+  const rowSeat = row?.closest("[data-composer-seat]");
+  if (rowSeat !== null && rowSeat !== undefined)
+    return rowSeat.querySelector("[data-composer-input]");
+  if (typeof document === "undefined")
+    return null;
+  const occurrence = [...document.querySelectorAll("[data-conversation-session]")].find((element) => element.dataset?.conversationSession === sessionId);
+  return occurrence?.querySelector("[data-composer-seat] [data-composer-input]") ?? null;
+}
+function SuggestionRow({ sessionId, useSession, useInput, useChat, useProjection, useSettings, inputActions, t, runtime }) {
   const settings = useSettings((state) => state);
   const session = useSession((state) => state);
   const input = useInput((state) => state);
+  const latestTurnNumber = useChat((state) => state.timeline.turnOrder.at(-1) ?? null);
+  const latestTurn = useChat((state) => latestTurnNumber === null ? null : state.timeline.turns.get(latestTurnNumber) ?? null);
   const projection = useProjection("modelSelection");
-  const modelKey = `${projection?.next?.provider ?? ""}/${projection?.next?.model ?? ""}`;
+  const selectedModel = projection?.next ?? projection?.lastUsed;
+  const modelRoute = routeValue(selectedModel);
+  const modelKey = modelRoute === null ? "" : JSON.stringify(modelRoute);
+  const completed = latestTurn?.end?.data?.reason?.kind === "completed";
+  const identity = completed ? turnIdentity(sessionId, latestTurn?.turn, latestTurn?.end?.seq) : null;
+  const currentKey = identityKey(identity);
   const [candidate, setCandidate] = import_react5.default.useState(null);
-  const lastTurn = import_react5.default.useRef(null);
-  const previousModelKey = import_react5.default.useRef(null);
-  const wasRunning = import_react5.default.useRef(false);
+  const [composing, setComposing] = import_react5.default.useState(false);
+  const composingRef = import_react5.default.useRef(false);
+  const predictionOffEpoch = Number.isSafeInteger(settings.predictionOffEpoch) ? settings.predictionOffEpoch : 0;
+  const previousPredictionOffEpoch = import_react5.default.useRef(predictionOffEpoch);
+  const previousIdentity = import_react5.default.useRef(null);
+  const previousModelKey = import_react5.default.useRef(modelKey);
   const latest = import_react5.default.useRef(null);
   const rowRef = import_react5.default.useRef(null);
-  latest.current = { candidate, inputActions, sessionId, runtime };
-  const canAsk = canRequest({ prediction: settings.prediction, sessionId, input, session });
   import_react5.default.useEffect(() => {
-    setCandidate(null);
-    lastTurn.current = null;
-    previousModelKey.current = null;
-    wasRunning.current = false;
+    composingRef.current = false;
+    setComposing(false);
   }, [sessionId]);
+  const consumed = identity !== null && runtime.hidden.isHidden(sessionId, identity.turn, identity.endSeq);
+  const composingNow = composing || composingRef.current;
+  const eligible = settings.loaded === true && canShowSuggestion({
+    prediction: settings.prediction,
+    sessionId,
+    input,
+    session,
+    identity,
+    route: modelRoute,
+    composing: composingNow
+  }) && !consumed;
+  const candidateCurrent = candidateMatches(candidate, identity, modelRoute, predictionOffEpoch);
+  const visible = candidateCurrent && eligible;
+  latest.current = {
+    candidate,
+    identity,
+    modelRoute,
+    session,
+    input,
+    prediction: settings.prediction,
+    predictionOffEpoch,
+    composing: composingNow,
+    eligible: visible,
+    sessionId,
+    inputActions,
+    runtime
+  };
   import_react5.default.useEffect(() => {
-    if (!canAsk)
+    const previous = previousIdentity.current;
+    if (previous !== null && previous.key !== currentKey) {
+      runtime.hidden.hide(previous.sessionId, previous.turn, previous.endSeq);
+      setCandidate(null);
+    }
+    previousIdentity.current = identity === null ? null : { ...identity, key: currentKey };
+  }, [currentKey, sessionId, runtime]);
+  import_react5.default.useEffect(() => {
+    const previous = previousModelKey.current;
+    previousModelKey.current = modelKey;
+    if (previous !== "" && previous !== modelKey && identity !== null) {
+      runtime.hidden.hide(sessionId, identity.turn, identity.endSeq);
+      setCandidate(null);
+    }
+  }, [modelKey, currentKey, sessionId, runtime]);
+  import_react5.default.useEffect(() => {
+    const previousEpoch = previousPredictionOffEpoch.current;
+    previousPredictionOffEpoch.current = predictionOffEpoch;
+    if (settings.loaded !== true)
+      return;
+    const disabledSinceLastRender = predictionOffEpoch > previousEpoch;
+    if (settings.prediction === true && !disabledSinceLastRender)
+      return;
+    if (identity !== null)
+      runtime.hidden.hide(sessionId, identity.turn, identity.endSeq);
+    if (candidate !== null && Number.isSafeInteger(candidate.turn) && Number.isSafeInteger(candidate.endSeq)) {
+      runtime.hidden.hide(candidate.sessionId, candidate.turn, candidate.endSeq);
+    }
+    setCandidate(null);
+  }, [settings.loaded, settings.prediction, predictionOffEpoch, currentKey, sessionId, runtime]);
+  const busySubmission = submissionStarted(session, input);
+  import_react5.default.useEffect(() => {
+    if (!busySubmission || identity === null)
+      return;
+    runtime.hidden.hide(sessionId, identity.turn, identity.endSeq);
+    setCandidate(null);
+  }, [busySubmission, currentKey, sessionId, runtime]);
+  const hasCurrentCandidate = candidateCurrent && !consumed;
+  const canAsk = eligible && !hasCurrentCandidate;
+  import_react5.default.useEffect(() => {
+    if (!canAsk || identity === null || modelRoute === null)
       return;
     const controller = new AbortController;
+    const requestIdentity = identity;
+    const requestRoute = modelRoute;
+    const requestKey = currentKey;
+    const requestPredictionOffEpoch = predictionOffEpoch;
     const timer = window.setTimeout(() => {
-      runtime.requestSuggestion(sessionId, runtime.language(), runtime.armedAt(), controller.signal).then((result) => {
+      const beforeRequest = latest.current;
+      if (beforeRequest === null || identityKey(beforeRequest.identity) !== requestKey || beforeRequest.predictionOffEpoch !== requestPredictionOffEpoch || !sameRoute(beforeRequest.modelRoute, requestRoute) || beforeRequest.runtime.hidden.isHidden(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq))
+        return;
+      runtime.requestSuggestion(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq, controller.signal).then((result) => {
         if (controller.signal.aborted)
           return;
-        if (result?.state !== "ready" || typeof result.text !== "string" || typeof result.turn !== "number")
+        const current = latest.current;
+        if (current === null || current.prediction !== true || current.composing || current.predictionOffEpoch !== requestPredictionOffEpoch || identityKey(current.identity) !== requestKey || !sameRoute(current.modelRoute, requestRoute) || !canShowSuggestion({
+          prediction: current.prediction,
+          sessionId: current.sessionId,
+          input: current.input,
+          session: current.session,
+          identity: current.identity,
+          route: current.modelRoute,
+          composing: current.composing
+        }) || current.runtime.hidden.isHidden(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq) || !candidateMatches(result, requestIdentity, requestRoute))
           return;
-        if (runtime.hidden.isHidden(sessionId, result.turn))
-          return;
-        const current = projection?.next;
-        const route = result.route;
-        if (current !== null && current !== undefined && route !== null && typeof route === "object" && typeof route.provider === "string" && typeof route.model === "string" && (route.provider !== current.provider || route.model !== current.model)) {
-          runtime.hidden.hide(sessionId, result.turn);
-          return;
-        }
-        lastTurn.current = result.turn;
-        setCandidate({ text: result.text, turn: result.turn });
+        setCandidate({ ...result, predictionOffEpoch: requestPredictionOffEpoch });
       }).catch(() => {});
     }, ASK_DELAY_MS);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [canAsk, sessionId, settings.prediction, modelKey, runtime]);
+  }, [canAsk, currentKey, modelKey, settings.prediction, predictionOffEpoch, runtime]);
   import_react5.default.useEffect(() => {
-    if (previousModelKey.current === null) {
-      previousModelKey.current = modelKey;
+    if (!candidateCurrent && !canAsk && !composingNow)
       return;
-    }
-    if (previousModelKey.current === modelKey)
+    const inputElement = composerInput(rowRef.current, sessionId);
+    if (inputElement === null || inputElement === undefined)
       return;
-    previousModelKey.current = modelKey;
-    if (lastTurn.current !== null)
-      runtime.hidden.hide(sessionId, lastTurn.current);
-    setCandidate(null);
-  }, [modelKey, sessionId, runtime]);
-  import_react5.default.useEffect(() => {
-    const running = session.running === true;
-    if (running && !wasRunning.current && lastTurn.current !== null) {
-      runtime.hidden.hide(sessionId, lastTurn.current);
-      setCandidate(null);
-    }
-    wasRunning.current = running;
-  }, [session.running, sessionId, runtime]);
-  import_react5.default.useEffect(() => {
-    if (input.phase === "plain")
-      return;
-    if (lastTurn.current !== null)
-      runtime.hidden.hide(sessionId, lastTurn.current);
-    setCandidate(null);
-  }, [input.phase, sessionId, runtime]);
-  const insert = import_react5.default.useCallback(() => {
+    const start = () => {
+      composingRef.current = true;
+      setComposing(true);
+    };
+    const end = () => {
+      composingRef.current = false;
+      setComposing(false);
+    };
+    inputElement.addEventListener("compositionstart", start);
+    inputElement.addEventListener("compositionend", end);
+    return () => {
+      inputElement.removeEventListener("compositionstart", start);
+      inputElement.removeEventListener("compositionend", end);
+    };
+  }, [candidateCurrent, canAsk, composingNow, currentKey, sessionId]);
+  const sameCandidateSnapshot = (snapshot, active) => snapshot !== null && active !== null && snapshot.candidate === active.candidate && identityKey(snapshot.identity) === identityKey(active.identity) && snapshot.predictionOffEpoch === active.predictionOffEpoch && snapshot.input?.draftRev === active.input?.draftRev && sameRoute(snapshot.modelRoute, active.modelRoute);
+  const canInteract = (snapshot) => {
     const current = latest.current;
-    if (current === null || current.candidate === null)
+    if (!sameCandidateSnapshot(snapshot, current) || current?.identity === null || current?.candidate === null || current.composing || composingRef.current || !current.eligible || !candidateMatches(current.candidate, current.identity, current.modelRoute, current.predictionOffEpoch) || !canShowSuggestion({
+      prediction: current.prediction,
+      sessionId: current.sessionId,
+      input: current.input,
+      session: current.session,
+      identity: current.identity,
+      route: current.modelRoute,
+      composing: current.composing || composingRef.current
+    }) || current.runtime.hidden.isHidden(current.sessionId, current.identity.turn, current.identity.endSeq) || editableComposerFor(rowRef.current, current.sessionId) === null)
       return false;
-    const span = current.inputActions.captureInsertion();
-    focusComposer(rowRef.current);
-    if (!current.inputActions.insertText(current.candidate.text, span))
+    return true;
+  };
+  const consume = (current) => {
+    if (!canInteract(current))
       return false;
-    current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
+    const active = latest.current;
+    active.runtime.hidden.hide(active.sessionId, active.identity.turn, active.identity.endSeq);
     setCandidate(null);
     return true;
-  }, []);
-  const send = import_react5.default.useCallback(() => {
+  };
+  const applyCandidate = (submit) => {
     const current = latest.current;
-    if (current === null || current.candidate === null)
+    if (!canInteract(current))
       return false;
-    current.inputActions.setDraft(current.candidate.text);
-    current.inputActions.submit();
-    current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
-    focusComposer(rowRef.current);
+    const apply = submit ? sendCandidate : insertCandidate;
+    const applied = apply(current.inputActions, current.candidate.text, () => sameCandidateSnapshot(current, latest.current) && focusComposer(rowRef.current, current.sessionId), {
+      expectedDraftRev: current.input?.draftRev,
+      canInsert: () => canInteract(current)
+    });
+    if (!applied)
+      return false;
+    current.runtime.hidden.hide(current.sessionId, current.identity.turn, current.identity.endSeq);
     setCandidate(null);
     return true;
-  }, []);
-  const dismiss = import_react5.default.useCallback(() => {
+  };
+  const insert = () => applyCandidate(false);
+  const send = () => applyCandidate(true);
+  const dismiss = () => {
     const current = latest.current;
-    if (current !== null && current.candidate !== null) {
-      current.runtime.hidden.hide(current.sessionId, current.candidate.turn);
-    }
-    focusComposer(rowRef.current);
-    setCandidate(null);
-  }, []);
+    if (!canInteract(current) || !focusComposer(rowRef.current, current.sessionId))
+      return false;
+    return consume(current);
+  };
   import_react5.default.useEffect(() => {
-    if (settings.prediction === true)
+    if (!visible || typeof runtime.shortcuts?.observeFixedInput !== "function")
       return;
-    if (lastTurn.current !== null)
-      runtime.hidden.hide(sessionId, lastTurn.current);
-    setCandidate(null);
-  }, [settings.prediction, sessionId, runtime]);
-  if (candidate === null || !canAsk)
+    return runtime.shortcuts.observeFixedInput((event) => {
+      const current = latest.current;
+      const action = shortcutAction(event, {
+        sessionId,
+        row: rowRef.current,
+        eligible: current?.eligible === true,
+        composing: current?.composing === true || composingRef.current
+      });
+      if (action === "dismiss" && dismiss())
+        event.consume();
+    });
+  }, [visible, currentKey, modelKey, sessionId, runtime]);
+  if (!candidateCurrent || consumed)
     return null;
   return h5("div", {
     ref: rowRef,
     className: "dca-suggest",
     role: "group",
-    "aria-label": t("suggestion.label")
-  }, h5(HintIcon, { className: "dca-mark" }), h5("span", { className: "dca-text", title: candidate.text }, candidate.text), h5("button", {
+    "aria-label": t("suggestion.label"),
+    hidden: !visible
+  }, h5(HintIcon, { className: "dca-mark" }), h5("span", { className: "dca-text" }, candidate.text), h5("button", {
     type: "button",
     className: "dca-insert",
     title: t("suggestion.insert"),
@@ -635,9 +1066,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
     onMouseDown: (event) => {
       event.preventDefault();
     },
-    onClick: () => {
-      insert();
-    }
+    onClick: insert
   }, h5("svg", {
     viewBox: "0 0 16 16",
     width: 16,
@@ -651,13 +1080,12 @@ function SuggestionRow({ sessionId, useSession, useInput, useProjection, useSett
   }, h5("path", { d: "M13 3 3 13M3 13h7M3 13V6" }))), h5("button", {
     type: "button",
     className: "dca-send",
-    title: t("suggestion.hint"),
+    title: t("suggestion.send"),
+    "aria-label": t("suggestion.send"),
     onMouseDown: (event) => {
       event.preventDefault();
     },
-    onClick: () => {
-      send();
-    }
+    onClick: send
   }, t("suggestion.send")), h5("button", {
     type: "button",
     className: "dca-dismiss",
@@ -681,20 +1109,31 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
 [data-dca-navtext] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dca-recap {
   margin: 12px 0 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-secondary);
   font: 400 12px/20px var(--dsw-font-family);
   overflow-wrap: anywhere;
   white-space: normal;
 }
+.dca-recap-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.dca-recap-heading strong { color: var(--dsw-alias-label-secondary); font-weight: 500; }
+.dca-recap-state, .dca-recap-status, .dca-recap-note { color: var(--dsw-alias-label-tertiary); }
+.dca-recap-copy, .dca-recap-status, .dca-recap-note { margin: 4px 0 0; overflow-wrap: anywhere; }
+.dca-recap-copy { white-space: pre-wrap; }
+.dca-recap-details { margin-top: 4px; }
+.dca-recap-details summary { cursor: pointer; overflow-wrap: anywhere; }
+.dca-recap-expand { margin-left: 8px; white-space: nowrap; text-decoration: underline; text-underline-offset: 2px; }
+.dca-recap-details summary:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 2px; border-radius: 2px; }
+.dca-recap-source { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dca-suggest {
   box-sizing: border-box;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  /* The queue/todo dock contract: side clearance plus the card's dock inset,
-     with the surface tucked under the input card's top edge. */
-  width: 100%;
-  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 10px;
+  /* Keep the row tucked under the top edge of the public input dock's
+     composer card. */
   width: calc(
     100% -
     var(--dsh-composer-side-clearance, 0px) -
@@ -712,39 +1151,36 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
     var(--dsh-composer-dock-inset, 0px)
   );
   margin: 0 auto calc(0px - var(--dsh-composer-stack-gap, 0px) - 3px);
-  /* The bottom inset is tucked under the card, so keep the content centered in
-     the visible part rather than in the full 36px box. */
-  padding: 0 12px calc(var(--dsh-composer-stack-gap, 0px) + 3px);
-  min-height: 36px;
-  border: 0.5px solid var(--dsw-alias-border-l1);
-  border-bottom: none;
+  /* The composer overlaps the last stack-gap + 3px. Add real breathing room
+     on both visible edges as well as that concealed joining area. */
+  padding: 10px 14px calc(var(--dsh-composer-stack-gap, 0px) + 13px);
+  min-height: 48px;
+  border: .5px solid var(--dsw-alias-border-l1);
+  border-bottom: 0;
   border-radius: var(--dsw-radius-lg) var(--dsw-radius-lg) 0 0;
   background: var(--dsw-specific-menu);
   backdrop-filter: var(--dsw-menu-backdrop-filter);
   color: var(--dsw-alias-label-secondary);
-  font: 400 13px/20px var(--dsw-font-family);
+  font: 400 13px/22px var(--dsw-font-family);
 }
-.dca-mark {
-  display: block;
-  flex: none;
-  color: var(--dsw-alias-label-tertiary);
-}
+.dca-suggest[hidden] { display: none; }
+.dca-mark { display: block; flex: none; margin-top: 6px; color: var(--dsw-alias-label-tertiary); }
 .dca-text {
-  flex: 1 1 auto;
+  flex: 1 1 min(220px, calc(100% - 30px));
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 3px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
-.dca-insert, .dca-send, .dca-dismiss {
+.dca-insert, .dca-dismiss {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .dca-insert {
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
   border-radius: var(--dsw-radius-sm, 8px);
@@ -756,7 +1192,7 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
 .dca-insert:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
 .dca-send {
   flex: none;
-  height: 24px;
+  height: 28px;
   padding: 0 10px;
   border: 0;
   border-radius: var(--dsw-radius-sm, 8px);
@@ -769,8 +1205,8 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
 .dca-send:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
 .dca-dismiss {
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: 0;
   border-radius: var(--dsw-radius-sm, 8px);
   background: none;
@@ -830,6 +1266,7 @@ function installStyles() {
 // packages/dsh-conversation-assist/src/ui/store.js
 var SETTINGS_ROUTE = "api/dsh-conversation-assist.settings";
 var SUGGEST_ROUTE = "api/dsh-conversation-assist.rpc";
+var RECAP_ROUTE = "api/dsh-conversation-assist.recap";
 function urlOf(route) {
   return new URL(route, document.baseURI);
 }
@@ -839,10 +1276,12 @@ function translate(language, key, values) {
 function createSettingsStore({ language }) {
   let state = {
     recap: true,
+    semanticRecap: true,
     prediction: false,
+    predictionOffEpoch: 0,
     loaded: false,
     error: false,
-    pending: { recap: false, prediction: false },
+    pending: { recap: false, semanticRecap: false, prediction: false },
     failed: null
   };
   let mutations = 0;
@@ -880,9 +1319,12 @@ function createSettingsStore({ language }) {
           set({ loaded: true, error: false });
           return;
         }
+        const prediction = typeof value?.prediction === "boolean" ? value.prediction : false;
         set({
           recap: typeof value?.recap === "boolean" ? value.recap : true,
-          prediction: typeof value?.prediction === "boolean" ? value.prediction : false,
+          semanticRecap: typeof value?.semanticRecap === "boolean" ? value.semanticRecap : true,
+          prediction,
+          predictionOffEpoch: state.prediction === true && prediction === false ? state.predictionOffEpoch + 1 : state.predictionOffEpoch,
           loaded: true,
           error: false,
           failed: null
@@ -896,7 +1338,12 @@ function createSettingsStore({ language }) {
       const previous = state;
       const keys = Object.keys(patch).filter((key) => typeof patch[key] === "boolean");
       mutations += 1;
-      set({ ...patch, failed: null, pending: pendingFor(keys, true) });
+      set({
+        ...patch,
+        predictionOffEpoch: Object.hasOwn(patch, "prediction") && patch.prediction === false ? state.predictionOffEpoch + 1 : state.predictionOffEpoch,
+        failed: null,
+        pending: pendingFor(keys, true)
+      });
       try {
         const response = await fetch(urlOf(SETTINGS_ROUTE), {
           method: "POST",
@@ -944,24 +1391,32 @@ function createSettingsStore({ language }) {
 }
 function createHiddenTurns() {
   const hidden = new Map;
+  const keyOf = (turn, endSeq) => `${turn}:${endSeq ?? ""}`;
   return {
-    hide(sessionId, turn) {
-      hidden.set(sessionId, turn);
+    hide(sessionId, turn, endSeq) {
+      let turns = hidden.get(sessionId);
+      if (turns === undefined) {
+        turns = new Set;
+        hidden.set(sessionId, turns);
+      }
+      turns.add(keyOf(turn, endSeq));
+      while (turns.size > 200)
+        turns.delete(turns.values().next().value);
     },
-    isHidden(sessionId, turn) {
-      return hidden.get(sessionId) === turn;
+    isHidden(sessionId, turn, endSeq) {
+      return hidden.get(sessionId)?.has(keyOf(turn, endSeq)) === true;
     },
     clear(sessionId) {
       hidden.delete(sessionId);
     }
   };
 }
-async function requestSuggestion(sessionId, language, notBefore, signal) {
+async function requestSuggestion(sessionId, turn, endSeq, signal) {
   try {
     const response = await fetch(urlOf(SUGGEST_ROUTE), {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ sessionId, language, ...typeof notBefore === "number" ? { notBefore } : {} }),
+      body: JSON.stringify({ sessionId, turn, endSeq }),
       signal
     });
     if (!response.ok)
@@ -972,9 +1427,25 @@ async function requestSuggestion(sessionId, language, notBefore, signal) {
     return { state: "none" };
   }
 }
+async function requestRecap(sessionId, turn, endSeq, replyHash, signal) {
+  try {
+    const response = await fetch(urlOf(RECAP_ROUTE), {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ sessionId, turn, endSeq, replyHash }),
+      signal
+    });
+    if (!response.ok)
+      return { state: "none", reason: "unavailable" };
+    const value = await response.json();
+    return typeof value === "object" && value !== null ? value : { state: "none", reason: "unavailable" };
+  } catch {
+    return { state: "none", reason: "unavailable" };
+  }
+}
 
 // packages/dsh-conversation-assist/src/client.js
-var inject = ["slots", "locale", "uiConversation"];
+var inject = ["slots", "locale", "uiConversation", "shortcuts"];
 function apply(ctx) {
   const language = () => {
     try {
@@ -984,21 +1455,11 @@ function apply(ctx) {
       return "en";
     }
   };
-  const startedAt = Date.now();
   const settings = createSettingsStore({ language });
   const hidden = createHiddenTurns();
-  let armedAt = startedAt;
-  let wasPrediction = false;
-  const runtime = { hidden, language, requestSuggestion, armedAt: () => armedAt };
+  const runtime = { hidden, language, requestRecap, requestSuggestion, shortcuts: ctx.shortcuts };
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor("zh"), en: dictionaryFor("en") }), "dsh-conversation-assist: dictionaries");
   ctx.effect(() => installStyles(), "dsh-conversation-assist: stylesheet");
-  ctx.effect(() => settings.subscribe(() => {
-    const enabled = settings.getSnapshot().prediction;
-    if (enabled && !wasPrediction)
-      armedAt = Date.now();
-    wasPrediction = enabled;
-  }), "dsh-conversation-assist: prediction arming");
-  wasPrediction = settings.getSnapshot().prediction;
   ctx.effect(() => ctx.on("connection/reset", () => {
     settings.start();
   }), "dsh-conversation-assist: settings reset");
@@ -1009,7 +1470,7 @@ function apply(ctx) {
     id: "dsh-conversation-assist.recap",
     order: 20,
     locale: NS,
-    inject: () => ({ hooks: { settings } })
+    inject: () => ({ hooks: { settings }, runtime: { requestRecap } })
   }, RecapTail));
   ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
     name: "conversation.input.dock",

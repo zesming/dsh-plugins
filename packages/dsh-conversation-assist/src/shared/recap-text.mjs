@@ -1,6 +1,5 @@
-/** Compose the reply lead of one Turn, with its ending when it did not complete. */
+/** Localized deterministic turn status and readable fallback excerpt helpers. */
 
-import { LIMITS } from './limits.mjs'
 import { formatRow } from './locales.mjs'
 
 /**
@@ -16,79 +15,48 @@ function cause(t, kind) {
 }
 
 /**
- * Opening paragraph of the final reply, stripped of markdown and bounded.
+ * Compose the exact ending state of one closed Turn.
+ * This line describes the logged ending only; it does not claim that work was
+ * completed or independently verified.
  * @param value - folded facts.
- * @returns a snippet, or "".
- */
-function snippet(value) {
-  if (typeof value.lastText !== 'string' || value.lastText === '') return ''
-  const withoutFences = value.lastText.replace(/```[\s\S]*?```/gu, ' ')
-  const paragraphs = withoutFences
-    .split(/\n\s*\n/u)
-    .map(paragraph => paragraph.replace(/^\s*[#>*-]+\s*/gmu, '').trim())
-    .filter(paragraph => paragraph !== '')
-  let text = paragraphs[0] ?? withoutFences
-  text = text
-    .replace(/!?\[([^\]]+)\]\([^)]*\)/gu, '$1')
-    .replace(/[*_`~]/gu, '')
-    .replace(/\s+/gu, ' ')
-    .trim()
-  return text
-}
-
-/**
- * Ellipsize text at the hard recap bound.
- * @param text - composed sentence.
- * @param max - code-point-safe maximum.
- * @returns the text, or its prefix plus an ellipsis.
- */
-export function truncateRecap(text, max = LIMITS.maxRecapChars) {
-  const chars = [...text]
-  return chars.length <= max ? text : `${chars.slice(0, Math.max(0, max - 1)).join('')}…`
-}
-
-/**
- * Compose the recap for one closed Turn.
- * @param value - facts published by the definition.
  * @param t - dictionary lookup returning localized rows.
- * @returns one sentence, or "" when no recap should render.
+ * @returns one localized status line.
  */
 export function composeRecap(value, t) {
   if (typeof value !== 'object' || value === null) return ''
   const kind = typeof value.reasonKind === 'string' ? value.reasonKind : 'unknown'
-  const lead = snippet(value)
-  let text
   switch (kind) {
     case 'completed':
-      text = lead === ''
-        ? t('recap.noReply')
-        : formatRow(t('recap.completed'), { snippet: lead })
-      break
+      return value.hasReply === true ? '' : t('recap.noReply')
     case 'aborted':
-      text = formatRow(t('recap.aborted'), { cause: cause(t, value.cancelKind ?? 'unknown'), snippet: lead })
-      break
+      return formatRow(t('recap.aborted'), { cause: cause(t, value.cancelKind ?? 'unknown') })
     case 'blocked':
-      text = formatRow(t('recap.blocked'), { snippet: lead })
-      break
+      return t('recap.blocked')
     case 'error':
-      text = formatRow(t('recap.error'), {
+      return formatRow(t('recap.error'), {
         code: typeof value.errorCode === 'string' && value.errorCode !== ''
           ? formatRow(t('recap.code'), { code: value.errorCode })
           : '',
-        snippet: lead,
       })
-      break
     case 'max-tokens':
-      text = formatRow(t('recap.maxTokens'), { snippet: lead })
-      break
+      return t('recap.maxTokens')
     case 'interrupted':
-      text = t('recap.interrupted')
-      break
+      return t('recap.interrupted')
     case 'forked':
-      text = t('recap.forked')
-      break
+      return t('recap.forked')
     default:
-      text = t('recap.unknown')
+      return t('recap.unknown')
   }
-  return truncateRecap(String(text).trim())
+}
+
+/**
+ * Create a compact disclosure summary without modifying the expanded source.
+ * @param text - bounded excerpt.
+ * @param max - maximum displayed code points.
+ * @returns the text as-is or its collapsed preview.
+ */
+export function excerptPreview(text, max = 180) {
+  if (typeof text !== 'string') return ''
+  const characters = [...text]
+  return characters.length <= max ? text : `${characters.slice(0, max).join('')}…`
 }

@@ -12,16 +12,18 @@ export const LIMITS = Object.freeze({
   timeoutMs: 8_000,
   /** UTF-8 byte cap for the trimmed conversation tail. */
   maxContextBytes: 24_576,
-  /** Message-count cap for the trimmed conversation tail. */
-  maxMessages: 24,
-  /** Suggestions per session per local day. */
+  /** Tool calls/results kept in one captured Turn. */
+  maxEvidence: 24,
+  /** Suggestions and recaps together per session per local day. */
   dailyPerSession: 50,
-  /** Suggestions running at once across every session. */
+  /** Auxiliary calls running at once across every session. */
   maxConcurrent: 2,
+  /** Persisted summary rows retained across sessions. */
+  maxSummaryCache: 200,
   /** Audit file size that triggers one rotation. */
   auditMaxBytes: 1_048_576,
   /** Longest accepted suggestion text; longer output is rejected. */
   maxSuggestionChars: 160,
-  /** Longest rendered recap; longer text is ellipsized. */
+  /** Longest accepted model recap. */
   maxRecapChars: 400,
 })

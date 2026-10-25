@@ -1,4 +1,4 @@
-/** Settings section: two host switches and the usage note. */
+/** Settings section: recap display, smart recap, suggestion, and usage note. */
 
 import React from 'react'
 
@@ -56,6 +56,17 @@ export function SettingsSection({ t, useSettings, store }) {
       checked: state.recap,
       pending: state.pending.recap,
       failed: state.failed === 'recap',
+      errorText: t('settings.error'),
+      t,
+      onChange: change,
+    }),
+    h(Row, {
+      setting: 'semanticRecap',
+      name: t('settings.semanticRecap.name'),
+      description: t('settings.semanticRecap.desc'),
+      checked: state.semanticRecap,
+      pending: state.pending.semanticRecap,
+      failed: state.failed === 'semanticRecap',
       errorText: t('settings.error'),
       t,
       onChange: change,

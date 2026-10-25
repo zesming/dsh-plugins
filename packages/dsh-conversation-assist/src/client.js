@@ -6,10 +6,10 @@ import { SettingsSection } from './ui/settings.js'
 import { navLabel } from './ui/nav-label.js'
 import { SuggestionRow } from './ui/suggestion.js'
 import { installStyles } from './ui/styles.js'
-import { createHiddenTurns, createSettingsStore, requestSuggestion, translate } from './ui/store.js'
+import { createHiddenTurns, createSettingsStore, requestRecap, requestSuggestion, translate } from './ui/store.js'
 
 /** Services this client plugin requires. */
-export const inject = ['slots', 'locale', 'uiConversation']
+export const inject = ['slots', 'locale', 'uiConversation', 'shortcuts']
 
 /**
  * Mount the browser half.
@@ -24,21 +24,12 @@ export function apply(ctx) {
       return 'en'
     }
   }
-  const startedAt = Date.now()
   const settings = createSettingsStore({ language })
   const hidden = createHiddenTurns()
-  let armedAt = startedAt
-  let wasPrediction = false
-  const runtime = { hidden, language, requestSuggestion, armedAt: () => armedAt }
+  const runtime = { hidden, language, requestRecap, requestSuggestion, shortcuts: ctx.shortcuts }
 
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor('zh'), en: dictionaryFor('en') }), 'dsh-conversation-assist: dictionaries')
   ctx.effect(() => installStyles(), 'dsh-conversation-assist: stylesheet')
-  ctx.effect(() => settings.subscribe(() => {
-    const enabled = settings.getSnapshot().prediction
-    if (enabled && !wasPrediction) armedAt = Date.now()
-    wasPrediction = enabled
-  }), 'dsh-conversation-assist: prediction arming')
-  wasPrediction = settings.getSnapshot().prediction
   ctx.effect(() => ctx.on('connection/reset', () => { void settings.start() }), 'dsh-conversation-assist: settings reset')
   void settings.start()
 
@@ -52,7 +43,7 @@ export function apply(ctx) {
     id: 'dsh-conversation-assist.recap',
     order: 20,
     locale: NS,
-    inject: () => ({ hooks: { settings } }),
+    inject: () => ({ hooks: { settings }, runtime: { requestRecap } }),
   }, RecapTail))
 
   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
