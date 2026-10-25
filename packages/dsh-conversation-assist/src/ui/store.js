@@ -6,6 +6,8 @@ import { NS, dictionaryFor, formatRow } from '../shared/locales.mjs'
 export const SETTINGS_ROUTE = 'api/dsh-conversation-assist.settings'
 /** Suggestion route, addressed document-relative. */
 export const SUGGEST_ROUTE = 'api/dsh-conversation-assist.rpc'
+/** Smart recap route, addressed document-relative. */
+export const RECAP_ROUTE = 'api/dsh-conversation-assist.recap'
 
 /**
  * Resolve a document-relative route against the current page.
@@ -36,6 +38,7 @@ export function createSettingsStore({ language }) {
   let state = {
     recap: true,
     prediction: false,
+    predictionOffEpoch: 0,
     loaded: false,
     error: false,
     pending: { recap: false, prediction: false },
@@ -80,9 +83,12 @@ export function createSettingsStore({ language }) {
           set({ loaded: true, error: false })
           return
         }
+        const prediction = typeof value?.prediction === 'boolean' ? value.prediction : false
         set({
           recap: typeof value?.recap === 'boolean' ? value.recap : true,
-          prediction: typeof value?.prediction === 'boolean' ? value.prediction : false,
+          prediction,
+          predictionOffEpoch: state.prediction === true && prediction === false
+            ? state.predictionOffEpoch + 1 : state.predictionOffEpoch,
           loaded: true,
           error: false,
           failed: null,
@@ -98,14 +104,22 @@ export function createSettingsStore({ language }) {
      */
     async update(patch) {
       const previous = state
-      const keys = Object.keys(patch).filter(key => typeof patch[key] === 'boolean')
+      const keys = ['recap', 'prediction'].filter(key => typeof patch?.[key] === 'boolean')
+      if (keys.length === 0) return false
+      const acceptedPatch = Object.fromEntries(keys.map(key => [key, patch[key]]))
       mutations += 1
-      set({ ...patch, failed: null, pending: pendingFor(keys, true) })
+      set({
+        ...acceptedPatch,
+        predictionOffEpoch: Object.hasOwn(acceptedPatch, 'prediction') && acceptedPatch.prediction === false
+          ? state.predictionOffEpoch + 1 : state.predictionOffEpoch,
+        failed: null,
+        pending: pendingFor(keys, true),
+      })
       try {
         const response = await fetch(urlOf(SETTINGS_ROUTE), {
           method: 'POST',
           headers: { 'content-type': 'application/json', accept: 'application/json' },
-          body: JSON.stringify(patch),
+          body: JSON.stringify(acceptedPatch),
         })
         if (!response.ok) throw new Error(`settings ${response.status}`)
         const value = await response.json()
@@ -147,24 +161,32 @@ export function createSettingsStore({ language }) {
 }
 
 /**
- * Per-Session hidden markers: a Turn is consumed by close, Send, ↙ insert, or a model switch; a
- * Session switch remounts the row and the Host cache supplies the same Turn.
+ * Per-Session consumed markers. An exact end sequence distinguishes changed
+ * or replayed Turns while keeping a consumed candidate from returning.
  * @returns hide/check/clear operations.
  */
 export function createHiddenTurns() {
   const hidden = new Map()
+  const keyOf = (turn, endSeq) => `${turn}:${endSeq ?? ''}`
   return {
-    /** @param sessionId - Session. @param turn - Turn. */
-    hide(sessionId, turn) {
-      hidden.set(sessionId, turn)
+    /** @param sessionId - Session. @param turn - Turn. @param endSeq - closing sequence. */
+    hide(sessionId, turn, endSeq) {
+      let turns = hidden.get(sessionId)
+      if (turns === undefined) {
+        turns = new Set()
+        hidden.set(sessionId, turns)
+      }
+      turns.add(keyOf(turn, endSeq))
+      while (turns.size > 200) turns.delete(turns.values().next().value)
     },
     /**
      * @param sessionId - Session.
      * @param turn - candidate Turn.
+     * @param endSeq - closing sequence.
      * @returns whether this Turn is consumed.
      */
-    isHidden(sessionId, turn) {
-      return hidden.get(sessionId) === turn
+    isHidden(sessionId, turn, endSeq) {
+      return hidden.get(sessionId)?.has(keyOf(turn, endSeq)) === true
     },
     /** @param sessionId - Session to clear. */
     clear(sessionId) {
@@ -174,18 +196,19 @@ export function createHiddenTurns() {
 }
 
 /**
- * Ask the Host for the latest completed Turn's suggestion.
+ * Read the Host's suggestion for one exact completed Turn identity.
  * @param sessionId - Session identity.
- * @param language - active language.
+ * @param turn - completed Turn number.
+ * @param endSeq - authoritative `turn/end` sequence.
  * @param signal - caller cancellation.
- * @returns `{state, text, turn}` or a none result.
+ * @returns `{state, text, sessionId, turn, endSeq, route}` or a none result.
  */
-export async function requestSuggestion(sessionId, language, notBefore, signal) {
+export async function requestSuggestion(sessionId, turn, endSeq, signal) {
   try {
     const response = await fetch(urlOf(SUGGEST_ROUTE), {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ sessionId, language, ...(typeof notBefore === 'number' ? { notBefore } : {}) }),
+      body: JSON.stringify({ sessionId, turn, endSeq }),
       signal,
     })
     if (!response.ok) return { state: 'none' }
@@ -193,5 +216,32 @@ export async function requestSuggestion(sessionId, language, notBefore, signal) 
     return typeof value === 'object' && value !== null ? value : { state: 'none' }
   } catch {
     return { state: 'none' }
+  }
+}
+
+/**
+ * Read the smart recap or its unavailable reason for one exact reply identity.
+ * @param sessionId - Session identity.
+ * @param turn - completed Turn number.
+ * @param endSeq - authoritative `turn/end` sequence.
+ * @param replyHash - fingerprint of every text block in the final reply.
+ * @param signal - caller cancellation.
+ * @returns ready recap, a none reason, or a local unavailable result.
+ */
+export async function requestRecap(sessionId, turn, endSeq, replyHash, signal) {
+  try {
+    const response = await fetch(urlOf(RECAP_ROUTE), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ sessionId, turn, endSeq, replyHash }),
+      signal,
+    })
+    if (!response.ok) return { state: 'none', reason: 'unavailable' }
+    const value = await response.json()
+    return typeof value === 'object' && value !== null
+      ? value
+      : { state: 'none', reason: 'unavailable' }
+  } catch {
+    return { state: 'none', reason: 'unavailable' }
   }
 }

@@ -2,62 +2,52 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { en, zh } from '../src/shared/locales.mjs'
-import { composeRecap } from '../src/shared/recap-text.mjs'
+import { composeRecap, excerptPreview } from '../src/shared/recap-text.mjs'
 
-const tFor = rows => key => rows[key]
+const tFor = rows => key => rows[key] ?? key
 const value = (overrides = {}) => ({
   turn: 1, calls: 3, failures: 1, unknown: 0, pending: 0, hasReply: true,
   reasonKind: 'completed', cancelKind: undefined, errorCode: undefined, ...overrides,
 })
 
-test('a completed recap carries the reply lead and no tool counts', () => {
-  const text = composeRecap(value({ lastText: '修复了 finish 契约。补了测试。' }), tFor(zh))
-  assert.match(text, /^回顾：/u)
-  assert.match(text, /修复了 finish 契约。/u)
-  assert.doesNotMatch(text, /工具调用|个失败|未确认|下一步由你决定/u)
-  assert.doesNotMatch(text, /任务完成|全部完成|已上线|已发布成功/u)
-  assert.ok(text.length <= 400)
+test('normal completed turns use the model recap separately from the reply excerpt', () => {
+  assert.equal(composeRecap(value({ lastText: '已完成本轮。' }), tFor(zh)), '')
+  assert.equal(composeRecap(value({ hasReply: false, finalReply: false }), tFor(zh)), '本轮没有文字回复。')
+  assert.equal(composeRecap(value({ hasReply: false, finalReply: false }), tFor(en)), 'No reply text this turn.')
 })
 
-test('a completed turn without reply text says so plainly', () => {
-  assert.equal(composeRecap(value({ lastText: undefined }), tFor(zh)), '本轮没有文字回复。')
-  assert.equal(composeRecap(value({ lastText: undefined }), tFor(en)), 'No reply text this turn.')
-})
-
-test('the recap carries the opening paragraph and stops before later ones', () => {
-  const text = composeRecap(value({ lastText: '第一段第一句。第一段第二句。\n\n第二段不应该出现。' }), tFor(zh))
-  assert.match(text, /第一段第一句。第一段第二句。/u)
-  assert.doesNotMatch(text, /第二段不应该出现/u)
-  const long = composeRecap(value({ lastText: '甲'.repeat(600) }), tFor(zh))
-  assert.ok([...long].length <= 400)
-  assert.match(long, /…$/u)
-})
-
-test('every terminal reason composes a sentence in both languages', () => {
+test('abnormal endings name the logged state without claiming the task completed', () => {
   const cases = [
-    [{ reasonKind: 'aborted', cancelKind: 'user', lastText: '已改完两处。' }, /已停止（用户取消）。已改完两处。/u, /Stopped \(cancelled by the user\)\. 已改完两处。/u],
-    [{ reasonKind: 'blocked', lastText: '等待权限。' }, /被阻塞：需要你处理后才能继续。等待权限。/u, /Blocked: your action is needed before continuing\. 等待权限。/u],
-    [{ reasonKind: 'error', errorCode: 'RATE_LIMIT', lastText: '重试了一次。' }, /本轮失败（RATE_LIMIT）。重试了一次。/u, /Turn failed \(RATE_LIMIT\)\. 重试了一次。/u],
-    [{ reasonKind: 'max-tokens', lastText: '输出到一半。' }, /输出达到上限被截断。输出到一半。/u, /Output hit the token limit and was truncated\. 输出到一半。/u],
-    [{ reasonKind: 'interrupted' }, /恢复闭合/u, /closed during recovery/u],
-    [{ reasonKind: 'forked' }, /分叉时继承截断/u, /inherited from a truncated fork/u],
-    [{ reasonKind: 'unknown' }, /未知原因/u, /unknown reason/u],
+    [{ reasonKind: 'aborted', cancelKind: 'user' }, /已停止（用户取消）。/u, /stopped \(cancelled by the user\)/iu],
+    [{ reasonKind: 'blocked' }, /被阻塞/u, /blocked and needs attention/iu],
+    [{ reasonKind: 'error', errorCode: 'RATE_LIMIT' }, /本轮失败（RATE_LIMIT）。/u, /failed \(RATE_LIMIT\)/iu],
+    [{ reasonKind: 'max-tokens' }, /达到上限并被截断/u, /hit the output limit and was truncated/iu],
+    [{ reasonKind: 'interrupted' }, /恢复时闭合/u, /closed during recovery/iu],
+    [{ reasonKind: 'forked' }, /截断的分叉/u, /truncated fork/iu],
+    [{ reasonKind: 'unknown' }, /未知原因/u, /unknown reason/iu],
   ]
   for (const [patch, zhPattern, enPattern] of cases) {
-    const zhText = composeRecap(value(patch), tFor(zh))
-    const enText = composeRecap(value(patch), tFor(en))
-    assert.match(zhText, zhPattern)
-    assert.match(enText, enPattern)
-    assert.ok(zhText.length <= 400)
-    assert.ok(enText.length <= 400)
+    assert.match(composeRecap(value(patch), tFor(zh)), zhPattern)
+    assert.match(composeRecap(value(patch), tFor(en)), enPattern)
   }
 })
 
-test('an aborted turn without reply text still names the cause', () => {
-  assert.equal(composeRecap(value({ reasonKind: 'aborted', cancelKind: 'parent', lastText: undefined }), tFor(zh)), '已停止（父会话取消）。')
+test('excerpt preview is the only collapsed shortening and leaves expanded text intact', () => {
+  const full = '甲'.repeat(240) + '\n\n乙段仍完整。'
+  const preview = excerptPreview(full, 180)
+  assert.equal([...preview].length, 181)
+  assert.ok(full.startsWith(preview.slice(0, 180)))
+  assert.match(full, /乙段仍完整/u)
+  assert.equal(excerptPreview('多块文本\n\n后段。'), '多块文本\n\n后段。')
 })
 
-test('recap copy never uses the forbidden cost words', () => {
-  const all = [...Object.values(zh), ...Object.values(en)].join('\n')
-  assert.doesNotMatch(all, /免费|零成本|不产生费用|free|no cost/iu)
+test('recap copy prefixes generated text and keeps history and excerpt labels explicit', () => {
+  for (const rows of [zh, en]) {
+    const all = Object.values(rows).join('\n')
+    assert.ok(rows['recap.ariaLabel'])
+    assert.match(rows['recap.prefix'], /^(回顾：|Recap: )$/u)
+    assert.match(all, /历史轮次|Historical turn/u)
+    assert.match(all, /完整内容见上方|full text is above/u)
+  }
+  assert.doesNotMatch([...Object.values(zh), ...Object.values(en)].join('\n'), /免费|零成本|不产生费用|free|no cost/iu)
 })

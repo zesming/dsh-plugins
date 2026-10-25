@@ -1,8 +1,17 @@
-/** Build the audit record written for one auxiliary suggestion attempt. */
+/** Build metadata-only audit for one shared recap/suggestion attempt. */
+
+function routeSummary(value) {
+  if (typeof value?.provider !== 'string' || typeof value?.model !== 'string') return null
+  return {
+    provider: value.provider,
+    model: value.model,
+    ...(typeof value.reasoningEffort === 'string' ? { reasoningEffort: value.reasoningEffort } : {}),
+  }
+}
 
 /**
  * One audit row. It deliberately carries no message text, draft, prompt, or
- * model output: the record exists to attribute cost and route, not to duplicate
+ * model output: the record exists to attribute cost and routes, not to duplicate
  * a conversation.
  * @param fields - one attempt's summary.
  * @returns a JSON-serializable record.
@@ -13,8 +22,9 @@ export function createAuditRecord(fields) {
     sessionId: String(fields.sessionId ?? ''),
     turn: Number.isFinite(fields.turn) ? fields.turn : null,
     endSeq: Number.isFinite(fields.endSeq) ? fields.endSeq : null,
-    provider: typeof fields.provider === 'string' ? fields.provider : null,
-    model: typeof fields.model === 'string' ? fields.model : null,
+    sourceSelection: routeSummary(fields.sourceSelection),
+    auxiliaryRoute: routeSummary(fields.auxiliaryRoute),
+    feature: typeof fields.feature === 'string' ? fields.feature : null,
     messageCount: Number.isFinite(fields.messageCount) ? fields.messageCount : 0,
     inputBytes: Number.isFinite(fields.inputBytes) ? fields.inputBytes : 0,
     maxTokens: Number.isFinite(fields.maxTokens) ? fields.maxTokens : null,
@@ -22,15 +32,14 @@ export function createAuditRecord(fields) {
     outputChars: Number.isFinite(fields.outputChars) ? fields.outputChars : 0,
     durationMs: Number.isFinite(fields.durationMs) ? fields.durationMs : null,
     promptVersion: Number.isFinite(fields.promptVersion) ? fields.promptVersion : null,
-    error: typeof fields.error === 'string' ? fields.error : null,
+    error: typeof fields.error === 'string' ? fields.error.slice(0, 96) : null,
   }
   if (fields.usage !== undefined && typeof fields.usage === 'object' && fields.usage !== null) {
-    try {
-      JSON.stringify(fields.usage)
-      record.usage = fields.usage
-    } catch {
-      // A non-serializable usage payload is dropped rather than failing the write.
+    const usage = {}
+    for (const key of ['inputTokens', 'outputTokens', 'totalTokens']) {
+      if (Number.isFinite(fields.usage[key])) usage[key] = fields.usage[key]
     }
+    if (Object.keys(usage).length > 0) record.usage = usage
   }
   return record
 }

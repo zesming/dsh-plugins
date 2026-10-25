@@ -1,4 +1,4 @@
-/** Settings section: two host switches and the usage note. */
+/** Settings section: recap display, suggestion, and usage note. */
 
 import React from 'react'
 
@@ -12,7 +12,7 @@ const h = React.createElement
  * @param props - key, copy, value, pending, failure, and change callback.
  * @returns the row.
  */
-function Row({ setting, name, description, checked, pending, failed, errorText, t, onChange }) {
+function Row({ setting, name, description, checked, pending, failed, errorText, onChange }) {
   const Switch = typeof primitives?.Switch === 'function' ? primitives.Switch : undefined
   const control = Switch === undefined
     ? h('button', {
@@ -57,7 +57,6 @@ export function SettingsSection({ t, useSettings, store }) {
       pending: state.pending.recap,
       failed: state.failed === 'recap',
       errorText: t('settings.error'),
-      t,
       onChange: change,
     }),
     h(Row, {
@@ -68,7 +67,6 @@ export function SettingsSection({ t, useSettings, store }) {
       pending: state.pending.prediction,
       failed: state.failed === 'prediction',
       errorText: t('settings.error'),
-      t,
       onChange: change,
     }),
     h('div', { className: 'dca-note' },

@@ -1,10 +1,9 @@
-/**
- * Fold one Turn's durable events into the facts a recap sentence may state.
- *
- * The fold is deliberately literal: a call is only "ok" when a non-error result
- * arrived, an error result carrying an UNKNOWN code stays "unknown", and a call
- * without any result stays "pending". Nothing here infers success from prose.
- */
+/** Facts retained for one turn-tail recap, without making a claim from prose. */
+
+import { replyFingerprint, textOfMessage } from './identity.mjs'
+
+/** Maximum fallback excerpt stored in the client-side turn data. */
+export const MAX_EXCERPT_CHARS = 4_000
 
 /**
  * Create the state for one Turn.
@@ -17,6 +16,9 @@ export function emptyFacts(turn) {
     calls: new Map(),
     hasReply: false,
     lastText: undefined,
+    excerptTruncated: false,
+    replyHash: undefined,
+    finalReply: false,
     reasonKind: undefined,
     cancelKind: undefined,
     errorCode: undefined,
@@ -31,6 +33,20 @@ function copy(state) {
 }
 
 /**
+ * Keep a bounded, readable excerpt while hashing the complete source text.
+ * @param text - full visible text from one assistant message.
+ * @returns bounded text and whether any source text was omitted.
+ */
+function excerpt(text) {
+  const characters = [...text]
+  if (characters.length <= MAX_EXCERPT_CHARS) return { text, truncated: false }
+  return {
+    text: `${characters.slice(0, MAX_EXCERPT_CHARS).join('')}…`,
+    truncated: true,
+  }
+}
+
+/**
  * Apply one durable event to a Turn's facts.
  * @param state - current fold state.
  * @param event - one client Session event.
@@ -41,9 +57,10 @@ export function foldFacts(state, event) {
   if (typeof turn !== 'number' || turn !== state.turn) return state
   if (event.type === 'tool/call') {
     const callId = String(event.data.callId ?? '')
-    if (callId === '') return state
     const next = copy(state)
-    if (!next.calls.has(callId)) next.calls.set(callId, 'pending')
+    if (callId !== '' && !next.calls.has(callId)) next.calls.set(callId, 'pending')
+    next.replyHash = undefined
+    next.finalReply = false
     return next
   }
   if (event.type === 'tool/result') {
@@ -56,17 +73,37 @@ export function foldFacts(state, event) {
     return next
   }
   if (event.type === 'assistant/message') {
-    const blocks = event.data.message?.content
-    const text = Array.isArray(blocks)
-      ? blocks.find(block => block?.type === 'text' && typeof block.text === 'string' && block.text.trim() !== '')?.text
-      : undefined
-    if (typeof text !== 'string') return state
+    const message = event.data.message
+    const text = textOfMessage(message)
+    const hasVisibleText = text.trim() !== ''
+    const blocks = Array.isArray(message?.content) ? message.content : []
+    if (!hasVisibleText) {
+      return {
+        ...state,
+        // Empty and reasoning-only messages can follow visible progress, for
+        // example when a max-token finish carries usage but no final text.
+        // Keep that excerpt for the fallback while disqualifying it as a final
+        // reply source for a generated recap.
+        replyHash: undefined,
+        finalReply: false,
+      }
+    }
+    const isFinalText = hasVisibleText
+      && event.data.interrupted !== true
+      && message?.interrupted !== true
+      && !blocks.some(block => block?.type === 'tool-call')
+    const bounded = excerpt(text)
     return {
       ...state,
-      hasReply: true,
-      // The latest assistant text is the final reply; keep a bounded prefix so
-      // the recap can name what the turn actually said without storing a body.
-      lastText: text.trim().slice(0, 1200),
+      hasReply: hasVisibleText,
+      // Every text block is kept in source order for a readable fallback.
+      // Reasoning, tool calls, and other blocks are excluded by textOfMessage.
+      lastText: bounded.text,
+      excerptTruncated: bounded.truncated,
+      // The Host validates this full-content fingerprint before returning a
+      // model recap. A tool-call or interrupted prefix is never its source.
+      replyHash: isFinalText ? replyFingerprint(text) : undefined,
+      finalReply: isFinalText,
     }
   }
   if (event.type === 'turn/end') {
@@ -87,7 +124,7 @@ export function foldFacts(state, event) {
 }
 
 /**
- * Publishable summary of a closed Turn.
+ * Publishable facts for the Turn-tail entry.
  * @param state - fold state after `turn/end`.
  * @returns plain facts for the tail entry.
  */
@@ -105,6 +142,9 @@ export function factsValue(state) {
     turn: state.turn,
     calls: state.calls.size,
     lastText: state.lastText,
+    excerptTruncated: state.excerptTruncated,
+    replyHash: state.replyHash,
+    finalReply: state.finalReply,
     failures,
     unknown,
     pending,

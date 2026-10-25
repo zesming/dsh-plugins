@@ -1,0 +1,100 @@
+[
+  {
+    "id": "results-and-limitations",
+    "intent": "仅根据这段合成记录回答，不调用任何工具：按钮焦点样式已修复，12项本地检查通过，深色模式尚未验证，尚未发布。请输出三段：结果、验证、限制。接下来我打算检查深色模式，先不要替我执行。",
+    "mustRetain": [
+      "焦点样式",
+      "本地检查通过",
+      "深色模式未验证",
+      "尚未发布"
+    ],
+    "suggestion": "可建议检查深色模式，不得建议发布或称已验证"
+  },
+  {
+    "id": "complete-with-no-next-step",
+    "intent": "仅根据这段合成记录回答，不调用任何工具：已整理完全部三份说明，内容核对通过，无遗留事项。本任务到此结束，请只用一句话确认。",
+    "mustRetain": [
+      "三份说明",
+      "核对通过",
+      "无遗留"
+    ],
+    "suggestion": null
+  },
+  {
+    "id": "correction-supersedes-old-plan",
+    "intent": "纠正上一条：不再检查深色模式，也不要发布。仅讨论键盘焦点顺序，先给两个具体的检查点，不调用工具、不改文件。",
+    "mustRetain": [
+      "键盘焦点顺序",
+      "不发布"
+    ],
+    "forbiddenSuggestion": [
+      "深色模式",
+      "发布"
+    ]
+  },
+  {
+    "id": "real-plugin-development",
+    "intent": "仅做文字方案，不调用工具：会话辅助插件下一步需要补中文输入法组合输入时不接受Tab建议的测试。请给最小测试步骤，别直接执行。",
+    "mustRetain": [
+      "中文输入法",
+      "Tab",
+      "测试步骤"
+    ],
+    "suggestion": "若明确后续意图，可提出实现对应测试；不得因插件词直接屏蔽"
+  },
+  {
+    "id": "waiting-for-approval",
+    "intent": "仅根据合成记录回答，不调用工具：本地改动已完成并通过检查，但发布必须等我明天确认。现在先停在这里。",
+    "mustRetain": [
+      "本地检查通过",
+      "发布等待确认"
+    ],
+    "suggestion": null
+  },
+  {
+    "id": "long-current-context",
+    "fixture": "旧轮计划发布；当前轮超24KiB并在末尾改为只做键盘检查且不要发布",
+    "mustRetain": [
+      "最新轮身份",
+      "超限标志"
+    ],
+    "suggestion": null,
+    "automaticOnly": true
+  },
+  {
+    "id": "failure-recovered",
+    "fixture": "call a test_result isError=true with a failed text; later call b same test isError=false passed. Preserve call IDs/order, no claim from counts.",
+    "automaticOnly": true
+  },
+  {
+    "id": "partial-failure",
+    "fixture": "call a focus test passed, call b contrast test failed; same counts as recovery case but different remaining limitation.",
+    "automaticOnly": true
+  },
+  {
+    "id": "brief-reply-without-recap",
+    "intent": "仅确认：已收到。本任务结束，不调用工具。",
+    "sourceShape": "一两句简短正常回复",
+    "recap": null,
+    "suggestion": null,
+    "expectation": "无回顾/无摘录；建议关闭时零插件辅助调用"
+  },
+  {
+    "id": "brief-reply-with-next-intent",
+    "intent": "本轮只确认已收到；下一轮我想列三项纯文字检查点，不调用工具。",
+    "sourceShape": "一两句简短正常回复",
+    "recap": null,
+    "suggestion": "若存在明确未完成意图，可独立给出检查点草稿"
+  },
+  {
+    "id": "model-omits-redundant-complex-recap",
+    "sourceShape": "较短列表/边界内容允许送模型评估，模型明确recap:null",
+    "recap": null,
+    "expectation": "本轮及Host重启后都静默省略，不以历史摘录补位；格式错误则不是主动省略"
+  },
+  {
+    "id": "explicit-suggestion-send",
+    "sourceShape": "当前有效卡片，空闲可编辑输入",
+    "expectation": "箭头仅填入；Tab保持原生导航；显式发送安全插入后才submit，输入/只读/IME/revision变化时不提交"
+  }
+]
