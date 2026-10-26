@@ -5,6 +5,14 @@ suggestion that you can accept as an editable draft. Recaps are on by default; s
 off. When both are enabled they share at most one bounded auxiliary generation attempt per turn.
 Auxiliary calls use the existing model provider and add a small amount of usage.
 
+<p align="center">
+  <img src="../../docs/images/conversation-assist.png" alt="A recap line under the final reply and a suggestion card above the composer, beside the plugin's settings section" width="900">
+</p>
+
+The screenshot is a rendered prototype with sample conversation text, not a capture of real user
+data. Its markup and stylesheet are copied from `src/ui/`, and it runs against the shipped theme
+tokens, so spacing and colour match the real components.
+
 ## Recaps
 
 A **Recap:** line appears below the final reply when a model recap is ready, without a separate

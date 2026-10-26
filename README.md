@@ -22,7 +22,7 @@ Click a preview to open it full size.
 | Package | What it does | Preview |
 |---|---|---|
 | [`dsh-deepseek-usage`](packages/dsh-deepseek-usage/) | DeepSeek balance and expiring credit in the sidebar.<br>Token-usage heatmap by day, week, or cumulative, one lane per model.<br>Peak/off-peak cost estimate. | <a href="docs/images/usage-views.png"><img src="docs/images/usage-views.png" alt="The usage page in its three views: a daily heatmap, weekly blocks, and cumulative blocks" width="480"></a> |
-| [`dsh-conversation-assist`](packages/dsh-conversation-assist/) | A model recap after each completed turn, shown only when one is available.<br>Optional next-prompt suggestions you can insert as drafts or send. | No screenshot yet — see the [package README](packages/dsh-conversation-assist/) |
+| [`dsh-conversation-assist`](packages/dsh-conversation-assist/) | A model recap after each completed turn, shown only when one is available.<br>Optional next-prompt suggestions you can insert as drafts or send. | <a href="docs/images/conversation-assist.png"><img src="docs/images/conversation-assist.png" alt="A turn recap under the reply and a suggestion above the composer, beside the plugin's settings section" width="420"></a> |
 
 ## Install a plugin
 
