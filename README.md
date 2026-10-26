@@ -8,23 +8,21 @@ conventions.
 
 ```
 packages/
-  dsh-deepseek-usage/     DeepSeek account balance and a token-usage heatmap
+  dsh-deepseek-usage/      DeepSeek account balance and a token-usage heatmap
   dsh-conversation-assist/ per-turn recap and optional next-prompt suggestions
 scripts/
-  build.mjs               builds every package's Host entry and browser bundle
-docs/images/              screenshots referenced by the READMEs
+  build.mjs                builds every package's Host entry and browser bundle
+docs/images/               screenshots referenced by the READMEs
 ```
 
 ## Plugins
 
-| Package | What it does |
-|---|---|
-| [`dsh-deepseek-usage`](packages/dsh-deepseek-usage/) | Account balance and expiring credit in the sidebar; a token-usage heatmap by day, week, or weekly stack, split per model, with a peak/off-peak cost estimate |
-| [`dsh-conversation-assist`](packages/dsh-conversation-assist/) | A model recap after each completed turn, shown only when one is available, plus optional next-prompt suggestions you can insert as drafts or explicitly send; suggestions are off by default |
+Click a preview to open it full size.
 
-<p align="center">
-  <img src="docs/images/usage-daily.png" alt="Usage page: KPI row, cost estimate, a daily token heatmap with one lane per model, and a per-model table" width="760">
-</p>
+| Package | What it does | Preview |
+|---|---|---|
+| [`dsh-deepseek-usage`](packages/dsh-deepseek-usage/) | DeepSeek balance and expiring credit in the sidebar.<br>Token-usage heatmap by day, week, or cumulative, one lane per model.<br>Peak/off-peak cost estimate. | <a href="docs/images/usage-views.png"><img src="docs/images/usage-views.png" alt="The usage page in its three views: a daily heatmap, weekly blocks, and cumulative blocks" width="480"></a> |
+| [`dsh-conversation-assist`](packages/dsh-conversation-assist/) | A model recap after each completed turn, shown only when one is available.<br>Optional next-prompt suggestions you can insert as drafts or send. | No screenshot yet — see the [package README](packages/dsh-conversation-assist/) |
 
 ## Install a plugin
 
@@ -32,23 +30,27 @@ Plugins are installed into a DSH profile:
 
 ```bash
 dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-deepseek-usage"
+dsh plugin --profile <profile> remove dsh-deepseek-usage
 ```
 
 `link:` keeps the profile pointed at your checkout, so a rebuild plus a DSH restart picks up your
 changes. For a published package the same command takes the package name.
 
 A profile applies its bundle list at startup, so **restart the app** after installing or rebuilding.
-Rebuilding alone changes files on disk, not the code already loaded in memory.
+Rebuilding alone changes files on disk, not the code already loaded in memory. A `lib/index.js`
+change (Host side) always needs that restart; a `lib/client.js` change (browser side) is enough to
+reload the window.
 
 ## Build
 
 ```bash
-npm run build          # node scripts/build.mjs
-node scripts/build.mjs dsh-conversation-assist   # one package
+npm run build                                   # node scripts/build.mjs
+node scripts/build.mjs dsh-conversation-assist  # one package
 ```
 
 The build uses [Bun](https://bun.sh) as its bundler, so `bun` must be on `PATH`. It needs no
 `install` step: packages have no runtime dependencies beyond the modules DSH already provides.
+Runtime requirement is Node 20 or newer; nothing ships to `node_modules`.
 
 Outputs, per package:
 
@@ -57,7 +59,8 @@ Outputs, per package:
 | `lib/index.js` | ES module; exports `apply(ctx)` for the Host |
 | `lib/client.js` | one `window.__ModuleLoader__.load()` factory for the browser |
 
-Both are generated — edit `src/`, never `lib/`.
+Both are generated — edit `src/`, never `lib/`. A generated artifact that does not match `src/` is
+worse than a missing one, because it looks authoritative.
 
 ## Test
 
@@ -65,6 +68,10 @@ Both are generated — edit `src/`, never `lib/`.
 npm test               # node scripts/test.mjs
 npm run check          # build, then test
 ```
+
+The suites use `node --test` over the pure logic: folding, pricing, formatting, routing, and every
+visibility decision. Browser-only code stays out of the tests, which is why anything that decides a
+number or a state is a function in `src/shared/` rather than inline in a component.
 
 ## Plugin conventions
 
@@ -79,8 +86,9 @@ Every package follows the same shape, because that is what DSH's loader expects:
 | `src/` | sources; `lib/` is generated |
 | `test/` | `node --test` suites over the pure logic |
 | `locale/*.json` | display title and description for the plugin list, per language |
+| `icon.svg` | the plugin's mark, for the plugin list and its own seats |
 
-Four rules matter more than the rest, each learned from a defect this repository shipped:
+Six rules matter more than the rest, each learned from a defect this repository shipped:
 
 - **Do not replace a shipped component.** A plugin contributes new seats; it does not occupy a
   single-occupant slot a shipped package already owns, because that breaks the product on upgrade.
@@ -92,6 +100,11 @@ Four rules matter more than the rest, each learned from a defect this repository
 - **Install styles for the plugin's lifetime, not a component's.** A seat the plugin only marks —
   such as a settings nav row — is on screen even when the plugin's own page is not, so a stylesheet
   that mounts with the page leaves that seat unstyled until the page is opened once.
+- **Show a figure only from a recorded fact.** A balance that failed to read is not `¥0.00`, and a
+  turn with no recap is not a reason to print the reply twice. A blank is honest; a substitute is
+  not.
+- **Never make the reader pay for a decoration.** A row that is usually empty, or a placeholder that
+  appears before the real content, costs a glance on every turn.
 
 ## License
 

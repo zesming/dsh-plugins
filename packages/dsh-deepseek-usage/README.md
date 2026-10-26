@@ -4,7 +4,7 @@ Your DeepSeek account balance in the sidebar, and a token-usage heatmap of what 
 actually spent.
 
 <p align="center">
-  <img src="../../docs/images/usage-daily.png" alt="Usage panel: KPI row, a daily heatmap with one lane per model, and a per-model table" width="760">
+  <img src="../../docs/images/usage-views.png" alt="The usage page in its three views: a daily heatmap, weekly blocks, and cumulative blocks" width="900">
 </p>
 
 ## What it does
@@ -19,8 +19,8 @@ neither is it when the balance cannot be read: a failed read cannot prove an acc
   <img src="../../docs/images/balance-menu.png" alt="The balance row with its menu open" width="300">
 </p>
 
-**Usage page.** Tokens per day, per week, or as a weekly stack, one lane per model, filterable by
-access channel. It reads the `usage` record every model call already writes into this machine's
+**Usage page.** Tokens per day, per week, or as a cumulative total, one lane per model, filterable
+by access channel. It reads the `usage` record every model call already writes into this machine's
 Session logs, so it needs no network access and no DeepSeek login. Reachable from the balance menu,
 from the sidebar's panel list, and from **Settings → Usage**.
 
