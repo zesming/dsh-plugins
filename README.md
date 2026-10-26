@@ -20,7 +20,7 @@ docs/images/              screenshots referenced by the READMEs
 | Package | What it does |
 |---|---|
 | [`dsh-deepseek-usage`](packages/dsh-deepseek-usage/) | Account balance and expiring credit in the sidebar; a token-usage heatmap by day, week, or weekly stack, split per model, with a peak/off-peak cost estimate |
-| [`dsh-conversation-assist`](packages/dsh-conversation-assist/) | A model recap after each completed turn, with excerpt fallback and optional next-prompt suggestions you can insert as drafts or explicitly send; suggestions are off by default |
+| [`dsh-conversation-assist`](packages/dsh-conversation-assist/) | A model recap after each completed turn, shown only when one is available, plus optional next-prompt suggestions you can insert as drafts or explicitly send; suggestions are off by default |
 
 <p align="center">
   <img src="docs/images/usage-daily.png" alt="Usage page: KPI row, cost estimate, a daily token heatmap with one lane per model, and a per-model table" width="760">

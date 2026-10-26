@@ -31,15 +31,13 @@ var __toESM = (mod, isNodeMode, target) => {
       return cached;
   }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
-  const to = isNodeMode || !mod || !mod.__esModule || !__hasOwnProp.call(mod, "default") ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
-  if (mod && typeof mod === "object" || typeof mod === "function") {
-    for (let key of __getOwnPropNames(mod))
-      if (!__hasOwnProp.call(to, key))
-        __defProp(to, key, {
-          get: __accessProp.bind(mod, key),
-          enumerable: true
-        });
-  }
+  const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
+  for (let key of __getOwnPropNames(mod))
+    if (!__hasOwnProp.call(to, key))
+      __defProp(to, key, {
+        get: __accessProp.bind(mod, key),
+        enumerable: true
+      });
   if (canCache)
     cache.set(mod, to);
   return to;
@@ -78,9 +76,9 @@ var __export = (target, all) => {
 // packages/dsh-conversation-assist/src/client.js
 var exports_client = {};
 __export(exports_client, {
-  apply: () => apply,
+  translate: () => translate,
   inject: () => inject,
-  translate: () => translate
+  apply: () => apply
 });
 module.exports = __toCommonJS(exports_client);
 
@@ -89,34 +87,7 @@ var NS = "conversation-assist";
 var zh = {
   "recap.ariaLabel": "智能回顾",
   "recap.prefix": "回顾：",
-  "recap.excerptLabel": "回复摘录",
-  "recap.historicalLabel": "历史轮次 · 回复摘录",
-  "recap.loading": "正在生成智能回顾…",
   "recap.notPersisted": "本次回顾仅在内存中可用，重启后可能无法显示。",
-  "recap.expand": "展开摘录",
-  "recap.longExcerpt": "原回复较长，摘录仅保留前 {count} 个字符；完整内容见上方回复。",
-  "recap.noReply": "本轮没有文字回复。",
-  "recap.completed": "本轮正常结束。",
-  "recap.aborted": "本轮已停止（{cause}）。",
-  "recap.blocked": "本轮被阻塞，尚待处理。",
-  "recap.error": "本轮失败{code}。",
-  "recap.maxTokens": "本轮输出达到上限并被截断。",
-  "recap.interrupted": "本轮在恢复时闭合，回复可能不完整。",
-  "recap.forked": "本轮继承自截断的分叉，回复可能不完整。",
-  "recap.unknown": "本轮以未知原因结束。",
-  "recap.code": "（{code}）",
-  "recap.cause.user": "用户取消",
-  "recap.cause.parent": "父会话取消",
-  "recap.cause.hook": "被钩子取消",
-  "recap.cause.disposed": "会话被释放",
-  "recap.cause.legacy": "旧记录未注明原因",
-  "recap.cause.unknown": "原因未知",
-  "recap.reason.historical": "此历史轮次没有已缓存的智能回顾。",
-  "recap.reason.unavailable": "智能回顾暂不可用。",
-  "recap.reason.budget": "已达到辅助请求限额。",
-  "recap.reason.disabled": "智能回顾已关闭。",
-  "recap.reason.no-context": "本轮缺少可供回顾的完整回复。",
-  "recap.reason.unknown": "智能回顾暂不可用。",
   "suggestion.label": "下一条建议",
   "suggestion.dismiss": "关闭建议",
   "suggestion.insert": "填入聊天",
@@ -125,7 +96,7 @@ var zh = {
   "settings.title": "对话辅助",
   "settings.intro": "设置即时生效，重启后保留。",
   "settings.recap.name": "显示回顾",
-  "settings.recap.desc": "显示每轮的智能回顾或回复摘录。关闭后，所有回顾隐藏。",
+  "settings.recap.desc": "显示每轮的智能回顾。没有可用的智能回顾时不显示。关闭后，所有回顾隐藏。",
   "settings.prediction.name": "下一条建议",
   "settings.prediction.desc": "有明确后续意图时，在输入框上方显示一条建议，可填入聊天或点击发送。默认关闭",
   "settings.note.title": "用量说明",
@@ -135,34 +106,7 @@ var zh = {
 var en = {
   "recap.ariaLabel": "Smart recap",
   "recap.prefix": "Recap: ",
-  "recap.excerptLabel": "Reply excerpt",
-  "recap.historicalLabel": "Historical turn · Reply excerpt",
-  "recap.loading": "Generating smart recap…",
   "recap.notPersisted": "This recap is in memory only and may be unavailable after a restart.",
-  "recap.expand": "Expand excerpt",
-  "recap.longExcerpt": "The reply is long. This excerpt keeps the first {count} characters; the full text is above.",
-  "recap.noReply": "No reply text this turn.",
-  "recap.completed": "This turn ended normally.",
-  "recap.aborted": "This turn stopped ({cause}).",
-  "recap.blocked": "This turn is blocked and needs attention.",
-  "recap.error": "This turn failed{code}.",
-  "recap.maxTokens": "This turn hit the output limit and was truncated.",
-  "recap.interrupted": "This turn closed during recovery; its reply may be incomplete.",
-  "recap.forked": "This turn was inherited from a truncated fork; its reply may be incomplete.",
-  "recap.unknown": "This turn ended for an unknown reason.",
-  "recap.code": " ({code})",
-  "recap.cause.user": "cancelled by the user",
-  "recap.cause.parent": "cancelled by the parent",
-  "recap.cause.hook": "cancelled by a hook",
-  "recap.cause.disposed": "the session was disposed",
-  "recap.cause.legacy": "cancelled for a legacy reason",
-  "recap.cause.unknown": "an unknown reason",
-  "recap.reason.historical": "No cached smart recap is available for this historical turn.",
-  "recap.reason.unavailable": "The smart recap is temporarily unavailable.",
-  "recap.reason.budget": "The auxiliary request limit was reached.",
-  "recap.reason.disabled": "Smart recap is turned off.",
-  "recap.reason.no-context": "This turn has no complete reply to recap.",
-  "recap.reason.unknown": "The smart recap is temporarily unavailable.",
   "suggestion.label": "Next suggestion",
   "suggestion.dismiss": "Dismiss suggestion",
   "suggestion.insert": "Insert into chat",
@@ -171,7 +115,7 @@ var en = {
   "settings.title": "Conversation assist",
   "settings.intro": "Settings take effect immediately and persist across restarts.",
   "settings.recap.name": "Show recaps",
-  "settings.recap.desc": "Show a smart recap or reply excerpt for each turn. Turning this off hides all recaps.",
+  "settings.recap.desc": "Show a smart recap for each turn. A turn without an available recap shows nothing. Turning this off hides all recaps.",
   "settings.prediction.name": "Next suggestion",
   "settings.prediction.desc": "When there is clear follow-up intent, show one suggestion above the composer. Fill it into chat or click Send. Off by default.",
   "settings.note.title": "Usage",
@@ -191,7 +135,7 @@ function formatRow(text, values = {}) {
 }
 
 // packages/dsh-conversation-assist/src/ui/recap.js
-var import_react = __toESM(require("react"), 1);
+var import_react = __toESM(require("react"));
 
 // packages/dsh-conversation-assist/src/shared/identity.mjs
 function textOfMessage(message) {
@@ -341,48 +285,10 @@ function factsValue(state) {
   };
 }
 
-// packages/dsh-conversation-assist/src/shared/recap-text.mjs
-function cause(t, kind) {
-  const key = `recap.cause.${kind}`;
-  const row = t(key);
-  return row === key ? t("recap.cause.unknown") : row;
-}
-function composeRecap(value, t) {
-  if (typeof value !== "object" || value === null)
-    return "";
-  const kind = typeof value.reasonKind === "string" ? value.reasonKind : "unknown";
-  switch (kind) {
-    case "completed":
-      return value.hasReply === true ? "" : t("recap.noReply");
-    case "aborted":
-      return formatRow(t("recap.aborted"), { cause: cause(t, value.cancelKind ?? "unknown") });
-    case "blocked":
-      return t("recap.blocked");
-    case "error":
-      return formatRow(t("recap.error"), {
-        code: typeof value.errorCode === "string" && value.errorCode !== "" ? formatRow(t("recap.code"), { code: value.errorCode }) : ""
-      });
-    case "max-tokens":
-      return t("recap.maxTokens");
-    case "interrupted":
-      return t("recap.interrupted");
-    case "forked":
-      return t("recap.forked");
-    default:
-      return t("recap.unknown");
-  }
-}
-function excerptPreview(text, max = 180) {
-  if (typeof text !== "string")
-    return "";
-  const characters = [...text];
-  return characters.length <= max ? text : `${characters.slice(0, max).join("")}…`;
-}
-
 // packages/dsh-conversation-assist/src/shared/limits.mjs
 var LIMITS = Object.freeze({
   maxOutputTokens: 1024,
-  timeoutMs: 8000,
+  timeoutMs: 20000,
   maxContextBytes: 24576,
   maxEvidence: 24,
   dailyPerSession: 50,
@@ -610,8 +516,12 @@ function isBriefCompletedReply(facts) {
 function shouldRequestRecap({ settingsLoaded, enabled, subagent, identity, facts }) {
   return settingsLoaded === true && enabled === true && subagent == null && identity !== null && facts?.reasonKind === "completed" && facts.finalReply === true && typeof facts.replyHash === "string" && !isBriefCompletedReply(facts);
 }
-function shouldOmitRecap(facts, requestView) {
-  return isBriefCompletedReply(facts) || requestView?.state === "none" && requestView.reason === "not-needed";
+function recapPresentation({ enabled, subagent, closed, requestView }) {
+  if (enabled !== true || subagent != null || closed !== true)
+    return null;
+  if (requestView?.state !== "ready")
+    return null;
+  return { kind: "recap" };
 }
 
 // packages/dsh-conversation-assist/src/ui/recap.js
@@ -646,16 +556,6 @@ function createRecapDefinition() {
       return { kind: "turn", turn: value.turn, key: RECAP_KIND, value };
     }
   };
-}
-function reasonText(reason, t) {
-  const known = new Set(["historical", "unavailable", "budget", "disabled", "no-context"]);
-  return t(`recap.reason.${known.has(reason) ? reason : "unknown"}`);
-}
-function excerpt2(value, t) {
-  if (typeof value.lastText !== "string" || value.lastText === "") {
-    return h("p", { className: "dca-recap-copy" }, t("recap.noReply"));
-  }
-  return h(import_react.default.Fragment, null, h("details", { className: "dca-recap-details" }, h("summary", null, h("span", null, excerptPreview(value.lastText)), h("span", { className: "dca-recap-expand" }, t("recap.expand"))), h("div", { className: "dca-recap-source" }, value.lastText)), value.excerptTruncated === true ? h("p", { className: "dca-recap-note" }, t("recap.longExcerpt", { count: MAX_EXCERPT_CHARS })) : null);
 }
 function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime }) {
   const subagent = useSession((state) => state.subagent);
@@ -707,24 +607,23 @@ function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime }) {
     };
   }, [shouldRequest, recapKey, identity?.sessionId, identity?.turn, identity?.endSeq, facts.replyHash, runtime]);
   const requestView = recapRequestView(request, recapKey, shouldRequest);
-  if (subagent != null || !enabled || end === undefined || identity === null || shouldOmitRecap(facts, requestView))
+  const presentation = recapPresentation({
+    enabled,
+    subagent,
+    closed: end !== undefined && identity !== null,
+    requestView
+  });
+  if (presentation === null)
     return null;
-  const currentRequest = requestView.current;
-  const ready = requestView.state === "ready";
-  const reason = requestView.state === "none" ? requestView.reason : requestView.state === "loading" ? "loading" : undefined;
-  const isHistorical = reason === "historical";
-  const label = ready ? t("recap.ariaLabel") : isHistorical ? t("recap.historicalLabel") : t("recap.excerptLabel");
-  const status = composeRecap(facts, t);
-  const loading = reason === "loading";
-  const noContext = enabled && facts.reasonKind === "completed" && facts.hasReply === true && facts.finalReply !== true && currentRequest === null;
-  return h("section", { className: "dca-recap", "aria-label": label }, ready ? null : h("div", { className: "dca-recap-heading" }, isHistorical ? h("strong", null, label) : null, loading ? h("span", { className: "dca-recap-state" }, t("recap.loading")) : null, !loading && !isHistorical ? h("strong", null, label) : null), ready ? h("p", { className: "dca-recap-copy" }, t("recap.prefix"), currentRequest.recap) : excerpt2(facts, t), ready && currentRequest.persisted === false ? h("p", { className: "dca-recap-status" }, t("recap.notPersisted")) : null, status !== "" ? h("p", { className: "dca-recap-status" }, status) : null, reason !== undefined && !loading ? h("p", { className: "dca-recap-status" }, reasonText(reason, t)) : null, noContext ? h("p", { className: "dca-recap-status" }, reasonText("no-context", t)) : null);
+  const current = requestView.current;
+  return h("section", { className: "dca-recap", "aria-label": t("recap.ariaLabel") }, h("p", { className: "dca-recap-copy" }, t("recap.prefix"), current.recap), current.persisted === false ? h("p", { className: "dca-recap-status" }, t("recap.notPersisted")) : null);
 }
 
 // packages/dsh-conversation-assist/src/ui/settings.js
-var import_react3 = __toESM(require("react"), 1);
+var import_react3 = __toESM(require("react"));
 
 // packages/dsh-conversation-assist/src/ui/icons.js
-var import_react2 = __toESM(require("react"), 1);
+var import_react2 = __toESM(require("react"));
 var h2 = import_react2.default.createElement;
 function HintIcon({ className, size = 16 }) {
   return h2("svg", {
@@ -742,7 +641,7 @@ function HintIcon({ className, size = 16 }) {
 }
 
 // packages/dsh-conversation-assist/src/ui/settings.js
-var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
+var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"));
 var h3 = import_react3.default.createElement;
 function Row({ setting, name, description, checked, pending, failed, errorText, onChange }) {
   const Switch2 = typeof primitives?.Switch === "function" ? primitives.Switch : undefined;
@@ -793,14 +692,14 @@ function SettingsSection({ t, useSettings, store }) {
 }
 
 // packages/dsh-conversation-assist/src/ui/nav-label.js
-var import_react4 = __toESM(require("react"), 1);
+var import_react4 = __toESM(require("react"));
 var h4 = import_react4.default.createElement;
 function navLabel(text) {
   return h4(import_react4.default.Fragment, null, h4("span", { "data-dca-navmark": "", "aria-hidden": "true" }, h4(HintIcon, { size: 16 })), h4("span", { "data-dca-navtext": "" }, text));
 }
 
 // packages/dsh-conversation-assist/src/ui/suggestion.js
-var import_react5 = __toESM(require("react"), 1);
+var import_react5 = __toESM(require("react"));
 var h5 = import_react5.default.createElement;
 var ASK_DELAY_MS = 400;
 function focusComposer(row, sessionId) {
@@ -1098,16 +997,9 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
   overflow-wrap: anywhere;
   white-space: normal;
 }
-.dca-recap-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
-.dca-recap-heading strong { color: var(--dsw-alias-label-secondary); font-weight: 500; }
-.dca-recap-state, .dca-recap-status, .dca-recap-note { color: var(--dsw-alias-label-tertiary); }
-.dca-recap-copy, .dca-recap-status, .dca-recap-note { margin: 4px 0 0; overflow-wrap: anywhere; }
+.dca-recap-status { color: var(--dsw-alias-label-tertiary); }
+.dca-recap-copy, .dca-recap-status { margin: 4px 0 0; overflow-wrap: anywhere; }
 .dca-recap-copy { white-space: pre-wrap; }
-.dca-recap-details { margin-top: 4px; }
-.dca-recap-details summary { cursor: pointer; overflow-wrap: anywhere; }
-.dca-recap-expand { margin-left: 8px; white-space: nowrap; text-decoration: underline; text-underline-offset: 2px; }
-.dca-recap-details summary:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 2px; border-radius: 2px; }
-.dca-recap-source { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dca-suggest {
   box-sizing: border-box;
   display: flex;

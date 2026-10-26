@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Conversation assist",
-    "description": "A short recap after each turn and a next-prompt suggestion you can insert or send. Suggestions are off by default."
+    "description": "A short recap after each turn and a next-prompt suggestion you can insert or send. A turn without an available recap shows nothing. Suggestions are off by default."
   }
 }

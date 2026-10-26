@@ -8,8 +8,8 @@
 export const LIMITS = Object.freeze({
   /** Output-token cap for one suggestion. */
   maxOutputTokens: 1024,
-  /** End-to-end deadline for one suggestion, including stream assembly. */
-  timeoutMs: 8_000,
+  /** End-to-end deadline for one auxiliary attempt, including stream assembly. */
+  timeoutMs: 20_000,
   /** UTF-8 byte cap for the trimmed conversation tail. */
   maxContextBytes: 24_576,
   /** Tool calls/results kept in one captured Turn. */

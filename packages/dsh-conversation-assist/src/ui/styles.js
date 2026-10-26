@@ -18,16 +18,9 @@ button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: cen
   overflow-wrap: anywhere;
   white-space: normal;
 }
-.dca-recap-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
-.dca-recap-heading strong { color: var(--dsw-alias-label-secondary); font-weight: 500; }
-.dca-recap-state, .dca-recap-status, .dca-recap-note { color: var(--dsw-alias-label-tertiary); }
-.dca-recap-copy, .dca-recap-status, .dca-recap-note { margin: 4px 0 0; overflow-wrap: anywhere; }
+.dca-recap-status { color: var(--dsw-alias-label-tertiary); }
+.dca-recap-copy, .dca-recap-status { margin: 4px 0 0; overflow-wrap: anywhere; }
 .dca-recap-copy { white-space: pre-wrap; }
-.dca-recap-details { margin-top: 4px; }
-.dca-recap-details summary { cursor: pointer; overflow-wrap: anywhere; }
-.dca-recap-expand { margin-left: 8px; white-space: nowrap; text-decoration: underline; text-underline-offset: 2px; }
-.dca-recap-details summary:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 2px; border-radius: 2px; }
-.dca-recap-source { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dca-suggest {
   box-sizing: border-box;
   display: flex;

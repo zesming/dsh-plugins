@@ -18,9 +18,9 @@ test('unknown languages fall back to English and placeholders interpolate', () =
   assert.equal(formatRow('keep {other}', {}), 'keep {other}')
 })
 
-test('settings copy describes recap fallback, next suggestions, and shared usage', () => {
+test('settings copy describes the recap-only display, next suggestions, and shared usage', () => {
   assert.equal(zh['settings.intro'], '设置即时生效，重启后保留。')
-  assert.equal(zh['settings.recap.desc'], '显示每轮的智能回顾或回复摘录。关闭后，所有回顾隐藏。')
+  assert.equal(zh['settings.recap.desc'], '显示每轮的智能回顾。没有可用的智能回顾时不显示。关闭后，所有回顾隐藏。')
   assert.equal(zh['settings.prediction.desc'], '有明确后续意图时，在输入框上方显示一条建议，可填入聊天或点击发送。默认关闭')
   assert.equal(zh['settings.note.body'], '显示回顾和下一条建议共用每轮最多一次辅助请求，会增加微量用量。')
   assert.match(en['settings.intro'], /take effect immediately.*persist across restarts/iu)
@@ -32,6 +32,8 @@ test('settings copy describes recap fallback, next suggestions, and shared usage
   assert.equal(en['suggestion.insert'], 'Insert into chat')
   assert.equal(zh['suggestion.send'], '发送')
   assert.equal(en['suggestion.send'], 'Send')
+  assert.match(zh['settings.recap.desc'], /没有可用的智能回顾时不显示/u)
+  assert.match(en['settings.recap.desc'], /shows nothing/iu)
   assert.match(zh['recap.notPersisted'], /重启后可能无法显示/u)
   assert.match(en['recap.notPersisted'], /may be unavailable after a restart/iu)
   assert.doesNotMatch([...Object.values(zh), ...Object.values(en)].join('\n'), /Tab|直接发送|send this suggestion|开头一段|opening paragraph/iu)

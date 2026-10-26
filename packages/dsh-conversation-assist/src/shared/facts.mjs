@@ -2,7 +2,11 @@
 
 import { replyFingerprint, textOfMessage } from './identity.mjs'
 
-/** Maximum fallback excerpt stored in the client-side turn data. */
+/**
+ * Maximum reply text kept in the client-side turn data. It exists only so the
+ * client can decide whether a reply is too brief to recap and can fingerprint a
+ * truncated source exactly; the tail itself never renders this text.
+ */
 export const MAX_EXCERPT_CHARS = 4_000
 
 /**

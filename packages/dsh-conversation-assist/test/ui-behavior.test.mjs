@@ -4,7 +4,7 @@ import test from 'node:test'
 import { candidateMatches, canShowSuggestion, insertCandidate, shortcutAction,
   editableComposerFor, recapRequestView, recapResultMatches, submissionStarted,
   sendCandidate, turnIdentity } from '../src/ui/behavior.mjs'
-import { isBriefCompletedReply, shouldOmitRecap, shouldRequestRecap } from '../src/ui/recap-policy.mjs'
+import { isBriefCompletedReply, recapPresentation, shouldRequestRecap } from '../src/ui/recap-policy.mjs'
 
 const route = { provider: 'fixture', model: 'model-a', reasoningEffort: 'medium' }
 const identity = turnIdentity('s1', 4, 29)
@@ -251,7 +251,6 @@ test('recap visibility requests model summaries while brief replies are omitted'
   }
   assert.equal(isBriefCompletedReply(facts), true)
   assert.equal(shouldRequestRecap(options), false)
-  assert.equal(shouldOmitRecap(facts, { state: 'idle' }), true)
 
   const complete = {
     ...facts,
@@ -263,12 +262,10 @@ test('recap visibility requests model summaries while brief replies are omitted'
 
   const abnormal = { ...facts, reasonKind: 'blocked' }
   assert.equal(isBriefCompletedReply(abnormal), false)
-  assert.equal(shouldOmitRecap(abnormal, { state: 'idle' }), false)
   assert.equal(shouldRequestRecap({ ...options, facts: abnormal }), false)
 
   const incomplete = { ...facts, finalReply: false }
   assert.equal(isBriefCompletedReply(incomplete), false)
-  assert.equal(shouldOmitRecap(incomplete, { state: 'idle' }), false)
 
   // A bounded excerpt is not sufficient evidence that the original reply is brief.
   const truncated = { ...facts, excerptTruncated: true }
@@ -278,13 +275,24 @@ test('recap visibility requests model summaries while brief replies are omitted'
   assert.equal(isBriefCompletedReply(unknownTruncation), false)
 })
 
-test('a model no-op omits its excerpt while request failures keep their fallback', () => {
-  const facts = {
-    reasonKind: 'completed', finalReply: true, replyHash: 'long-reply',
-    lastText: '较长的回复内容。'.repeat(30), excerptTruncated: false,
+test('the recap row renders only when a model recap is ready', () => {
+  const base = { enabled: true, subagent: null, closed: true }
+
+  assert.deepEqual(recapPresentation({ ...base, requestView: { state: 'ready' } }), { kind: 'recap' })
+
+  // Nothing to show yet: no placeholder and no status line while generating.
+  assert.equal(recapPresentation({ ...base, requestView: { state: 'loading' } }), null)
+  assert.equal(recapPresentation({ ...base, requestView: { state: 'idle' } }), null)
+
+  // Nothing to show at all: the transcript already states the reply and ending.
+  for (const reason of ['historical', 'unavailable', 'budget', 'disabled', 'not-needed', 'no-context']) {
+    assert.equal(recapPresentation({ ...base, requestView: { state: 'none', reason } }), null, reason)
   }
-  assert.equal(shouldOmitRecap(facts, { state: 'none', reason: 'not-needed' }), true)
-  assert.equal(shouldOmitRecap(facts, { state: 'none', reason: 'unavailable' }), false)
+
+  // Settings, subagent turns, and still-open turns stay empty regardless.
+  assert.equal(recapPresentation({ ...base, enabled: false, requestView: { state: 'ready' } }), null)
+  assert.equal(recapPresentation({ ...base, subagent: {}, requestView: { state: 'ready' } }), null)
+  assert.equal(recapPresentation({ ...base, closed: false, requestView: { state: 'ready' } }), null)
 })
 
 test('the insertion transaction rechecks its revision, focuses its composer, and never submits', () => {

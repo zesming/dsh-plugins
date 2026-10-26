@@ -77,7 +77,7 @@
     "sourceShape": "一两句简短正常回复",
     "recap": null,
     "suggestion": null,
-    "expectation": "无回顾/无摘录；建议关闭时零插件辅助调用"
+    "expectation": "无回顾行（不显示任何回顾或状态）；建议关闭时零插件辅助调用"
   },
   {
     "id": "brief-reply-with-next-intent",
@@ -90,7 +90,7 @@
     "id": "model-omits-redundant-complex-recap",
     "sourceShape": "较短列表/边界内容允许送模型评估，模型明确recap:null",
     "recap": null,
-    "expectation": "本轮及Host重启后都静默省略，不以历史摘录补位；格式错误则不是主动省略"
+    "expectation": "本轮及Host重启后都静默省略，不显示状态文案也不以摘录补位；格式错误则不是主动省略"
   },
   {
     "id": "explicit-suggestion-send",

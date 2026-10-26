@@ -2,10 +2,9 @@
 
 import React from 'react'
 
-import { emptyFacts, factsValue, foldFacts, MAX_EXCERPT_CHARS } from '../shared/facts.mjs'
-import { composeRecap, excerptPreview } from '../shared/recap-text.mjs'
+import { emptyFacts, factsValue, foldFacts } from '../shared/facts.mjs'
 import { identityKey, recapRequestView, recapResultMatches, turnIdentity } from './behavior.mjs'
-import { shouldOmitRecap, shouldRequestRecap } from './recap-policy.mjs'
+import { recapPresentation, shouldRequestRecap } from './recap-policy.mjs'
 
 const h = React.createElement
 
@@ -51,41 +50,13 @@ export function createRecapDefinition() {
 }
 
 /**
- * Localized reason for a failed or skipped model recap.
- * @param reason - Host reason code.
- * @param t - translator.
- * @returns concise localized message.
- */
-function reasonText(reason, t) {
-  const known = new Set(['historical', 'unavailable', 'budget', 'disabled', 'no-context'])
-  return t(`recap.reason.${known.has(reason) ? reason : 'unknown'}`)
-}
-
-/**
- * Render a disclosure containing every retained visible text block.
- * @param value - folded facts.
- * @param t - translator.
- * @returns a disclosure, or the no-reply state.
- */
-function excerpt(value, t) {
-  if (typeof value.lastText !== 'string' || value.lastText === '') {
-    return h('p', { className: 'dca-recap-copy' }, t('recap.noReply'))
-  }
-  return h(React.Fragment, null,
-    h('details', { className: 'dca-recap-details' },
-      h('summary', null,
-        h('span', null, excerptPreview(value.lastText)),
-        h('span', { className: 'dca-recap-expand' }, t('recap.expand'))),
-      h('div', { className: 'dca-recap-source' }, value.lastText)),
-    value.excerptTruncated === true
-      ? h('p', { className: 'dca-recap-note' }, t('recap.longExcerpt', { count: MAX_EXCERPT_CHARS }))
-      : null)
-}
-
-/**
  * Render one Turn's recap inside `conversation.chat.turnTail`.
+ *
+ * Only real content is drawn. A turn with no model recap — still generating,
+ * unavailable, historical, out of budget, or ended abnormally — renders nothing,
+ * so the tail never reserves space it cannot fill.
  * @param props - Turn owner, translator, settings hook, and session hooks.
- * @returns a model recap, labeled excerpt, status, or null.
+ * @returns a model recap, or null.
  */
 export function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime }) {
   // Keep every hook above the return conditions: turn-tail entries can switch
@@ -140,34 +111,15 @@ export function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime
   }, [shouldRequest, recapKey, identity?.sessionId, identity?.turn, identity?.endSeq, facts.replyHash, runtime])
 
   const requestView = recapRequestView(request, recapKey, shouldRequest)
-  if (subagent != null || !enabled || end === undefined || identity === null
-    || shouldOmitRecap(facts, requestView)) return null
+  const presentation = recapPresentation({
+    enabled, subagent, closed: end !== undefined && identity !== null, requestView,
+  })
+  if (presentation === null) return null
 
-  const currentRequest = requestView.current
-  const ready = requestView.state === 'ready'
-  const reason = requestView.state === 'none' ? requestView.reason
-    : requestView.state === 'loading' ? 'loading' : undefined
-  const isHistorical = reason === 'historical'
-  const label = ready
-    ? t('recap.ariaLabel')
-    : isHistorical ? t('recap.historicalLabel') : t('recap.excerptLabel')
-  const status = composeRecap(facts, t)
-  const loading = reason === 'loading'
-  const noContext = enabled && facts.reasonKind === 'completed' && facts.hasReply === true
-    && facts.finalReply !== true && currentRequest === null
-
-  return h('section', { className: 'dca-recap', 'aria-label': label },
-    ready ? null : h('div', { className: 'dca-recap-heading' },
-      isHistorical ? h('strong', null, label) : null,
-      loading ? h('span', { className: 'dca-recap-state' }, t('recap.loading')) : null,
-      !loading && !isHistorical ? h('strong', null, label) : null),
-    ready
-      ? h('p', { className: 'dca-recap-copy' }, t('recap.prefix'), currentRequest.recap)
-      : excerpt(facts, t),
-    ready && currentRequest.persisted === false
+  const current = requestView.current
+  return h('section', { className: 'dca-recap', 'aria-label': t('recap.ariaLabel') },
+    h('p', { className: 'dca-recap-copy' }, t('recap.prefix'), current.recap),
+    current.persisted === false
       ? h('p', { className: 'dca-recap-status' }, t('recap.notPersisted'))
-      : null,
-    status !== '' ? h('p', { className: 'dca-recap-status' }, status) : null,
-    reason !== undefined && !loading ? h('p', { className: 'dca-recap-status' }, reasonText(reason, t)) : null,
-    noContext ? h('p', { className: 'dca-recap-status' }, reasonText('no-context', t)) : null)
+      : null)
 }

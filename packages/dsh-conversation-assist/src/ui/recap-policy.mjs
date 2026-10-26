@@ -4,8 +4,8 @@ import { isBriefReply } from '../shared/recap-policy.mjs'
 
 /**
  * Whether a normal completed reply is short enough to omit its recap entirely.
- * Truncated excerpts are never used to decide this; their full source may be
- * much longer than the retained client-side text.
+ * Truncated sources are never used to decide this; their full text may be much
+ * longer than the retained client-side copy.
  * @param facts - folded facts for one Turn.
  * @returns true for an untruncated brief final reply from a completed Turn.
  */
@@ -29,12 +29,17 @@ export function shouldRequestRecap({ settingsLoaded, enabled, subagent, identity
 }
 
 /**
- * Whether recap UI should disappear instead of showing a reply excerpt.
- * @param facts - folded facts for one Turn.
- * @param requestView - state of this Turn's Host request.
- * @returns true for an intentionally omitted brief reply or model no-op.
+ * Decide whether the turn tail renders anything at all.
+ *
+ * A recap is an extra, never a requirement: the tail appears only when a model
+ * recap is ready. Pending, unavailable, historical, budget-exhausted, and
+ * abnormal endings all render nothing, because the transcript above already
+ * states the reply and a status line would only add height.
+ * @param options - the recap switch, Turn origin, and Host request state.
+ * @returns `{kind: 'recap'}` or null.
  */
-export function shouldOmitRecap(facts, requestView) {
-  return isBriefCompletedReply(facts)
-    || (requestView?.state === 'none' && requestView.reason === 'not-needed')
+export function recapPresentation({ enabled, subagent, closed, requestView }) {
+  if (enabled !== true || subagent != null || closed !== true) return null
+  if (requestView?.state !== 'ready') return null
+  return { kind: 'recap' }
 }

@@ -2,7 +2,7 @@
 // packages/dsh-conversation-assist/src/shared/limits.mjs
 var LIMITS = Object.freeze({
   maxOutputTokens: 1024,
-  timeoutMs: 8000,
+  timeoutMs: 20000,
   maxContextBytes: 24576,
   maxEvidence: 24,
   dailyPerSession: 50,

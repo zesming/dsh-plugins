@@ -7,32 +7,33 @@ Auxiliary calls use the existing model provider and add a small amount of usage.
 
 ## Recaps
 
-A **Recap:** line appears below the final reply, without a separate heading. It summarizes the turn's
-outcome, validation, limitations, and pending decisions. It is a model's reading of the recorded
-reply and bounded tool evidence, not an independent verification that the work succeeded.
-A completed turn does not necessarily mean a completed task.
+A **Recap:** line appears below the final reply when a model recap is ready, without a separate
+heading. It summarizes the turn's outcome, validation, limitations, and pending decisions. It is a
+model's reading of the recorded reply and bounded tool evidence, not an independent verification
+that the work succeeded. A completed turn does not necessarily mean a completed task.
+
+A recap is an addition, not a requirement, so the tail renders **only real content**. While a recap
+is still being generated, and whenever none is available — a historical turn, an unavailable call,
+an exhausted budget, a reply too large for the context budget, or an abnormal ending — nothing is
+drawn. There is no placeholder, no status line, and no reply excerpt: the transcript above already
+states the reply and how the turn ended, so a second copy would only add height.
+
+For a normal reply that is plainly one or two short sentences, the plugin omits the recap and
+requests nothing. The code prefilter handles unstructured replies up to 160 Unicode characters;
+longer replies, lists, code, and tables remain eligible for the model to judge. The model may also
+return no recap when another summary adds no value. Suggestions are independent: when they are off
+too, a short reply needs no auxiliary attempt.
 
 The Host captures the live turn: human prompts, all text blocks in its final reply, and bounded
 results associated with individual tool calls. It does not send hidden reasoning, unsent drafts,
 attachments, or full raw tool output to the auxiliary model. Earlier captured turns may clarify
 references such as “continue”; they cannot replace an oversized current turn. If the current
-intent or reply cannot fit completely within the context budget, generation is skipped.
+intent or reply cannot fit completely within the context budget, generation is skipped and nothing
+is drawn.
 
-For a normal reply that is plainly one or two short sentences, the plugin omits the recap and
-does not replace it with an excerpt. The code prefilter handles unstructured replies up to 160
-Unicode characters; longer replies, lists, code, and tables remain eligible for the model to
-judge. The model may also return no recap when another summary adds no value. Suggestions are
-independent: when they are off too, a short reply needs no auxiliary attempt.
-
-Recaps and suggestions wrap without a single-line ellipsis. When a model recap is unavailable,
-a clearly labeled **Reply excerpt** explains the fallback. You can expand the excerpt; replies
-longer than 4,000 characters have an explicit excerpt limit and remain available in the transcript
-above. Stopped, blocked, failed, truncated, recovered, and inherited turns retain their actual
-ending and use excerpts without an auxiliary call. Empty replies have a neutral empty state.
-
-Up to 200 model recaps or intentional-omission markers are stored locally, bound to Session, turn, end sequence, prompt version,
-and full reply fingerprint. Reopening a historical turn reads its cache or shows a historical
-excerpt; it never starts a batch of model calls to fill old turns.
+Up to 200 model recaps or intentional-omission markers are stored locally, bound to Session, turn,
+end sequence, prompt version, and full reply fingerprint. Reopening a historical turn shows its
+cached recap or nothing; it never starts a batch of model calls to fill old turns.
 
 ## Next-prompt suggestions
 
@@ -67,7 +68,7 @@ its text, reserve Tab globally, or occupy a shipped single-occupant slot.
 
 | Setting | Default | Effect |
 |---|---|---|
-| Show recaps | On | Show model recaps or clearly labeled reply excerpts. |
+| Show recaps | On | Show model recaps. A turn without one renders nothing. |
 | Next suggestion | Off | Request an optional draftable next prompt for new completed main-session turns. |
 
 Preferences apply immediately and survive restart. Existing recap and suggestion preferences are
@@ -80,11 +81,13 @@ and shows an inline error.
 
 Each eligible turn makes at most one shared auxiliary generation attempt. The context cap is
 24 KiB of serialized source messages plus the fixed, versioned system instruction; the output cap
-is 1,024 tokens, and the end-to-end attempt timeout is eight seconds. At most two attempts run
+is 1,024 tokens, and the end-to-end attempt timeout is twenty seconds. A generous deadline is cheap
+here: the tail renders nothing until a recap is ready, so a slow attempt costs no visible waiting,
+while a tight deadline silently loses recaps that were about to arrive. At most two attempts run
 concurrently across the Host, and each Session has 50 attempts per Host-local calendar day.
 The daily reservation is persisted before dispatch and survives a restart. The local ledger assumes one Host writer per DSH home; concurrent independent Hosts sharing that directory are not coordinated by this plugin. Multiple browsers attached to one Host share the same attempt. Empty, failed, or
-invalid results are not automatically retried. Budget or concurrency exhaustion falls back to an
-excerpt and no candidate.
+invalid results are not automatically retried. Budget or concurrency exhaustion renders no
+recap and no candidate.
 
 The auxiliary call uses the turn's provider/model and the lowest reasoning effort advertised by
 that route. Its actual effort is recorded separately from the main conversation's model selection.
@@ -102,8 +105,8 @@ Files belong to the plugin under `$DSH_HOME/dsh-conversation-assist/` (default `
 
 The audit rotates at 1 MiB and retains one previous file. An unavailable audit sink does not break
 the plugin. If a daily reservation cannot be persisted reliably, no new model call starts.
-A recap cache write failure still allows the result in memory; after restart it may fall back to an
-excerpt. Removing the package leaves these files in place.
+A recap cache write failure still allows the result in memory; after restart the turn has no
+recap to show. Removing the package leaves these files in place.
 
 ## Install and develop
 

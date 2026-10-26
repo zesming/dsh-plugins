@@ -15,21 +15,19 @@ or suggestion quality.
    limitations and undecided items that matter, and wraps the whole generated
    text without clipping. A tool call or normal turn ending alone must not be
    described as proof that the task completed. Delay the recap response and
-   confirm **Generating smart recap…** stays visible until the request resolves.
-   For a ready response with `persisted: false`, confirm a localized note says
-   the recap may be unavailable after restart. A clearly brief final reply has
-   no extra recap row or recap request. If the model declines to recap a longer
-   reply, confirm the UI does not substitute a reply excerpt.
+   confirm the tail stays completely empty until it resolves — no placeholder,
+   no **Generating…** line. For a ready response with `persisted: false`,
+   confirm a localized note says the recap may be unavailable after restart. A
+   clearly brief final reply has no extra recap row or recap request. If the
+   model declines to recap a longer reply, confirm the turn tail renders nothing
+   at all.
 3. Stop a turn, trigger a block, provider error and output truncation. Confirm
-   each retains its actual ending status, shows **Reply excerpt**, and makes no
-   auxiliary request. The excerpt disclosure expands to every retained text
-   block; reasoning and tool-call content are absent. If the source reply is
-   longer than the client excerpt bound, the note names the limit and points to
-   the full reply above.
+   each shows no recap row and no status line at all, starts no auxiliary
+   request, and does not repeat the reply text already visible above.
 4. Open an uncached historical turn and one with an existing cached recap.
-   Confirm the uncached turn says **Historical turn · Reply excerpt** without a
-   model request, while the matching cached recap appears only when its
-   `sessionId`, turn, `turn.end.seq`, and reply fingerprint match.
+   Confirm the uncached turn renders nothing and starts no model request, while
+   the matching cached recap appears only when its `sessionId`, turn,
+   `turn.end.seq`, and reply fingerprint match.
 5. Use [quality-cases.json](./quality-cases.json) with synthetic records. Rate
    whether the recap preserves corrected intent, results, verification,
    limitations and approval boundaries. Check that a no-next-step case stays
