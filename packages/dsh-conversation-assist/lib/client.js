@@ -1029,26 +1029,27 @@ class PromptRecall {
     if (current === null) {
       if (canEnter !== true || history.length === 0)
         return null;
-      const newest = history[history.length - 1];
-      this.state = { sessionId, history, stash: draft, index: history.length - 1 };
-      return { kind: "recall", text: newest };
+      this.state = { sessionId, stash: draft, offset: 0 };
+      return { kind: "recall", text: history[history.length - 1] };
     }
-    if (current.index === 0)
-      return { kind: "stay" };
-    current.index -= 1;
-    return { kind: "recall", text: current.history[current.index] };
+    const next = current.offset + 1;
+    if (next >= history.length)
+      return null;
+    current.offset = next;
+    return { kind: "recall", text: history[history.length - 1 - next] };
   }
-  newer() {
+  newer(history) {
     const state = this.state;
     if (state === null)
       return null;
-    if (state.index >= state.history.length - 1) {
+    if (state.offset === 0) {
       const stash = state.stash;
       this.reset();
       return { kind: "restore", text: stash };
     }
-    state.index += 1;
-    return { kind: "recall", text: state.history[state.index] };
+    state.offset -= 1;
+    const text = history?.[history.length - 1 - state.offset];
+    return typeof text === "string" ? { kind: "recall", text } : null;
   }
   leave() {
     const state = this.state;
@@ -1119,7 +1120,7 @@ function recallAction(event, { sessionId, input, session, recall, history }) {
   if (!isRecallGesture(event))
     return null;
   if (event.gesture.code === "ArrowDown")
-    return recall.newer();
+    return recall.newer(history);
   return recall.older({
     sessionId,
     history,
@@ -1142,8 +1143,6 @@ function PromptRecallSeat({ sessionId, useSession, useInput, inputActions, runti
       const current = latest.current;
       if (step === null || current.inputActions === undefined)
         return false;
-      if (step.kind === "stay")
-        return true;
       written = step.text;
       current.inputActions.setDraft(step.text);
       return true;

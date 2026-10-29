@@ -61,6 +61,12 @@ export function canRecall(input, session) {
 /**
  * Controller for one composer's browse state.
  *
+ * The cursor is an offset **from the newest prompt**, not an absolute index.
+ * Loading an older history page prepends entries, which shifts absolute
+ * indices but leaves every distance-from-newest unchanged, so a Session that
+ * pages its window mid-browse keeps pointing at the same prompt. The caller
+ * re-folds the history on every gesture for the same reason.
+ *
  * State is keyed by the Session that entered history: a Session switch starts
  * clean rather than resuming the other Session's cursor.
  */
@@ -89,29 +95,34 @@ export class PromptRecall {
     const current = this.state
     if (current === null) {
       if (canEnter !== true || history.length === 0) return null
-      const newest = history[history.length - 1]
-      this.state = { sessionId, history, stash: draft, index: history.length - 1 }
-      return { kind: 'recall', text: newest }
+      this.state = { sessionId, stash: draft, offset: 0 }
+      return { kind: 'recall', text: history[history.length - 1] }
     }
-    if (current.index === 0) return { kind: 'stay' }
-    current.index -= 1
-    return { kind: 'recall', text: current.history[current.index] }
+    // At the oldest prompt the key is not ours any more: leaving it unconsumed
+    // lets the browser move the caret inside the recalled text, which is what
+    // a multi-paragraph prompt needs.
+    const next = current.offset + 1
+    if (next >= history.length) return null
+    current.offset = next
+    return { kind: 'recall', text: history[history.length - 1 - next] }
   }
 
   /**
    * Step toward newer prompts, or leave history past the newest one.
+   * @param history - the Session's current prompt history.
    * @returns the step to take, or null when the composer is not browsing.
    */
-  newer() {
+  newer(history) {
     const state = this.state
     if (state === null) return null
-    if (state.index >= state.history.length - 1) {
+    if (state.offset === 0) {
       const stash = state.stash
       this.reset()
       return { kind: 'restore', text: stash }
     }
-    state.index += 1
-    return { kind: 'recall', text: state.history[state.index] }
+    state.offset -= 1
+    const text = history?.[history.length - 1 - state.offset]
+    return typeof text === 'string' ? { kind: 'recall', text } : null
   }
 
   /**
@@ -142,6 +153,9 @@ export class PromptRecall {
 
 /**
  * Resolve the Session addressed by an arbitrated key event.
+ *
+ * Reads the host's own occurrence marker; no public contract names the Session
+ * on a DOM target, so a host change to this attribute breaks recall alone.
  * @param event - fixed-input event.
  * @returns the owning Session id, or '' when the event belongs to another surface.
  */
@@ -221,7 +235,7 @@ export function recallAction(event, { sessionId, input, session, recall, history
   if (sessionId === '' || sessionOfEvent(event) !== sessionId) return null
   if (isLeaveGesture(event, session)) return recall.leave()
   if (!isRecallGesture(event)) return null
-  if (event.gesture.code === 'ArrowDown') return recall.newer()
+  if (event.gesture.code === 'ArrowDown') return recall.newer(history)
   return recall.older({
     sessionId,
     history,

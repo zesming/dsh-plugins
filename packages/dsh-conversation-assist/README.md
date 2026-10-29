@@ -168,6 +168,7 @@ are no runtime dependencies beyond DSH's shared modules. All three exact routes 
 registered by this plugin.
 
 See the [design and source research](../../docs/conversation-assist-design.md),
+[prompt-recall research and trade-offs](../../docs/prompt-recall-research.md),
 [manual checks](test/manual-checklist.md), and [synthetic quality cases](test/quality-cases.json).
 Automated lifecycle and protocol tests do not establish real-model semantic accuracy; evaluate
 results against source facts and required omissions separately.

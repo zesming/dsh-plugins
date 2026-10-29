@@ -93,8 +93,8 @@ test('one arbitrated event resolves to the browse step it performs', () => {
   const entering = state()
   assert.deepEqual(recallAction(targetEvent('ArrowUp', 's1'), entering), { kind: 'recall', text: 'P2' })
   assert.deepEqual(recallAction(targetEvent('ArrowUp', 's1'), entering), { kind: 'recall', text: 'P1' })
-  // The oldest prompt is a silent stop, and still ours.
-  assert.deepEqual(recallAction(targetEvent('ArrowUp', 's1'), entering), { kind: 'stay' })
+  // At the oldest prompt the key is handed back so the caret can move.
+  assert.equal(recallAction(targetEvent('ArrowUp', 's1'), entering), null)
   assert.deepEqual(recallAction(targetEvent('ArrowDown', 's1'), entering), { kind: 'recall', text: 'P2' })
   assert.deepEqual(recallAction(targetEvent('ArrowDown', 's1'), entering), { kind: 'restore', text: '' })
   assert.equal(entering.recall.browsing, false)

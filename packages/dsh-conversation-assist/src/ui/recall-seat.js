@@ -3,7 +3,6 @@
 import React from 'react'
 
 import { PromptRecall, historyFor, recallAction } from './recall.mjs'
-import { editableComposerFor } from './behavior.mjs'
 
 const h = React.createElement
 
@@ -35,7 +34,6 @@ export function PromptRecallSeat({ sessionId, useSession, useInput, inputActions
     const apply = (step) => {
       const current = latest.current
       if (step === null || current.inputActions === undefined) return false
-      if (step.kind === 'stay') return true
       written = step.text
       current.inputActions.setDraft(step.text)
       return true
@@ -65,7 +63,6 @@ export function PromptRecallSeat({ sessionId, useSession, useInput, inputActions
           history: historyFor(runtime.sessions, current.sessionId),
         })
         if (!apply(step)) return
-        // `stay` at the oldest prompt is ours too: the key must not move the caret.
         event.consume()
       })
 

@@ -67,12 +67,13 @@ test('recall enters only an empty, attachment-free, plain composer of a live Ses
   assert.equal(canRecall(undefined, idleSession), false)
 })
 
-test('recall walks back from the newest prompt and stops at the oldest', () => {
+test('recall walks back from the newest prompt and yields the key at the oldest', () => {
   const recall = new PromptRecall()
   const options = { sessionId: 's1', history: ['P1', 'P2'], draft: '', canEnter: true }
   assert.deepEqual(recall.older(options), { kind: 'recall', text: 'P2' })
   assert.deepEqual(recall.older(options), { kind: 'recall', text: 'P1' })
-  assert.deepEqual(recall.older(options), { kind: 'stay' })
+  // The oldest prompt hands the key back so the caret can move inside the text.
+  assert.equal(recall.older(options), null)
   assert.equal(recall.browsing, true)
 })
 
@@ -90,11 +91,12 @@ test('recall does not enter while entry is refused', () => {
 
 test('recall walks forward and restores the stashed draft past the newest prompt', () => {
   const recall = new PromptRecall()
-  const options = { sessionId: 's1', history: ['P1', 'P2'], draft: 'my draft', canEnter: true }
+  const history = ['P1', 'P2']
+  const options = { sessionId: 's1', history, draft: 'my draft', canEnter: true }
   recall.older(options)
   recall.older(options)
-  assert.deepEqual(recall.newer(), { kind: 'recall', text: 'P2' })
-  assert.deepEqual(recall.newer(), { kind: 'restore', text: 'my draft' })
+  assert.deepEqual(recall.newer(history), { kind: 'recall', text: 'P2' })
+  assert.deepEqual(recall.newer(history), { kind: 'restore', text: 'my draft' })
   assert.equal(recall.browsing, false)
 })
 
@@ -103,7 +105,7 @@ test('recall leaves history and hands the stashed draft back', () => {
   recall.older({ sessionId: 's1', history: ['P1'], draft: 'my draft', canEnter: true })
   assert.deepEqual(recall.leave(), { kind: 'restore', text: 'my draft' })
   assert.equal(recall.browsing, false)
-  assert.equal(recall.newer(), null)
+  assert.equal(recall.newer(['P1']), null)
   assert.equal(recall.leave(), null)
 })
 
@@ -112,7 +114,7 @@ test('recall abandons history without restoring, keeping the user edit', () => {
   recall.older({ sessionId: 's1', history: ['P1', 'P2'], draft: 'my draft', canEnter: true })
   recall.abandon()
   assert.equal(recall.browsing, false)
-  assert.equal(recall.newer(), null)
+  assert.equal(recall.newer(['P1', 'P2']), null)
   assert.deepEqual(recall.older({ sessionId: 's1', history: ['P1', 'P2'], draft: 'edited', canEnter: true }),
     { kind: 'recall', text: 'P2' })
 })
@@ -125,13 +127,15 @@ test('recall keeps each Session own cursor and stash', () => {
   assert.deepEqual(recall.older({ sessionId: 'b', history: ['B1'], draft: '', canEnter: true }),
     { kind: 'recall', text: 'B1' })
   assert.equal(recall.sessionId, 'b')
-  assert.equal(recall.newer().kind, 'restore')
+  assert.equal(recall.newer(['B1']).kind, 'restore')
 })
 
-test('recall captures the history of the turn it entered with', () => {
+test('an older page loaded mid-browse keeps pointing at the same prompt', () => {
   const recall = new PromptRecall()
-  recall.older({ sessionId: 's1', history: ['P1', 'P2'], draft: '', canEnter: true })
-  // A prompt arriving mid-browse does not reshuffle the captured list.
+  recall.older({ sessionId: 's1', history: ['P2', 'P3'], draft: '', canEnter: true })
+  // Prepending an older page shifts indices but not distance from newest.
+  assert.deepEqual(recall.older({ sessionId: 's1', history: ['P1', 'P2', 'P3'], draft: '', canEnter: true }),
+    { kind: 'recall', text: 'P2' })
   assert.deepEqual(recall.older({ sessionId: 's1', history: ['P1', 'P2', 'P3'], draft: '', canEnter: true }),
     { kind: 'recall', text: 'P1' })
 })
