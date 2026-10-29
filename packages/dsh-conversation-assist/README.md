@@ -81,8 +81,10 @@ past the newest prompt, puts the draft you had before the first recall back.
 
 The gesture is taken only when it is unambiguous: the composer must be empty with no attachments
 and in its plain state, the arrow must be bare (no Shift, Alt, Ctrl, or Cmd), no input-method
-composition may be active, and the host's trigger menu must not have claimed the key. A draft you
-are writing keeps its caret behaviour, and a running turn does not block recall.
+composition may be active, and the host's trigger menu must not have claimed the key. The keyboard
+must be in the composer itself, not on a toolbar button or the transcript, and the host's own
+exclusions — approval keys, frames, terminals, inert subtrees — keep their keys. A draft you are
+writing keeps its caret behaviour, and a running turn does not block recall.
 
 Recalled text is the model-facing text verbatim: a reference chip comes back as the text it was
 sent as, and images are not restored. Consecutive identical prompts collapse to one entry. At the

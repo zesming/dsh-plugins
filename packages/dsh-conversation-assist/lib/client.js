@@ -1073,35 +1073,37 @@ function sessionOfEvent(event) {
   const sessionId = occurrence?.dataset?.conversationSession;
   return typeof sessionId === "string" ? sessionId : "";
 }
-function isRecallGesture(event) {
+function inComposer(context) {
+  if (context?.region !== "editable")
+    return false;
+  const target = context.target;
+  if (target === null || target === undefined)
+    return false;
+  if (target.closest?.("[data-approval-key], iframe, .xterm, [inert]") != null)
+    return false;
+  return target.closest?.("[data-composer-input]") != null;
+}
+function bareKey(event, code) {
   if (event?.type !== "keydown")
     return false;
   const { gesture, context } = event;
   if (gesture === undefined || context === undefined)
     return false;
-  if (gesture.code !== "ArrowUp" && gesture.code !== "ArrowDown")
+  if (gesture.code !== code)
     return false;
   if (gesture.repeat || gesture.composing || gesture.defaultPrevented)
     return false;
   if (gesture.control || gesture.alt || gesture.shift || gesture.meta)
     return false;
-  if (context.modal !== null || context.target === null || context.target === undefined)
+  if (context.modal !== null)
     return false;
-  return true;
+  return inComposer(context);
+}
+function isRecallGesture(event) {
+  return bareKey(event, "ArrowUp") || bareKey(event, "ArrowDown");
 }
 function isLeaveGesture(event, session) {
-  if (event?.type !== "keydown")
-    return false;
-  const { gesture, context } = event;
-  if (gesture === undefined || context === undefined)
-    return false;
-  if (gesture.code !== "Escape")
-    return false;
-  if (gesture.repeat || gesture.composing || gesture.defaultPrevented)
-    return false;
-  if (gesture.control || gesture.alt || gesture.shift || gesture.meta)
-    return false;
-  if (context.modal !== null || context.target === null || context.target === undefined)
+  if (!bareKey(event, "Escape"))
     return false;
   return session?.running !== true && session?.removed !== true;
 }
@@ -1114,8 +1116,13 @@ function historyFor(sessions, sessionId) {
     return [];
   }
 }
+function isRecallEvent(event, sessionId) {
+  return sessionId !== "" && sessionOfEvent(event) === sessionId && (isRecallGesture(event) || isLeaveGesture(event, undefined));
+}
 function recallAction(event, { sessionId, input, session, recall, history }) {
   if (sessionId === "" || sessionOfEvent(event) !== sessionId)
+    return null;
+  if (input?.phase !== "plain")
     return null;
   if (isLeaveGesture(event, session))
     return recall.leave();
@@ -1130,65 +1137,71 @@ function recallAction(event, { sessionId, input, session, recall, history }) {
     canEnter: canRecall(input, session)
   });
 }
-function isOwnDraft(draft, written, published) {
-  if (typeof draft !== "string")
+function isOwnDraft(draft, written) {
+  return typeof draft !== "string" || draft === written;
+}
+function createRecallController({ latest, observeFixedInput, historyFor: historyFor2 }) {
+  const recall = new PromptRecall;
+  let written = null;
+  if (typeof observeFixedInput !== "function") {
+    return { dispose() {
+      recall.reset();
+    } };
+  }
+  const apply = (step) => {
+    const current = latest();
+    if (step === null || current?.inputActions === undefined)
+      return false;
+    written = step.text;
+    current.inputActions.setDraft(step.text);
     return true;
-  return draft === written || draft === published;
+  };
+  const watchEdit = () => {
+    if (!recall.browsing)
+      return;
+    const draft = latest()?.input?.draft;
+    if (isOwnDraft(draft, written))
+      return;
+    recall.abandon();
+    written = null;
+  };
+  const off = observeFixedInput((event) => {
+    const current = latest();
+    if (current === undefined)
+      return;
+    if (!isRecallEvent(event, current.sessionId))
+      return;
+    watchEdit();
+    const step = recallAction(event, {
+      sessionId: current.sessionId,
+      input: current.input,
+      session: current.session,
+      recall,
+      history: historyFor2(current.sessionId)
+    });
+    if (!apply(step))
+      return;
+    event.consume();
+  });
+  return { dispose() {
+    off();
+    recall.reset();
+  } };
 }
 
 // packages/dsh-conversation-assist/src/ui/recall-seat.js
-var h6 = import_react6.default.createElement;
 function PromptRecallSeat({ sessionId, useSession, useInput, inputActions, runtime }) {
   const session = useSession((state) => state);
   const input = useInput((state) => state);
   const latest = import_react6.default.useRef(null);
   latest.current = { session, input, inputActions, sessionId };
   import_react6.default.useEffect(() => {
-    const recall = new PromptRecall;
-    let written = null;
-    let published = null;
-    const apply = (step) => {
-      const current = latest.current;
-      if (step === null || current.inputActions === undefined)
-        return false;
-      written = step.text;
-      current.inputActions.setDraft(step.text);
-      return true;
-    };
-    const watchEdit = () => {
-      const current = latest.current;
-      if (!recall.browsing)
-        return;
-      const draft = current.input?.draft;
-      if (isOwnDraft(draft, written, published)) {
-        if (typeof draft === "string")
-          published = draft;
-        return;
-      }
-      recall.abandon();
-      written = null;
-      published = null;
-    };
-    const off = typeof runtime?.shortcuts?.observeFixedInput !== "function" ? () => {} : runtime.shortcuts.observeFixedInput((event) => {
-      const current = latest.current;
-      if (published === null && written === null)
-        published = current.input?.draft ?? null;
-      watchEdit();
-      const step = recallAction(event, {
-        sessionId: current.sessionId,
-        input: current.input,
-        session: current.session,
-        recall,
-        history: historyFor(runtime.sessions, current.sessionId)
-      });
-      if (!apply(step))
-        return;
-      event.consume();
+    const controller = createRecallController({
+      latest: () => latest.current,
+      observeFixedInput: runtime?.shortcuts?.observeFixedInput,
+      historyFor: (sessionId2) => historyFor(runtime?.sessions, sessionId2)
     });
-    return () => {
-      off();
-      recall.reset();
-    };
+    return controller.dispose;
   }, [runtime]);
   return null;
 }

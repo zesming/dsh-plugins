@@ -170,23 +170,52 @@ export function sessionOfEvent(event) {
 }
 
 /**
- * Whether an arbitrated event is a candidate for prompt recall at all.
+ * Whether the event came from this composer's editable surface.
+ *
+ * The Session marker wraps the whole conversation, so an arrow pressed on a
+ * toolbar button or the transcript would otherwise be read as a recall. The
+ * focus must be the composer's contenteditable, and the host's own exclusions
+ * (approval keys, frames, terminals, inert subtrees) apply unchanged.
+ * @param context - shortcut context of the arbitrated event.
+ * @returns whether the composer owns the keyboard.
+ */
+export function inComposer(context) {
+  if (context?.region !== 'editable') return false
+  const target = context.target
+  if (target === null || target === undefined) return false
+  if (target.closest?.('[data-approval-key], iframe, .xterm, [inert]') != null) return false
+  return target.closest?.('[data-composer-input]') != null
+}
+
+/**
+ * The bare key an event carries, before any gesture-specific rule applies.
  *
  * The host composer consumes arrows only while its trigger menu is open, so a
  * `defaultPrevented` event belongs to that menu and is left alone; an IME
- * composition, a repeat, and any modifier also disqualify it.
+ * composition, a repeat, a modifier, an open modal, and a target outside the
+ * composer also disqualify every recall gesture.
  * @param event - fixed-input event.
- * @returns whether the arrow may be interpreted as history navigation.
+ * @param code - key code this gesture requires.
+ * @returns whether the event is an unclaimed press of that key in the composer.
  */
-export function isRecallGesture(event) {
+function bareKey(event, code) {
   if (event?.type !== 'keydown') return false
   const { gesture, context } = event
   if (gesture === undefined || context === undefined) return false
-  if (gesture.code !== 'ArrowUp' && gesture.code !== 'ArrowDown') return false
+  if (gesture.code !== code) return false
   if (gesture.repeat || gesture.composing || gesture.defaultPrevented) return false
   if (gesture.control || gesture.alt || gesture.shift || gesture.meta) return false
-  if (context.modal !== null || context.target === null || context.target === undefined) return false
-  return true
+  if (context.modal !== null) return false
+  return inComposer(context)
+}
+
+/**
+ * Whether an arbitrated event may navigate prompt history.
+ * @param event - fixed-input event.
+ * @returns whether the arrow is an unclaimed press in this composer.
+ */
+export function isRecallGesture(event) {
+  return bareKey(event, 'ArrowUp') || bareKey(event, 'ArrowDown')
 }
 
 /**
@@ -199,13 +228,7 @@ export function isRecallGesture(event) {
  * @returns whether Escape is available to prompt recall.
  */
 export function isLeaveGesture(event, session) {
-  if (event?.type !== 'keydown') return false
-  const { gesture, context } = event
-  if (gesture === undefined || context === undefined) return false
-  if (gesture.code !== 'Escape') return false
-  if (gesture.repeat || gesture.composing || gesture.defaultPrevented) return false
-  if (gesture.control || gesture.alt || gesture.shift || gesture.meta) return false
-  if (context.modal !== null || context.target === null || context.target === undefined) return false
+  if (!bareKey(event, 'Escape')) return false
   return session?.running !== true && session?.removed !== true
 }
 
@@ -226,6 +249,21 @@ export function historyFor(sessions, sessionId) {
 }
 
 /**
+ * Whether an arbitrated event concerns this Session's prompt recall at all.
+ *
+ * Callers check this before folding the event window, so an ordinary keystroke
+ * never walks the loaded log.
+ * @param event - fixed-input event from the shortcut observer.
+ * @param sessionId - the addressed Session.
+ * @returns whether the event may navigate this Session's prompt history.
+ */
+export function isRecallEvent(event, sessionId) {
+  return sessionId !== ''
+    && sessionOfEvent(event) === sessionId
+    && (isRecallGesture(event) || isLeaveGesture(event, undefined))
+}
+
+/**
  * Decide what one arbitrated key event means for prompt recall.
  *
  * This is the whole gesture rule, kept free of React so it can be tested
@@ -237,6 +275,9 @@ export function historyFor(sessions, sessionId) {
  */
 export function recallAction(event, { sessionId, input, session, recall, history }) {
   if (sessionId === '' || sessionOfEvent(event) !== sessionId) return null
+  // A submission owns the composer: neither entry nor an existing browse cursor
+  // may write while the input machine is adjudicating or submitting.
+  if (input?.phase !== 'plain') return null
   if (isLeaveGesture(event, session)) return recall.leave()
   if (!isRecallGesture(event)) return null
   if (event.gesture.code === 'ArrowDown') return recall.newer(history)
@@ -252,16 +293,76 @@ export function recallAction(event, { sessionId, input, session, recall, history
  * Whether a live draft is still the text this seat wrote, rather than an edit.
  *
  * The composer's snapshot store is not public, so an edit is only observable at
- * the next gesture. `useInput` also re-renders a tick later than the write, so
- * during two presses in one frame the snapshot still holds the text from before
- * the first write; accepting the last published value as well keeps the second
- * press inside history instead of silently abandoning it.
+ * the next gesture, by comparing the draft with the text this seat last wrote.
+ * A stale read cannot be mistaken for an edit: each keydown is its own task, and
+ * React publishes the store before the next one runs. Comparing against anything
+ * earlier than that write would instead hide a real edit, such as selecting all
+ * and deleting back to the draft that preceded the recall.
  * @param draft - the draft read from the current snapshot.
  * @param written - the text this seat last wrote.
- * @param published - the draft value this seat last accepted as its own.
  * @returns whether the draft is this seat's own text.
  */
-export function isOwnDraft(draft, written, published) {
-  if (typeof draft !== 'string') return true
-  return draft === written || draft === published
+export function isOwnDraft(draft, written) {
+  return typeof draft !== 'string' || draft === written
+}
+
+/**
+ * Bind one composer's prompt recall to the host's fixed-input observer.
+ *
+ * Kept out of the React seat so the listener order, the edit check, the write,
+ * and the consume can be exercised without mounting a component.
+ * @param options - live prop reader, the observer, and a history reader.
+ * @returns the disposer releasing the listener and the browse state.
+ */
+export function createRecallController({ latest, observeFixedInput, historyFor }) {
+  const recall = new PromptRecall()
+  // The text this seat last wrote. The composer's snapshot store is not public,
+  // so an edit is noticed at the next gesture by comparing the live draft with
+  // this value.
+  let written = null
+
+  if (typeof observeFixedInput !== 'function') {
+    return { dispose() { recall.reset() } }
+  }
+
+  /**
+   * Write one browse step through the public whole-draft action.
+   * @param step - the controller's decision.
+   * @returns whether the draft was written.
+   */
+  const apply = (step) => {
+    const current = latest()
+    if (step === null || current?.inputActions === undefined) return false
+    written = step.text
+    current.inputActions.setDraft(step.text)
+    return true
+  }
+
+  /** Leave history as soon as the user edits the recalled text. */
+  const watchEdit = () => {
+    if (!recall.browsing) return
+    const draft = latest()?.input?.draft
+    if (isOwnDraft(draft, written)) return
+    recall.abandon()
+    written = null
+  }
+
+  const off = observeFixedInput((event) => {
+    const current = latest()
+    if (current === undefined) return
+    // An ordinary keystroke must not fold the event window.
+    if (!isRecallEvent(event, current.sessionId)) return
+    watchEdit()
+    const step = recallAction(event, {
+      sessionId: current.sessionId,
+      input: current.input,
+      session: current.session,
+      recall,
+      history: historyFor(current.sessionId),
+    })
+    if (!apply(step)) return
+    event.consume()
+  })
+
+  return { dispose() { off(); recall.reset() } }
 }

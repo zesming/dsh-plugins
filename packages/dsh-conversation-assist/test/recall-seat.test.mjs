@@ -2,25 +2,42 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  PromptRecall, historyFor, isLeaveGesture, isRecallGesture, recallAction, sessionOfEvent,
+  PromptRecall, historyFor, inComposer, isLeaveGesture, isRecallGesture, recallAction, sessionOfEvent,
 } from '../src/ui/recall.mjs'
 
+/**
+ * A target inside the composer: the conversation marker wraps the whole body,
+ * while the composer's own contenteditable is what must hold focus.
+ * @param sessionId - owning Session.
+ * @param options - focus destination and host exclusion that applies.
+ */
+function composerTarget(sessionId, { focus = 'composer', blocked = null } = {}) {
+  const occurrence = { dataset: { conversationSession: sessionId } }
+  const composer = {}
+  const target = {
+    closest(selector) {
+      if (selector === '[data-conversation-session]') return occurrence
+      if (selector === '[data-composer-input]') return focus === 'composer' ? composer : null
+      if (selector === '[data-approval-key], iframe, .xterm, [inert]') return blocked === null ? null : composer
+      return null
+    },
+  }
+  return target
+}
+
 /** Minimal event shape the shortcut adapter delivers. */
-function keyEvent(code, patch = {}) {
+function keyEvent(code, patch = {}, target = composerTarget('s1')) {
   return {
     type: 'keydown',
     gesture: { code, control: false, alt: false, shift: false, meta: false, repeat: false,
       composing: false, defaultPrevented: false, ...patch },
-    context: { region: 'editable', modal: null, target: { closest: () => null } },
+    context: { region: 'editable', modal: null, target },
     consume() {},
   }
 }
 
-function targetEvent(code, sessionId, patch = {}) {
-  const occurrence = { dataset: { conversationSession: sessionId } }
-  const target = { closest: (selector) => selector === '[data-conversation-session]' ? occurrence : null }
-  const event = keyEvent(code, patch)
-  return { ...event, context: { ...event.context, target } }
+function targetEvent(code, sessionId, patch = {}, options) {
+  return keyEvent(code, patch, composerTarget(sessionId, options))
 }
 
 test('recall claims only bare, non-composing arrow keys', () => {
@@ -55,8 +72,42 @@ test('Escape leaves history only while the Session is idle', () => {
 
 test('recall addresses the Session of the focused composer', () => {
   assert.equal(sessionOfEvent(targetEvent('ArrowUp', 's7')), 's7')
-  assert.equal(sessionOfEvent(keyEvent('ArrowUp')), '')
+  assert.equal(sessionOfEvent(keyEvent('ArrowUp', {}, { closest: () => null })), '')
   assert.equal(sessionOfEvent({ type: 'reset' }), '')
+})
+
+test('recall needs focus in the composer, not merely the conversation body', () => {
+  // A toolbar button, the transcript, or the hidden file input sits inside the
+  // Session marker but must keep its own arrow and Escape behaviour.
+  assert.equal(isRecallGesture(targetEvent('ArrowUp', 's1', {}, { focus: 'elsewhere' })), false)
+  assert.equal(isRecallGesture(targetEvent('ArrowDown', 's1', {}, { focus: 'elsewhere' })), false)
+  assert.equal(isLeaveGesture(targetEvent('Escape', 's1', {}, { focus: 'elsewhere' }), { running: false }), false)
+  assert.equal(isRecallGesture(targetEvent('ArrowUp', 's1')), true)
+})
+
+test('recall keeps the host exclusions off approval keys, frames, terminals, and inert subtrees', () => {
+  assert.equal(isRecallGesture(targetEvent('ArrowUp', 's1', {}, { blocked: 'approval' })), false)
+  const outside = keyEvent('ArrowUp')
+  assert.equal(inComposer({ ...outside.context, region: 'page' }), false)
+  assert.equal(inComposer({ ...outside.context, region: 'terminal' }), false)
+  assert.equal(inComposer({ ...outside.context, target: null }), false)
+})
+
+test('recall writes nothing while a submission owns the composer', () => {
+  const entering = {
+    sessionId: 's1',
+    input: { phase: 'submitting', draft: '', attachmentIds: [] },
+    session: { running: false },
+    recall: new PromptRecall(),
+    history: ['P1'],
+  }
+  assert.equal(recallAction(targetEvent('ArrowUp', 's1'), entering), null)
+  assert.equal(entering.recall.browsing, false)
+  // Even an already-browsing cursor stops writing once the phase leaves plain.
+  entering.input = { phase: 'plain', draft: '', attachmentIds: [] }
+  recallAction(targetEvent('ArrowUp', 's1'), entering)
+  entering.input = { phase: 'adjudicating', draft: 'P1', attachmentIds: [] }
+  assert.equal(recallAction(targetEvent('ArrowDown', 's1'), entering), null)
 })
 
 test('history reads the loaded event window of one Session', () => {
@@ -109,7 +160,8 @@ test('another composer, another Session, and a consumed arrow stay out of recall
     history: ['P1'],
   }
   assert.equal(recallAction(targetEvent('ArrowUp', 's2'), entering), null)
-  assert.equal(recallAction(keyEvent('ArrowUp'), entering), null)
+  // A composer outside any Session marker has nothing to recall.
+  assert.equal(recallAction(keyEvent('ArrowUp', {}, { closest: () => null }), entering), null)
   assert.equal(recallAction(targetEvent('ArrowUp', 's1', { defaultPrevented: true }), entering), null)
   assert.equal(recallAction(targetEvent('ArrowUp', 's1', { composing: true }), entering), null)
   assert.equal(recallAction(targetEvent('ArrowDown', 's1'), entering), null)

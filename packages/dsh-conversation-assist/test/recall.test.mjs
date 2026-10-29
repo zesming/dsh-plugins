@@ -140,18 +140,17 @@ test('an older page loaded mid-browse keeps pointing at the same prompt', () => 
     { kind: 'recall', text: 'P1' })
 })
 
-test('a draft this seat wrote is not an edit, even before the next render', () => {
-  // Normal case: the snapshot caught up with the write.
-  assert.equal(isOwnDraft('P2', 'P2', 'P2'), true)
-  // Two presses in one frame: the snapshot still holds the text from before the
-  // first write, so the previous published value must count as ours too.
-  assert.equal(isOwnDraft('', '', 'P2'), true)
-  assert.equal(isOwnDraft(undefined, 'P2', null), true)
+test('a draft this seat wrote is not an edit', () => {
+  assert.equal(isOwnDraft('P2', 'P2'), true)
+  assert.equal(isOwnDraft(undefined, 'P2'), true)
 })
 
-test('real user edits are recognised', () => {
-  assert.equal(isOwnDraft('P2 plus my edit', 'P2', 'P2'), false)
-  assert.equal(isOwnDraft('typed over it', 'P2', ''), false)
+test('real user edits are recognised, including deleting back to the pre-recall draft', () => {
+  assert.equal(isOwnDraft('P2 plus my edit', 'P2'), false)
+  // Select-all + Delete lands on the empty draft the recall started from; that
+  // is still an edit, so the next press must restart at the newest prompt.
+  assert.equal(isOwnDraft('', 'P2'), false)
+  assert.equal(isOwnDraft('typed over it', 'P2'), false)
 })
 
 test('a window that shrinks mid-browse does not leave the cursor one prompt off', () => {
