@@ -978,6 +978,235 @@ function SuggestionRow({ sessionId, useSession, useInput, useChat, useProjection
   }, "×"));
 }
 
+// packages/dsh-conversation-assist/src/ui/recall-seat.js
+var import_react6 = __toESM(require("react"));
+
+// packages/dsh-conversation-assist/src/ui/recall.mjs
+function messageText(content) {
+  const parts = [];
+  for (const block of content ?? []) {
+    if (block?.type === "text" && typeof block.text === "string")
+      parts.push(block.text);
+  }
+  return parts.join(`
+`);
+}
+function promptHistoryOf(entries) {
+  const history = [];
+  let previous;
+  for (const entry of entries ?? []) {
+    if (entry?.type !== "event")
+      continue;
+    const event = entry.event;
+    if (event?.type !== "user/message" || event.data?.source?.kind !== "user")
+      continue;
+    const text = messageText(event.data.content);
+    if (text.trim() === "" || text === previous)
+      continue;
+    history.push(text);
+    previous = text;
+  }
+  return history;
+}
+function canRecall(input, session) {
+  return input?.phase === "plain" && typeof input.draft === "string" && input.draft === "" && (input.attachmentIds?.length ?? 0) === 0 && session?.removed !== true;
+}
+
+class PromptRecall {
+  constructor() {
+    this.state = null;
+  }
+  get browsing() {
+    return this.state !== null;
+  }
+  get sessionId() {
+    return this.state?.sessionId ?? "";
+  }
+  older({ sessionId, history, draft, canEnter }) {
+    if (this.state !== null && this.state.sessionId !== sessionId)
+      this.reset();
+    const current = this.state;
+    if (current === null) {
+      if (canEnter !== true || history.length === 0)
+        return null;
+      this.state = { sessionId, stash: draft, offset: 0 };
+      return { kind: "recall", text: history[history.length - 1] };
+    }
+    const next = current.offset + 1;
+    if (next >= history.length)
+      return null;
+    current.offset = next;
+    return { kind: "recall", text: history[history.length - 1 - next] };
+  }
+  newer(history) {
+    const state = this.state;
+    if (state === null)
+      return null;
+    if (state.offset === 0) {
+      const stash = state.stash;
+      this.reset();
+      return { kind: "restore", text: stash };
+    }
+    const text = history?.[history.length - 1 - (state.offset - 1)];
+    if (typeof text !== "string")
+      return null;
+    state.offset -= 1;
+    return { kind: "recall", text };
+  }
+  leave() {
+    const state = this.state;
+    if (state === null)
+      return null;
+    const stash = state.stash;
+    this.reset();
+    return { kind: "restore", text: stash };
+  }
+  abandon() {
+    this.state = null;
+  }
+  reset() {
+    this.state = null;
+  }
+}
+function sessionOfEvent(event) {
+  const occurrence = event?.context?.target?.closest?.("[data-conversation-session]") ?? null;
+  const sessionId = occurrence?.dataset?.conversationSession;
+  return typeof sessionId === "string" ? sessionId : "";
+}
+function inComposer(context) {
+  if (context?.region !== "editable")
+    return false;
+  const target = context.target;
+  if (target === null || target === undefined)
+    return false;
+  if (target.closest?.("[data-approval-key], iframe, .xterm, [inert]") != null)
+    return false;
+  return target.closest?.("[data-composer-input]") != null;
+}
+function bareKey(event, code) {
+  if (event?.type !== "keydown")
+    return false;
+  const { gesture, context } = event;
+  if (gesture === undefined || context === undefined)
+    return false;
+  if (gesture.code !== code)
+    return false;
+  if (gesture.repeat || gesture.composing || gesture.defaultPrevented)
+    return false;
+  if (gesture.control || gesture.alt || gesture.shift || gesture.meta)
+    return false;
+  if (context.modal !== null)
+    return false;
+  return inComposer(context);
+}
+function isRecallGesture(event) {
+  return bareKey(event, "ArrowUp") || bareKey(event, "ArrowDown");
+}
+function isLeaveGesture(event, session) {
+  if (!bareKey(event, "Escape"))
+    return false;
+  return session?.running !== true && session?.removed !== true;
+}
+function historyFor(sessions, sessionId) {
+  try {
+    const binding = sessions?.binding?.(sessionId);
+    const window2 = binding?.eventSource?.getSnapshot?.();
+    return promptHistoryOf(window2?.entries);
+  } catch {
+    return [];
+  }
+}
+function isRecallEvent(event, sessionId) {
+  return sessionId !== "" && sessionOfEvent(event) === sessionId && (isRecallGesture(event) || isLeaveGesture(event, undefined));
+}
+function recallAction(event, { sessionId, input, session, recall, history }) {
+  if (sessionId === "" || sessionOfEvent(event) !== sessionId)
+    return null;
+  if (input?.phase !== "plain")
+    return null;
+  if (isLeaveGesture(event, session))
+    return recall.leave();
+  if (!isRecallGesture(event))
+    return null;
+  if (event.gesture.code === "ArrowDown")
+    return recall.newer(history);
+  return recall.older({
+    sessionId,
+    history,
+    draft: input?.draft ?? "",
+    canEnter: canRecall(input, session)
+  });
+}
+function isOwnDraft(draft, written) {
+  return typeof draft !== "string" || draft === written;
+}
+function createRecallController({ latest, observeFixedInput, historyFor: historyFor2 }) {
+  const recall = new PromptRecall;
+  let written = null;
+  if (typeof observeFixedInput !== "function") {
+    return { dispose() {
+      recall.reset();
+    } };
+  }
+  const apply = (step) => {
+    const current = latest();
+    if (step === null || current?.inputActions === undefined)
+      return false;
+    written = step.text;
+    current.inputActions.setDraft(step.text);
+    return true;
+  };
+  const watchEdit = () => {
+    if (!recall.browsing)
+      return;
+    const draft = latest()?.input?.draft;
+    if (isOwnDraft(draft, written))
+      return;
+    recall.abandon();
+    written = null;
+  };
+  const off = observeFixedInput((event) => {
+    const current = latest();
+    if (current === undefined)
+      return;
+    if (!isRecallEvent(event, current.sessionId))
+      return;
+    watchEdit();
+    const step = recallAction(event, {
+      sessionId: current.sessionId,
+      input: current.input,
+      session: current.session,
+      recall,
+      history: historyFor2(current.sessionId)
+    });
+    if (!apply(step))
+      return;
+    event.consume();
+  });
+  return { dispose() {
+    off();
+    recall.reset();
+  } };
+}
+
+// packages/dsh-conversation-assist/src/ui/recall-seat.js
+function PromptRecallSeat({ sessionId, useSession, useInput, inputActions, runtime }) {
+  const session = useSession((state) => state);
+  const input = useInput((state) => state);
+  const latest = import_react6.default.useRef(null);
+  latest.current = { session, input, inputActions, sessionId };
+  import_react6.default.useEffect(() => {
+    const shortcuts = runtime?.shortcuts;
+    const controller = createRecallController({
+      latest: () => latest.current,
+      observeFixedInput: typeof shortcuts?.observeFixedInput === "function" ? (listener) => shortcuts.observeFixedInput(listener) : undefined,
+      historyFor: (sessionId2) => historyFor(runtime?.sessions, sessionId2)
+    });
+    return controller.dispose;
+  }, [runtime]);
+  return null;
+}
+
 // packages/dsh-conversation-assist/src/ui/styles.js
 var CSS = `
 /* The shell draws one nav glyph per settings row and falls back to the gear for
@@ -1320,7 +1549,7 @@ async function requestRecap(sessionId, turn, endSeq, replyHash, signal) {
 }
 
 // packages/dsh-conversation-assist/src/client.js
-var inject = ["slots", "locale", "uiConversation", "shortcuts"];
+var inject = ["slots", "locale", "uiConversation", "shortcuts", "sessions"];
 function apply(ctx) {
   const language = () => {
     try {
@@ -1332,7 +1561,16 @@ function apply(ctx) {
   };
   const settings = createSettingsStore({ language });
   const hidden = createHiddenTurns();
-  const runtime = { hidden, language, requestRecap, requestSuggestion, shortcuts: ctx.shortcuts };
+  const runtime = {
+    hidden,
+    language,
+    requestRecap,
+    requestSuggestion,
+    shortcuts: ctx.shortcuts,
+    get sessions() {
+      return ctx.get("sessions");
+    }
+  };
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor("zh"), en: dictionaryFor("en") }), "dsh-conversation-assist: dictionaries");
   ctx.effect(() => installStyles(), "dsh-conversation-assist: stylesheet");
   ctx.effect(() => ctx.on("connection/reset", () => {
@@ -1354,6 +1592,13 @@ function apply(ctx) {
     locale: NS,
     inject: () => ({ hooks: { settings }, runtime })
   }, SuggestionRow));
+  ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
+    name: "conversation.input.dock",
+    id: "dsh-conversation-assist.recall",
+    order: 10,
+    locale: NS,
+    inject: () => ({ runtime })
+  }, PromptRecallSeat));
   ctx.slots.inject("settings.section", () => ctx.slots.register({
     name: "settings.section",
     id: "conversation-assist",

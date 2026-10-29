@@ -72,6 +72,43 @@ The public DSH contract has no editor-inline prediction decoration. This plugin 
 input dock and locally arbitrated shortcut observer; it does not replace the editor, draw over
 its text, reserve Tab globally, or occupy a shipped single-occupant slot.
 
+## Prompt recall
+
+Pressing <kbd>↑</kbd> in an empty composer recalls the previous prompt of the current Session,
+the gesture terminal coding agents use. Repeated <kbd>↑</kbd> keeps walking back through the
+prompts you sent in this Session (including a mid-turn steer); <kbd>↓</kbd> walks forward and,
+past the newest prompt, puts the draft you had before the first recall back.
+
+The gesture is taken only when it is unambiguous: the composer must be empty with no attachments
+and in its plain state, the arrow must be bare (no Shift, Alt, Ctrl, or Cmd), no input-method
+composition may be active, and the host's trigger menu must not have claimed the key. The keyboard
+must be in the composer itself, not on a toolbar button or the transcript, and the host's own
+exclusions — approval keys, frames, terminals, inert subtrees — keep their keys. A draft you are
+writing keeps its caret behaviour, and a running turn does not block recall.
+
+Recalled text is the model-facing text verbatim: a reference chip comes back as the text it was
+sent as, and images are not restored. Consecutive identical prompts collapse to one entry. At the
+oldest prompt the key is handed back, so <kbd>↑</kbd> moves the caret inside the recalled text
+instead of stopping dead. Editing the recalled text leaves history, so the next <kbd>↑</kbd>
+starts again at the newest prompt.
+
+The hand-back has a second effect worth knowing: once a prompt is recalled, the composer holds a
+draft, and the host gives <kbd>↑</kbd> to the editor's own caret movement. Walking back through
+several prompts therefore needs the composer to be empty again between presses — the plugin cannot
+take those keys without also breaking multi-line editing. <kbd>↓</kbd> and <kbd>Esc</kbd> leave
+history from the recalled text itself.
+
+<kbd>Esc</kbd> also leaves history, but only while the Session is idle: the host already owns
+<kbd>Esc</kbd> <kbd>Esc</kbd> for stopping a running turn, and recalling must not arm it.
+
+Unlike the editor's own undo, a recall is not a separate undo step: this plugin writes the draft
+through the public `setDraft` action and cannot reach the editor's history. Leaving history with
+<kbd>↓</kbd> or <kbd>Esc</kbd> is how the previous draft comes back.
+
+History comes from the Session's loaded event window, so the latest prompts are always available;
+prompts older than the loaded window appear once the transcript has been paged back. Nothing is
+persisted and no model call is involved.
+
 ## Settings
 
 | Setting | Default | Effect |
@@ -140,6 +177,7 @@ are no runtime dependencies beyond DSH's shared modules. All three exact routes 
 registered by this plugin.
 
 See the [design and source research](../../docs/conversation-assist-design.md),
+[prompt-recall research and trade-offs](../../docs/prompt-recall-research.md),
 [manual checks](test/manual-checklist.md), and [synthetic quality cases](test/quality-cases.json).
 Automated lifecycle and protocol tests do not establish real-model semantic accuracy; evaluate
 results against source facts and required omissions separately.
