@@ -2,7 +2,7 @@
 
 import React from 'react'
 
-import { PromptRecall, historyFor, recallAction } from './recall.mjs'
+import { PromptRecall, historyFor, isOwnDraft, recallAction } from './recall.mjs'
 
 const h = React.createElement
 
@@ -24,7 +24,11 @@ export function PromptRecallSeat({ sessionId, useSession, useInput, inputActions
 
   React.useEffect(() => {
     const recall = new PromptRecall()
+    // The draft this seat last wrote. `useInput` re-renders on the next tick, so
+    // during two presses in one frame the snapshot still holds the text before
+    // the first write; tracking the value locally keeps both presses "ours".
     let written = null
+    let published = null
 
     /**
      * Write one browse step through the public whole-draft action.
@@ -43,9 +47,14 @@ export function PromptRecallSeat({ sessionId, useSession, useInput, inputActions
     const watchEdit = () => {
       const current = latest.current
       if (!recall.browsing) return
-      if (current.input === undefined || current.input.draft === written) return
+      const draft = current.input?.draft
+      if (isOwnDraft(draft, written, published)) {
+        if (typeof draft === 'string') published = draft
+        return
+      }
       recall.abandon()
       written = null
+      published = null
     }
 
     // The composer's snapshot store is not public, so an edit is noticed at the
@@ -54,6 +63,7 @@ export function PromptRecallSeat({ sessionId, useSession, useInput, inputActions
       ? () => {}
       : runtime.shortcuts.observeFixedInput((event) => {
         const current = latest.current
+        if (published === null && written === null) published = current.input?.draft ?? null
         watchEdit()
         const step = recallAction(event, {
           sessionId: current.sessionId,

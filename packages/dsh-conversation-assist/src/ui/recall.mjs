@@ -120,9 +120,13 @@ export class PromptRecall {
       this.reset()
       return { kind: 'restore', text: stash }
     }
+    // Resolve before mutating: a window that shrank mid-browse (compaction) can
+    // leave the target gone, and a decremented cursor would then point one
+    // prompt off on the following press.
+    const text = history?.[history.length - 1 - (state.offset - 1)]
+    if (typeof text !== 'string') return null
     state.offset -= 1
-    const text = history?.[history.length - 1 - state.offset]
-    return typeof text === 'string' ? { kind: 'recall', text } : null
+    return { kind: 'recall', text }
   }
 
   /**
@@ -242,4 +246,22 @@ export function recallAction(event, { sessionId, input, session, recall, history
     draft: input?.draft ?? '',
     canEnter: canRecall(input, session),
   })
+}
+
+/**
+ * Whether a live draft is still the text this seat wrote, rather than an edit.
+ *
+ * The composer's snapshot store is not public, so an edit is only observable at
+ * the next gesture. `useInput` also re-renders a tick later than the write, so
+ * during two presses in one frame the snapshot still holds the text from before
+ * the first write; accepting the last published value as well keeps the second
+ * press inside history instead of silently abandoning it.
+ * @param draft - the draft read from the current snapshot.
+ * @param written - the text this seat last wrote.
+ * @param published - the draft value this seat last accepted as its own.
+ * @returns whether the draft is this seat's own text.
+ */
+export function isOwnDraft(draft, written, published) {
+  if (typeof draft !== 'string') return true
+  return draft === written || draft === published
 }

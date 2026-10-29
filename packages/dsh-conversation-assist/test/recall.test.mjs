@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { PromptRecall, canRecall, promptHistoryOf } from '../src/ui/recall.mjs'
+import { PromptRecall, canRecall, isOwnDraft, promptHistoryOf } from '../src/ui/recall.mjs'
 
 const idleSession = { removed: false, running: false }
 const emptyInput = { phase: 'plain', draft: '', attachmentIds: [] }
@@ -138,4 +138,32 @@ test('an older page loaded mid-browse keeps pointing at the same prompt', () => 
     { kind: 'recall', text: 'P2' })
   assert.deepEqual(recall.older({ sessionId: 's1', history: ['P1', 'P2', 'P3'], draft: '', canEnter: true }),
     { kind: 'recall', text: 'P1' })
+})
+
+test('a draft this seat wrote is not an edit, even before the next render', () => {
+  // Normal case: the snapshot caught up with the write.
+  assert.equal(isOwnDraft('P2', 'P2', 'P2'), true)
+  // Two presses in one frame: the snapshot still holds the text from before the
+  // first write, so the previous published value must count as ours too.
+  assert.equal(isOwnDraft('', '', 'P2'), true)
+  assert.equal(isOwnDraft(undefined, 'P2', null), true)
+})
+
+test('real user edits are recognised', () => {
+  assert.equal(isOwnDraft('P2 plus my edit', 'P2', 'P2'), false)
+  assert.equal(isOwnDraft('typed over it', 'P2', ''), false)
+})
+
+test('a window that shrinks mid-browse does not leave the cursor one prompt off', () => {
+  const recall = new PromptRecall()
+  const full = ['P1', 'P2', 'P3']
+  const enter = { sessionId: 's1', history: full, draft: '', canEnter: true }
+  recall.older(enter)
+  recall.older(enter)
+  recall.older(enter) // offset 2, showing P1
+  // Compaction drops everything older than the newest prompt, so the entry the
+  // cursor would move to no longer exists.
+  assert.equal(recall.newer(['P3']), null)
+  // The cursor did not move, so the next press resolves the same target.
+  assert.deepEqual(recall.newer(full), { kind: 'recall', text: 'P2' })
 })

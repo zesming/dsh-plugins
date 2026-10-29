@@ -1047,9 +1047,11 @@ class PromptRecall {
       this.reset();
       return { kind: "restore", text: stash };
     }
+    const text = history?.[history.length - 1 - (state.offset - 1)];
+    if (typeof text !== "string")
+      return null;
     state.offset -= 1;
-    const text = history?.[history.length - 1 - state.offset];
-    return typeof text === "string" ? { kind: "recall", text } : null;
+    return { kind: "recall", text };
   }
   leave() {
     const state = this.state;
@@ -1128,6 +1130,11 @@ function recallAction(event, { sessionId, input, session, recall, history }) {
     canEnter: canRecall(input, session)
   });
 }
+function isOwnDraft(draft, written, published) {
+  if (typeof draft !== "string")
+    return true;
+  return draft === written || draft === published;
+}
 
 // packages/dsh-conversation-assist/src/ui/recall-seat.js
 var h6 = import_react6.default.createElement;
@@ -1139,6 +1146,7 @@ function PromptRecallSeat({ sessionId, useSession, useInput, inputActions, runti
   import_react6.default.useEffect(() => {
     const recall = new PromptRecall;
     let written = null;
+    let published = null;
     const apply = (step) => {
       const current = latest.current;
       if (step === null || current.inputActions === undefined)
@@ -1151,13 +1159,20 @@ function PromptRecallSeat({ sessionId, useSession, useInput, inputActions, runti
       const current = latest.current;
       if (!recall.browsing)
         return;
-      if (current.input === undefined || current.input.draft === written)
+      const draft = current.input?.draft;
+      if (isOwnDraft(draft, written, published)) {
+        if (typeof draft === "string")
+          published = draft;
         return;
+      }
       recall.abandon();
       written = null;
+      published = null;
     };
     const off = typeof runtime?.shortcuts?.observeFixedInput !== "function" ? () => {} : runtime.shortcuts.observeFixedInput((event) => {
       const current = latest.current;
+      if (published === null && written === null)
+        published = current.input?.draft ?? null;
       watchEdit();
       const step = recallAction(event, {
         sessionId: current.sessionId,

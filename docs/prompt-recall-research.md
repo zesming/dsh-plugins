@@ -18,7 +18,7 @@
 
 来源：[Claude Code interactive mode](https://code.claude.com/docs/en/interactive-mode#command-history)、[Codex `chat_composer_history.rs`](https://github.com/openai/codex/blob/main/codex-rs/tui/src/bottom_pane/chat_composer_history.rs)、[ChatGPT commands 参考](https://learn.chatgpt.com/docs/reference/commands)、[Gemini `InputPrompt.tsx`](https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/ui/components/InputPrompt.tsx)。
 
-**注意 ChatGPT 桌面版是唯一以「输入框为空」为条件的**；另外三个是「光标在边界」，因此能在已经写了内容的输入框里继续往前翻。
+三者与 ChatGPT 桌面版的区别在于：Codex 与 Gemini 在输入为空时也直接翻历史，但它们另外允许在**已写入内容**的输入框里按光标边界继续往前翻；ChatGPT 桌面版只在输入框为空时响应。Claude Code 同样只在光标位于首/末视觉行时才翻，因此也能在已写内容的输入框里往上翻。
 
 ### 已知失败模式
 

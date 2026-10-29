@@ -85,8 +85,9 @@ composition may be active, and the host's trigger menu must not have claimed the
 are writing keeps its caret behaviour, and a running turn does not block recall.
 
 Recalled text is the model-facing text verbatim: a reference chip comes back as the text it was
-sent as, and images are not restored. Consecutive identical prompts collapse to one entry, and the
-oldest prompt is a silent stop. Editing the recalled text leaves history, so the next <kbd>↑</kbd>
+sent as, and images are not restored. Consecutive identical prompts collapse to one entry. At the
+oldest prompt the key is handed back, so <kbd>↑</kbd> moves the caret inside the recalled text
+instead of stopping dead. Editing the recalled text leaves history, so the next <kbd>↑</kbd>
 starts again at the newest prompt.
 
 <kbd>Esc</kbd> also leaves history, but only while the Session is idle: the host already owns
