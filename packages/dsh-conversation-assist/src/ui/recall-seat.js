@@ -21,9 +21,15 @@ export function PromptRecallSeat({ sessionId, useSession, useInput, inputActions
   latest.current = { session, input, inputActions, sessionId }
 
   React.useEffect(() => {
+    // The observer is a method on the shortcut service and reads its own
+    // fields, so it must keep that receiver: passing the bare function threw
+    // `Cannot read properties of undefined` inside the host.
+    const shortcuts = runtime?.shortcuts
     const controller = createRecallController({
       latest: () => latest.current,
-      observeFixedInput: runtime?.shortcuts?.observeFixedInput,
+      observeFixedInput: typeof shortcuts?.observeFixedInput === 'function'
+        ? listener => shortcuts.observeFixedInput(listener)
+        : undefined,
       historyFor: sessionId => historyFor(runtime?.sessions, sessionId),
     })
     return controller.dispose

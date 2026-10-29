@@ -92,6 +92,12 @@ oldest prompt the key is handed back, so <kbd>↑</kbd> moves the caret inside t
 instead of stopping dead. Editing the recalled text leaves history, so the next <kbd>↑</kbd>
 starts again at the newest prompt.
 
+The hand-back has a second effect worth knowing: once a prompt is recalled, the composer holds a
+draft, and the host gives <kbd>↑</kbd> to the editor's own caret movement. Walking back through
+several prompts therefore needs the composer to be empty again between presses — the plugin cannot
+take those keys without also breaking multi-line editing. <kbd>↓</kbd> and <kbd>Esc</kbd> leave
+history from the recalled text itself.
+
 <kbd>Esc</kbd> also leaves history, but only while the Session is idle: the host already owns
 <kbd>Esc</kbd> <kbd>Esc</kbd> for stopping a running turn, and recalling must not arm it.
 

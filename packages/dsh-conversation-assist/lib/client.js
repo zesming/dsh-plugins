@@ -1196,9 +1196,10 @@ function PromptRecallSeat({ sessionId, useSession, useInput, inputActions, runti
   const latest = import_react6.default.useRef(null);
   latest.current = { session, input, inputActions, sessionId };
   import_react6.default.useEffect(() => {
+    const shortcuts = runtime?.shortcuts;
     const controller = createRecallController({
       latest: () => latest.current,
-      observeFixedInput: runtime?.shortcuts?.observeFixedInput,
+      observeFixedInput: typeof shortcuts?.observeFixedInput === "function" ? (listener) => shortcuts.observeFixedInput(listener) : undefined,
       historyFor: (sessionId2) => historyFor(runtime?.sessions, sessionId2)
     });
     return controller.dispose;
