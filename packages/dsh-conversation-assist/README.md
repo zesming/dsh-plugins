@@ -72,6 +72,34 @@ The public DSH contract has no editor-inline prediction decoration. This plugin 
 input dock and locally arbitrated shortcut observer; it does not replace the editor, draw over
 its text, reserve Tab globally, or occupy a shipped single-occupant slot.
 
+## Prompt recall
+
+Pressing <kbd>↑</kbd> in an empty composer recalls the previous prompt of the current Session,
+the gesture terminal coding agents use. Repeated <kbd>↑</kbd> keeps walking back through the
+prompts you sent in this Session (including a mid-turn steer); <kbd>↓</kbd> walks forward and,
+past the newest prompt, puts the draft you had before the first recall back.
+
+The gesture is taken only when it is unambiguous: the composer must be empty with no attachments
+and in its plain state, the arrow must be bare (no Shift, Alt, Ctrl, or Cmd), no input-method
+composition may be active, and the host's trigger menu must not have claimed the key. A draft you
+are writing keeps its caret behaviour, and a running turn does not block recall.
+
+Recalled text is the model-facing text verbatim: a reference chip comes back as the text it was
+sent as, and images are not restored. Consecutive identical prompts collapse to one entry, and the
+oldest prompt is a silent stop. Editing the recalled text leaves history, so the next <kbd>↑</kbd>
+starts again at the newest prompt.
+
+<kbd>Esc</kbd> also leaves history, but only while the Session is idle: the host already owns
+<kbd>Esc</kbd> <kbd>Esc</kbd> for stopping a running turn, and recalling must not arm it.
+
+Unlike the editor's own undo, a recall is not a separate undo step: this plugin writes the draft
+through the public `setDraft` action and cannot reach the editor's history. Leaving history with
+<kbd>↓</kbd> or <kbd>Esc</kbd> is how the previous draft comes back.
+
+History comes from the Session's loaded event window, so the latest prompts are always available;
+prompts older than the loaded window appear once the transcript has been paged back. Nothing is
+persisted and no model call is involved.
+
 ## Settings
 
 | Setting | Default | Effect |

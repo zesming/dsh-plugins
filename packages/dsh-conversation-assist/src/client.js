@@ -1,15 +1,16 @@
-/** Browser entry: settings, recap definition, suggestion row, and settings section. */
+/** Browser entry: settings, recap definition, suggestion row, prompt recall, and settings section. */
 
 import { NS, dictionaryFor } from './shared/locales.mjs'
 import { createRecapDefinition, RecapTail } from './ui/recap.js'
 import { SettingsSection } from './ui/settings.js'
 import { navLabel } from './ui/nav-label.js'
 import { SuggestionRow } from './ui/suggestion.js'
+import { PromptRecallSeat } from './ui/recall-seat.js'
 import { installStyles } from './ui/styles.js'
 import { createHiddenTurns, createSettingsStore, requestRecap, requestSuggestion, translate } from './ui/store.js'
 
 /** Services this client plugin requires. */
-export const inject = ['slots', 'locale', 'uiConversation', 'shortcuts']
+export const inject = ['slots', 'locale', 'uiConversation', 'shortcuts', 'sessions']
 
 /**
  * Mount the browser half.
@@ -26,7 +27,11 @@ export function apply(ctx) {
   }
   const settings = createSettingsStore({ language })
   const hidden = createHiddenTurns()
-  const runtime = { hidden, language, requestRecap, requestSuggestion, shortcuts: ctx.shortcuts }
+  const runtime = {
+    hidden, language, requestRecap, requestSuggestion, shortcuts: ctx.shortcuts,
+    /** Resolved per read: the Session service may arrive after this plugin. */
+    get sessions() { return ctx.get('sessions') },
+  }
 
   ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor('zh'), en: dictionaryFor('en') }), 'dsh-conversation-assist: dictionaries')
   ctx.effect(() => installStyles(), 'dsh-conversation-assist: stylesheet')
@@ -53,6 +58,14 @@ export function apply(ctx) {
     locale: NS,
     inject: () => ({ hooks: { settings }, runtime }),
   }, SuggestionRow))
+
+  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+    name: 'conversation.input.dock',
+    id: 'dsh-conversation-assist.recall',
+    order: 10,
+    locale: NS,
+    inject: () => ({ runtime }),
+  }, PromptRecallSeat))
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
