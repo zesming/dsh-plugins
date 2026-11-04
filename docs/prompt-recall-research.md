@@ -74,4 +74,4 @@
 - 宿主输入动作：[`contract/input.ts`](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/client/ui-conversation/src/client/contract/input.ts)
 - 宿主会话绑定：[`contract/sessions.ts`](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/api/session-controller/src/client/contract/sessions.ts)
 - 本插件实现：[`recall.mjs`](../packages/dsh-session-assist/src/ui/recall.mjs)、[`recall-seat.js`](../packages/dsh-session-assist/src/ui/recall-seat.js)
-- 相邻设计文档：[会话辅助：来源、展示与质量边界](session-assist-design.md)
+- 相邻设计文档：[会话助手：来源、展示与质量边界](session-assist-design.md)

@@ -148,6 +148,12 @@ Files belong to the plugin under `$DSH_HOME/dsh-session-assist/` (default `~/.ds
 | `assistance.json` | Up to 200 generated recaps or omission markers with source identities, plus the current-day attempt ledger. No suggestion text or original transcript. |
 | `audit.jsonl` | Best-effort attempt metadata: Session, turn, source/auxiliary route, feature flags, bytes, usage, finish, timing, and error. No prompts, drafts, tool output, recap, or candidate text. |
 
+This plugin was named `dsh-conversation-assist` before it was renamed. An install that predates the
+rename keeps its preferences: when the current directory has no `settings.json` but
+`$DSH_HOME/dsh-conversation-assist/settings.json` exists, that file is read at startup and the next
+write lands in the current directory. The old directory is left in place, so a downgrade still finds
+its files.
+
 The audit rotates at 1 MiB and retains one previous file. An unavailable audit sink does not break
 the plugin. If a daily reservation cannot be persisted reliably, no new model call starts.
 A recap cache write failure still allows the result in memory; after restart the turn has no
@@ -155,25 +161,21 @@ recap to show. Removing the package leaves these files in place.
 
 ## Install and develop
 
-For a CLI-managed profile:
-
-```
-dsh plugin --profile <profile> add dsh-session-assist
-```
-
-Or from DSH itself: open **Plugins → Add plugin** and enter `dsh-session-assist`. The package name
-is the whole install spec.
-
-For the Electron-managed desktop profile, use **Plugins → Add plugin** and enter the package name,
-or choose a local package directory to run a checkout. Rebuild a checkout before loading it and
-restart the app to ensure the resident Host and browser have the new code. An existing dependency
-specification alone does not prove that its installed link points to a valid directory; check the
-plugin page for resolution errors.
-
-To run a checkout by path:
+This package is not on a public registry yet. Install a checkout by path:
 
 ```bash
 dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-session-assist"
+```
+
+For the Electron-managed desktop profile, use **Plugins → Add plugin** and choose the local package
+directory. Rebuild a checkout before loading it and restart the app to ensure the resident Host and
+browser have the new code. An existing dependency specification alone does not prove that its
+installed link points to a valid directory; check the plugin page for resolution errors.
+
+Once it is published, the same command takes the package name instead:
+
+```
+dsh plugin --profile <profile> add dsh-session-assist
 ```
 
 ```bash

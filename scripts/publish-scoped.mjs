@@ -103,6 +103,10 @@ try {
   const hostPath = path.join(target, 'lib', 'index.js')
   const patch = await readOrFail(patchPath, 'the bundle patch names the row')
   const client = await readOrFail(clientPath, 'the browser half registers its module id')
+  // The Host entry is not rewritten: Cordis names a plugin from its `apply`
+  // function, and the exported `name` string only reaches log output. Reading
+  // it here proves the build produced it, so a publish cannot ship a bundle
+  // with half its artifacts missing.
   await readOrFail(hostPath, 'the Host entry is the bundle itself')
 
   // Rewrite only the identity strings, never a comment about the public name.

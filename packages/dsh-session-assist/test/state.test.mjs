@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { createStateStore, resolveHome, statePaths } from '../src/host/state.mjs'
+import { createStateStore, resolveHome, resolveStatePaths, statePaths } from '../src/host/state.mjs'
 
 test('home resolution prefers an explicit DSH_HOME', () => {
   assert.equal(resolveHome({ DSH_HOME: '/tmp/harness' }, '/home/u'), '/tmp/harness')
@@ -17,6 +17,36 @@ test('state paths live under the package directory', () => {
   assert.match(paths.settings, /settings\.json$/u)
   assert.match(paths.audit, /audit\.jsonl$/u)
   assert.match(paths.assistance, /assistance\.json$/u)
+})
+
+test('a pre-rename install reads its settings from the legacy directory', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'dca-legacy-'))
+  try {
+    // The directory this plugin used before it was renamed; a person who
+    // enabled suggestions there must keep them after the upgrade.
+    const legacy = join(home, 'dsh-conversation-assist')
+    await mkdir(legacy, { recursive: true })
+    await writeFile(join(legacy, 'settings.json'), JSON.stringify({ recap: true, prediction: true }), 'utf8')
+
+    const store = createStateStore({ home })
+    await store.load()
+    assert.equal(store.getSettings().prediction, true, 'the pre-rename preference survives')
+    assert.equal(store.paths.dir, join(home, 'dsh-session-assist'), 'writes belong to the new directory')
+  } finally {
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
+test('an install with only the current directory ignores a stale legacy one', () => {
+  const home = '/tmp/harness'
+  const { read } = resolveStatePaths(home, (path) => path === join(home, 'dsh-session-assist', 'settings.json'))
+  assert.equal(read.dir, join(home, 'dsh-session-assist'))
+})
+
+test('a fresh install falls back to its defaults rather than a legacy directory', () => {
+  const home = '/tmp/harness'
+  const { read } = resolveStatePaths(home, () => false)
+  assert.equal(read.dir, join(home, 'dsh-session-assist'))
 })
 
 test('concurrent saves serialize instead of overwriting each other', async () => {

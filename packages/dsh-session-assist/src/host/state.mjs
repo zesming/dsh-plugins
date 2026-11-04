@@ -1,5 +1,6 @@
 /** Plugin-owned settings and audit files, with explicit degradation. */
 
+import { existsSync } from 'node:fs'
 import { appendFile, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -19,6 +20,13 @@ export function resolveHome(env = process.env, home = homedir()) {
 }
 
 /**
+ * The directory this plugin used before it was renamed to `dsh-session-assist`.
+ * Settings written there stay readable so an upgrade does not silently reset
+ * a person's recap and suggestion preferences.
+ */
+const LEGACY_DIR_NAME = 'dsh-conversation-assist'
+
+/**
  * Resolve this plugin's private paths.
  * @param home - Harness home.
  * @returns settings and audit paths plus their directory.
@@ -29,14 +37,40 @@ export function statePaths(home) {
 }
 
 /**
+ * Resolve the paths this plugin should read at startup.
+ *
+ * A fresh install uses its own directory. An install that predates the rename
+ * has only the legacy directory, so its documents are read from there rather
+ * than replaced by defaults; the next write lands in the current directory.
+ * Both existing means the current one wins, because that is where writes went.
+ * @param home - Harness home.
+ * @param exists - predicate over an absolute path; injected for tests.
+ * @returns the paths to read and the paths writes belong to.
+ */
+export function resolveStatePaths(home, exists = existsSync) {
+  const current = statePaths(home)
+  const legacyDir = join(home, LEGACY_DIR_NAME)
+  const read = exists(join(current.dir, 'settings.json')) || !exists(join(legacyDir, 'settings.json'))
+    ? current
+    : {
+        dir: current.dir,
+        settings: join(legacyDir, 'settings.json'),
+        audit: join(legacyDir, 'audit.jsonl'),
+        assistance: join(legacyDir, 'assistance.json'),
+      }
+  return { current, read }
+}
+
+/**
  * Create the settings/audit store. The in-memory settings remain authoritative
  * until a write succeeds; an unreadable or unwritable document never breaks the
  * plugin, it only loses persistence.
  * @param options - home, logger, clock, and injectable fs for tests.
  * @returns load/save/audit operations.
  */
-export function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
+export function createStateStore({ home = resolveHome(), logger, exists = existsSync, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
   const paths = statePaths(home)
+  const { read: readPaths } = resolveStatePaths(home, exists)
   let settings = { ...DEFAULT_SETTINGS }
   let warned = false
   let saveQueue = Promise.resolve()
@@ -70,12 +104,12 @@ export function createStateStore({ home = resolveHome(), logger, fs = { appendFi
       persistedSummaries.clear()
       attempts.clear()
       try {
-        settings = normalizeSettings(JSON.parse(await fs.readFile(paths.settings, 'utf8')))
+        settings = normalizeSettings(JSON.parse(await fs.readFile(readPaths.settings, 'utf8')))
       } catch (error) {
         if (error?.code !== 'ENOENT') warn('dsh-session-assist: settings read failed', error)
       }
       try {
-        const saved = JSON.parse(await fs.readFile(paths.assistance, 'utf8'))
+        const saved = JSON.parse(await fs.readFile(readPaths.assistance, 'utf8'))
         if (saved?.version === 1 && Array.isArray(saved.summaries)) {
           for (const row of saved.summaries.slice(-LIMITS.maxSummaryCache)) {
             if (!validSummary(row)) continue

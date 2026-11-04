@@ -143,20 +143,21 @@ the peak windows — that split is the actionable part of the number.
 
 ## Install
 
-```
-dsh plugin --profile <profile> add dsh-usage-bill
+This package is not on a public registry yet. Install a checkout by path:
+
+```bash
+dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-usage-bill"
 ```
 
-Or from DSH itself: open **Plugins → Add plugin** and enter `dsh-usage-bill`. The package name is
-the whole install spec.
+Or from DSH itself: open **Plugins → Add plugin** and choose that directory.
 
 Restart that profile. The balance row appears in the sidebar; the usage page is reachable from the
 row's menu, from the sidebar's panel list, and from **Settings → Usage**.
 
-To run a local checkout instead, install it by path:
+Once it is published, the same command takes the package name instead:
 
 ```bash
-dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-usage-bill"
+dsh plugin --profile <profile> add dsh-usage-bill
 ```
 
 <p align="center">

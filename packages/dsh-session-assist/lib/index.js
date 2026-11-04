@@ -534,6 +534,7 @@ function createRecapHandler(deps) {
 }
 
 // packages/dsh-session-assist/src/host/state.mjs
+import { existsSync } from "node:fs";
 import { appendFile, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -541,12 +542,25 @@ function resolveHome(env = process.env, home = homedir()) {
   const configured = typeof env.DSH_HOME === "string" ? env.DSH_HOME.trim() : "";
   return configured === "" ? join(home, ".dsh") : configured;
 }
+var LEGACY_DIR_NAME = "dsh-conversation-assist";
 function statePaths(home) {
   const dir = join(home, "dsh-session-assist");
   return { dir, settings: join(dir, "settings.json"), audit: join(dir, "audit.jsonl"), assistance: join(dir, "assistance.json") };
 }
-function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
+function resolveStatePaths(home, exists = existsSync) {
+  const current = statePaths(home);
+  const legacyDir = join(home, LEGACY_DIR_NAME);
+  const read = exists(join(current.dir, "settings.json")) || !exists(join(legacyDir, "settings.json")) ? current : {
+    dir: current.dir,
+    settings: join(legacyDir, "settings.json"),
+    audit: join(legacyDir, "audit.jsonl"),
+    assistance: join(legacyDir, "assistance.json")
+  };
+  return { current, read };
+}
+function createStateStore({ home = resolveHome(), logger, exists = existsSync, fs = { appendFile, mkdir, readFile, rename, rm, stat, writeFile } } = {}) {
   const paths = statePaths(home);
+  const { read: readPaths } = resolveStatePaths(home, exists);
   let settings = { ...DEFAULT_SETTINGS };
   let warned = false;
   let saveQueue = Promise.resolve();
@@ -577,13 +591,13 @@ function createStateStore({ home = resolveHome(), logger, fs = { appendFile, mkd
       persistedSummaries.clear();
       attempts.clear();
       try {
-        settings = normalizeSettings(JSON.parse(await fs.readFile(paths.settings, "utf8")));
+        settings = normalizeSettings(JSON.parse(await fs.readFile(readPaths.settings, "utf8")));
       } catch (error) {
         if (error?.code !== "ENOENT")
           warn("dsh-session-assist: settings read failed", error);
       }
       try {
-        const saved = JSON.parse(await fs.readFile(paths.assistance, "utf8"));
+        const saved = JSON.parse(await fs.readFile(readPaths.assistance, "utf8"));
         if (saved?.version === 1 && Array.isArray(saved.summaries)) {
           for (const row of saved.summaries.slice(-LIMITS.maxSummaryCache)) {
             if (!validSummary(row))

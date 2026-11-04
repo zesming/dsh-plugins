@@ -26,22 +26,23 @@ Click a preview to open it full size.
 
 ## Install a plugin
 
-Install a published package by name — either from the **Plugins** page's npm field or with the CLI:
-
-```bash
-dsh plugin --profile <profile> add dsh-usage-bill
-dsh plugin --profile <profile> add dsh-session-assist
-dsh plugin --profile <profile> remove dsh-usage-bill
-```
-
-To work on a checkout instead, install it by path:
+These packages are not on a public registry yet, so install a checkout by path — from the
+**Plugins** page's add dialog, or with the CLI:
 
 ```bash
 dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-usage-bill"
+dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-session-assist"
+dsh plugin --profile <profile> remove dsh-usage-bill
 ```
 
 `link:` keeps the profile pointed at your checkout, so a rebuild plus a DSH restart picks up your
 changes.
+
+Once a package is published, the same command takes its name:
+
+```bash
+dsh plugin --profile <profile> add dsh-usage-bill
+```
 
 A profile applies its bundle list at startup, so **restart the app** after installing or rebuilding.
 Rebuilding alone changes files on disk, not the code already loaded in memory. A `lib/index.js`

@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-assist",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "description": "Per-turn recap, next-prompt suggestions, and up-arrow prompt recall for DeepSeek Harness",
   "keywords": [
     "dsh",
