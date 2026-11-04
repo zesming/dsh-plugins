@@ -1,8 +1,8 @@
 # 提示词召回（↑）：调研与取舍
 
-输入框为空时按 ↑ 召回上一条提示词。这个手势在 Claude Code、Codex CLI、ChatGPT 桌面版里都有；本仓库把它放进 `dsh-conversation-assist` 插件。
+输入框为空时按 ↑ 召回上一条提示词。这个手势在 Claude Code、Codex CLI、ChatGPT 桌面版里都有；本仓库把它放进 `dsh-session-assist` 插件。
 
-本文件只记录**为什么这样做、以及在哪些地方与那些产品不同**。具体键位行为见 [插件 README](../packages/dsh-conversation-assist/README.md#prompt-recall)。
+本文件只记录**为什么这样做、以及在哪些地方与那些产品不同**。具体键位行为见 [插件 README](../packages/dsh-session-assist/README.md#prompt-recall)。
 
 事实核对日期 2026-10-29，DSH 基线 `22ddee3`。
 
@@ -73,5 +73,5 @@
 - 宿主 composer keymap：[`keymap.ts`](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/client/ui-conversation/src/client/input/editor/keymap.ts)
 - 宿主输入动作：[`contract/input.ts`](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/client/ui-conversation/src/client/contract/input.ts)
 - 宿主会话绑定：[`contract/sessions.ts`](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/api/session-controller/src/client/contract/sessions.ts)
-- 本插件实现：[`recall.mjs`](../packages/dsh-conversation-assist/src/ui/recall.mjs)、[`recall-seat.js`](../packages/dsh-conversation-assist/src/ui/recall-seat.js)
-- 相邻设计文档：[会话辅助：来源、展示与质量边界](conversation-assist-design.md)
+- 本插件实现：[`recall.mjs`](../packages/dsh-session-assist/src/ui/recall.mjs)、[`recall-seat.js`](../packages/dsh-session-assist/src/ui/recall-seat.js)
+- 相邻设计文档：[会话辅助：来源、展示与质量边界](session-assist-design.md)

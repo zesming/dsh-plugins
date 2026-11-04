@@ -6,7 +6,7 @@
  * ESM sources and this script wraps it in that registration.
  *
  * Pass package names to build only those packages, e.g.
- * `node scripts/build.mjs dsh-conversation-assist`. With no arguments every
+ * `node scripts/build.mjs dsh-session-assist`. With no arguments every
  * package under `packages/` is built.
  */
 

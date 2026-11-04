@@ -1,0 +1,70 @@
+{
+  "name": "dsh-session-assist",
+  "version": "0.1.0",
+  "description": "Per-turn recap, next-prompt suggestions, and up-arrow prompt recall for DeepSeek Harness",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "session",
+    "recap",
+    "prompt",
+    "suggestion",
+    "productivity"
+  ],
+  "license": "MIT",
+  "author": "zesming",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zesming/dsh-plugins.git",
+    "directory": "packages/dsh-session-assist"
+  },
+  "homepage": "https://github.com/zesming/dsh-plugins/tree/main/packages/dsh-session-assist#readme",
+  "bugs": {
+    "url": "https://github.com/zesming/dsh-plugins/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "external": [
+        "@deepseek-ai/dsh-client-ui-primitives"
+      ],
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-shortcuts",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  }
+}
