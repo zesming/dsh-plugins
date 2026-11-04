@@ -2,11 +2,10 @@
  * Publish a package to a registry that requires a scope, without renaming it
  * in this repository.
  *
- * bnpm (the internal registry) refuses an unscoped package outright:
- * `can't publish private package with non-scoped or scope does not exit`. The
- * public npm names in `packages/*` must stay unscoped, so this script derives a
- * scoped copy in a temporary directory and publishes that. The checkout is
- * never modified.
+ * Some registries refuse an unscoped package outright. The packages in
+ * `packages/*` keep their unscoped names for the public registry, so this script
+ * derives a scoped copy in a temporary directory and publishes that. The
+ * checkout is never modified.
  *
  * A scope changes three identifiers the loader resolves, not just the manifest:
  * the package name, the row `name` in `cordis.patch.yml`, and the factory id in
@@ -15,11 +14,11 @@
  * load rather than at install.
  *
  * Usage:
- *   node scripts/publish-bnpm.mjs <package> <scope> [--dry-run] [--registry <url>]
+ *   node scripts/publish-scoped.mjs <package> <scope> [--dry-run] [--registry <url>]
  *
  * Examples:
- *   node scripts/publish-bnpm.mjs dsh-usage-bill @byted-zhongkui --dry-run
- *   node scripts/publish-bnpm.mjs dsh-usage-bill @byted-zhongkui
+ *   node scripts/publish-scoped.mjs dsh-usage-bill @your-scope --dry-run
+ *   node scripts/publish-scoped.mjs dsh-usage-bill @your-scope
  */
 
 import { execFile } from 'node:child_process'
@@ -34,8 +33,8 @@ const run = promisify(execFile)
 /** Repository root. */
 const root = path.resolve(import.meta.dirname, '..')
 
-/** Default registry: the internal one that requires a scope. */
-const DEFAULT_REGISTRY = 'https://bnpm.byted.org/'
+/** Default registry: the public one. */
+const DEFAULT_REGISTRY = 'https://registry.npmjs.org/'
 
 /** Split argv into positional words and the two flags this script accepts. */
 function parseArguments(argv) {
@@ -73,7 +72,7 @@ async function readOrFail(file, why) {
 }
 
 const { positional, dryRun, registry } = parseArguments(process.argv.slice(2))
-if (positional.length !== 2) throw new Error('usage: node scripts/publish-bnpm.mjs <package> <scope> [--dry-run] [--registry <url>]')
+if (positional.length !== 2) throw new Error('usage: node scripts/publish-scoped.mjs <package> <scope> [--dry-run] [--registry <url>]')
 const [packageName, scope] = positional
 if (!/^@[a-z0-9][a-z0-9._~-]*$/.test(scope)) throw new Error(`not a scope: ${scope}; expected something like @team`)
 

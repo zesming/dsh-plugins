@@ -26,19 +26,13 @@ Click a preview to open it full size.
 
 ## Install a plugin
 
-The packages are published to the internal registry (**bnpm**) under the `@byted-zhongkui` scope,
-because bnpm refuses an unscoped name. Install one by its published name — either from the
-**Plugins** page's npm field or with the CLI:
+Install a published package by name — either from the **Plugins** page's npm field or with the CLI:
 
 ```bash
-dsh plugin --profile <profile> add @byted-zhongkui/dsh-usage-bill
-dsh plugin --profile <profile> add @byted-zhongkui/dsh-session-assist
-dsh plugin --profile <profile> remove @byted-zhongkui/dsh-usage-bill
+dsh plugin --profile <profile> add dsh-usage-bill
+dsh plugin --profile <profile> add dsh-session-assist
+dsh plugin --profile <profile> remove dsh-usage-bill
 ```
-
-They are not on the public npm registry yet, so the bare names `dsh-usage-bill` and
-`dsh-session-assist` do not resolve there. This repository keeps the unscoped names; the scoped
-release name is derived at publish time (see [Publish](#publish)).
 
 To work on a checkout instead, install it by path:
 
@@ -82,30 +76,28 @@ npm test               # node scripts/test.mjs
 npm run check          # build, then test
 ```
 
-## Publish
-
-`npm run check` first: the script publishes `lib/`, so unbuilt sources ship stale artifacts.
-
-bnpm rejects an unscoped package (`can't publish private package with non-scoped`), and a scope
-changes three things the loader resolves — the manifest name, the row `name` in
-`cordis.patch.yml`, and the factory id in `lib/client.js`. `scripts/publish-bnpm.mjs` derives that
-scoped copy in a temporary directory, so the checkout keeps its public-facing names:
-
-```bash
-node scripts/publish-bnpm.mjs dsh-usage-bill @byted-zhongkui --dry-run
-node scripts/publish-bnpm.mjs dsh-usage-bill @byted-zhongkui
-```
-
-The row `id` deliberately keeps its unscoped spelling: it is a profile-local handle the loader
-never resolves, and a `@`-leading YAML scalar would need quoting. Bump `version` before republishing
-— bnpm refuses to overwrite a published version, and a bad version cannot be deleted by its owner.
-
-Once published, `dsh plugin --profile <profile> add @byted-zhongkui/<name>` installs it. A version
-newer than pnpm's `minimumReleaseAge` is not picked automatically; pin it or wait out the window.
-
 The suites use `node --test` over the pure logic: folding, pricing, formatting, routing, and every
 visibility decision. Browser-only code stays out of the tests, which is why anything that decides a
 number or a state is a function in `src/shared/` rather than inline in a component.
+
+## Publish
+
+`npm run check` first: `lib/` is what ships, so unbuilt sources publish stale artifacts.
+
+A registry can require a scope, and a scope changes three things the loader resolves — the manifest
+name, the row `name` in `cordis.patch.yml`, and the factory id in `lib/client.js`. Renaming only the
+manifest installs a bundle whose browser half registers an id the boot graph never asks for.
+`scripts/publish-scoped.mjs` derives that scoped copy in a temporary directory, so the checkout keeps
+its public-facing names:
+
+```bash
+npm run publish:scoped -- dsh-usage-bill @your-scope --dry-run
+npm run publish:scoped -- dsh-usage-bill @your-scope
+```
+
+The row `id` deliberately keeps its unscoped spelling: it is a profile-local handle the loader never
+resolves, and a `@`-leading YAML scalar is not a valid plain scalar. Bump `version` before
+republishing — a registry refuses to overwrite a published version.
 
 ## Plugin conventions
 
