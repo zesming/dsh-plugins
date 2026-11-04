@@ -6,13 +6,13 @@
  */
 
 /** Browser-relative form of the balance route. */
-export const BALANCE_ROUTE = 'api/usage-ledger.balance'
+export const BALANCE_ROUTE = 'api/usage-bill.balance'
 
 /** Browser-relative form of the usage series route. */
-export const SERIES_ROUTE = 'api/usage-ledger.series'
+export const SERIES_ROUTE = 'api/usage-bill.series'
 
 /** Browser-relative form of the price list route. */
-export const PRICING_ROUTE = 'api/usage-ledger.pricing'
+export const PRICING_ROUTE = 'api/usage-bill.pricing'
 
 /** Stamp the calling page's identity onto a request the Host forwards to Platform. */
 function identity(url) {

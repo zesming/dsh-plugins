@@ -232,7 +232,7 @@ export function createPricingSource(deps, options = {}) {
         try {
           response = await fetchImpl(PRICING_URL, {
             signal: controller.signal,
-            headers: { accept: 'text/html', 'user-agent': 'dsh-usage-ledger' },
+            headers: { accept: 'text/html', 'user-agent': 'dsh-usage-bill' },
           })
         } finally {
           clearTimeout(timer)

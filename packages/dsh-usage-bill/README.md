@@ -1,4 +1,4 @@
-# dsh-usage-ledger
+# dsh-usage-bill
 
 Your DeepSeek account balance in the sidebar, and a token-usage heatmap of what this machine
 actually spent.
@@ -63,7 +63,7 @@ For the raw answers, set `DSH_DEEPSEEK_USAGE_DEBUG_BONUS=1` in the environment; 
 to the Host log per balance read:
 
 ```
-usage-ledger: bonus sources {"readAt":…,"balanceStatus":"ready",
+usage-bill: bonus sources {"readAt":…,"balanceStatus":"ready",
   "bonusWallets":[{"currency":"CNY","balance":"20.00"}],
   "unnotified":{"accountId":…,"bonuses":[]},"shownExpiring":[]}
 ```
@@ -144,10 +144,10 @@ the peak windows — that split is the actionable part of the number.
 ## Install
 
 ```
-dsh plugin --profile <profile> add dsh-usage-ledger
+dsh plugin --profile <profile> add dsh-usage-bill
 ```
 
-Or from DSH itself: open **Plugins → Add plugin** and enter `dsh-usage-ledger`. The package name is
+Or from DSH itself: open **Plugins → Add plugin** and enter `dsh-usage-bill`. The package name is
 the whole install spec; DSH resolves it from npm.
 
 Restart that profile. The balance row appears in the sidebar; the usage page is reachable from the
@@ -156,7 +156,7 @@ row's menu, from the sidebar's panel list, and from **Settings → Usage**.
 To run a local checkout instead, install it by path:
 
 ```bash
-dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-usage-ledger"
+dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-usage-bill"
 ```
 
 <p align="center">

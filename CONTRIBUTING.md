@@ -33,7 +33,7 @@
 
 ## Commit messages
 
-Plain, imperative, and scoped to the package: `usage-ledger: fix weekly cell geometry`.
+Plain, imperative, and scoped to the package: `usage-bill: fix weekly cell geometry`.
 
 Body text explains the cause, not only the change: what was observed, why it happened, and what the
 fix assumes. A future reader debugging the same area needs the reasoning more than the diff.

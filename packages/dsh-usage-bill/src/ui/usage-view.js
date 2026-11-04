@@ -77,7 +77,7 @@ function RangeSwitch({ primitives, value, onChange, t }) {
     )
   }
   return h(SegmentedControl, {
-    id: 'usage-ledger-range',
+    id: 'usage-bill-range',
     value,
     options,
     onChange,
@@ -148,7 +148,7 @@ function Tokens({ value }) {
  */
 export function installStyles() {
   const tag = document.createElement('style')
-  tag.dataset.plugin = 'dsh-usage-ledger'
+  tag.dataset.plugin = 'dsh-usage-bill'
   tag.textContent = stylesheet()
   document.head.appendChild(tag)
   return () => { tag.remove() }

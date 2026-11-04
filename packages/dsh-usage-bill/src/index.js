@@ -13,13 +13,13 @@ import { collectUsage } from './collect.js'
 import { createPricingSource } from './pricing.js'
 
 /** Route the sidebar reads the balance from. */
-export const BALANCE_PATH = '/api/usage-ledger.balance'
+export const BALANCE_PATH = '/api/usage-bill.balance'
 
 /** Route the usage page reads the series from. */
-export const SERIES_PATH = '/api/usage-ledger.series'
+export const SERIES_PATH = '/api/usage-bill.series'
 
 /** Route the usage page reads the price list from. */
-export const PRICING_PATH = '/api/usage-ledger.pricing'
+export const PRICING_PATH = '/api/usage-bill.pricing'
 
 /** Balance answers are reused for this long; the Platform call is not free. */
 const BALANCE_TTL_MS = 60_000
@@ -168,7 +168,7 @@ function logBonusSources(logger, sources) {
         : { accountId: sources.bonuses.accountId ?? null, bonuses: sources.bonuses.bonuses ?? null },
     shownExpiring: sources.shown ?? null,
   }
-  logger?.info?.(`usage-ledger: bonus sources ${JSON.stringify(summary)}`)
+  logger?.info?.(`usage-bill: bonus sources ${JSON.stringify(summary)}`)
 }
 
 /**
@@ -252,7 +252,7 @@ export function apply(ctx, config = {}) {
           if (payload.available !== true && payload.error !== null && payload.error !== undefined) balanceCache.drop('balance')
           return json({ ...payload, readAt: now() })
         } catch (error) {
-          ctx.logger?.warn?.('usage-ledger: balance read failed', error)
+          ctx.logger?.warn?.('usage-bill: balance read failed', error)
           return failure('balance-failed')
         }
       },
@@ -277,7 +277,7 @@ export function apply(ctx, config = {}) {
           ), force)
           return json(payload)
         } catch (error) {
-          ctx.logger?.warn?.('usage-ledger: usage scan failed', error)
+          ctx.logger?.warn?.('usage-bill: usage scan failed', error)
           return failure('usage-failed')
         }
       },
@@ -294,7 +294,7 @@ export function apply(ctx, config = {}) {
           // prices with an `origin` the page can label.
           return json(await pricing())
         } catch (error) {
-          ctx.logger?.warn?.('usage-ledger: pricing read failed', error)
+          ctx.logger?.warn?.('usage-bill: pricing read failed', error)
           return failure('pricing-failed')
         }
       },
@@ -304,7 +304,7 @@ export function apply(ctx, config = {}) {
       for (const dispose of disposers) dispose()
       balanceCache.clear()
       seriesCache.clear()
-    }, 'usage-ledger: routes')
+    }, 'usage-bill: routes')
   })
 }
 
@@ -334,4 +334,4 @@ function clientIdentity(request) {
 }
 
 /** Plugin name used by the loader. */
-export const name = 'usage-ledger'
+export const name = 'usage-bill'

@@ -22,13 +22,13 @@ const h = React.createElement
 export const inject = ['slots', 'layout', 'locale']
 
 /** Main-area panel id the balance row opens. */
-export const PANEL_ID = 'usage-ledger'
+export const PANEL_ID = 'usage-bill'
 
 /** Settings section id. */
 export const SECTION_ID = 'usage'
 
 /** Locale namespace owned by the plugin. */
-const NS = 'usage-ledger'
+const NS = 'usage-bill'
 
 /**
  * Build the `t` lookup bound to one dictionary.
@@ -63,20 +63,20 @@ function languageOf(ctx) {
 export function apply(ctx) {
   const t = () => lookup(languageOf(ctx))
 
-  ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor('zh'), en: dictionaryFor('en') }), 'usage-ledger: dictionaries')
-  ctx.effect(() => installStyles(), 'usage-ledger: stylesheet')
+  ctx.effect(() => ctx.locale.register(NS, { zh: dictionaryFor('zh'), en: dictionaryFor('en') }), 'usage-bill: dictionaries')
+  ctx.effect(() => installStyles(), 'usage-bill: stylesheet')
 
   const openUsage = () => {
     try {
       ctx.layout.selectPanel(PANEL_ID)
     } catch (error) {
-      ctx.logger?.warn?.('usage-ledger: usage panel is not mounted', error)
+      ctx.logger?.warn?.('usage-bill: usage panel is not mounted', error)
     }
   }
 
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
     name: 'sidebar.footer.action',
-    id: 'usage-ledger-balance',
+    id: 'usage-bill-balance',
     order: -10,
     locale: NS,
     inject: () => ({
