@@ -155,16 +155,18 @@ recap to show. Removing the package leaves these files in place.
 
 ## Install and develop
 
-For a CLI-managed profile:
+For a CLI-managed profile, install the published package — it lives on the internal **bnpm** registry
+under the `@byted-zhongkui` scope, because bnpm rejects an unscoped name:
 
 ```
-dsh plugin --profile <profile> add dsh-session-assist
+dsh plugin --profile <profile> add @byted-zhongkui/dsh-session-assist
 ```
 
-Or from DSH itself: open **Plugins → Add plugin** and enter `dsh-session-assist`. The package name
-is the whole install spec; DSH resolves it from npm.
+Or from DSH itself: open **Plugins → Add plugin** and enter that name. The package name is the whole
+install spec. It is not on the public npm registry yet; the bare name `dsh-session-assist` does not
+resolve there.
 
-For the Electron-managed desktop profile, use **Plugins → Add plugin** and enter the package name,
+For the Electron-managed desktop profile, use **Plugins → Add plugin** and enter the published name,
 or choose a local package directory to run a checkout. Rebuild a checkout before loading it and
 restart the app to ensure the resident Host and browser have the new code. An existing dependency
 specification alone does not prove that its installed link points to a valid directory; check the

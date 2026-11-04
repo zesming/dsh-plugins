@@ -143,15 +143,20 @@ the peak windows — that split is the actionable part of the number.
 
 ## Install
 
+The package is published to the internal **bnpm** registry under the `@byted-zhongkui` scope, because
+bnpm rejects an unscoped name:
+
 ```
-dsh plugin --profile <profile> add dsh-usage-bill
+dsh plugin --profile <profile> add @byted-zhongkui/dsh-usage-bill
 ```
 
-Or from DSH itself: open **Plugins → Add plugin** and enter `dsh-usage-bill`. The package name is
-the whole install spec; DSH resolves it from npm.
+Or from DSH itself: open **Plugins → Add plugin** and enter that name. The package name is the whole
+install spec.
 
 Restart that profile. The balance row appears in the sidebar; the usage page is reachable from the
 row's menu, from the sidebar's panel list, and from **Settings → Usage**.
+
+It is not on the public npm registry yet; the bare name `dsh-usage-bill` does not resolve there.
 
 To run a local checkout instead, install it by path:
 

@@ -11,7 +11,8 @@
   "scripts": {
     "test": "node scripts/test.mjs",
     "build": "node scripts/build.mjs",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm test",
+    "publish:bnpm": "node scripts/publish-bnpm.mjs"
   },
   "workspaces": [
     "packages/*"
