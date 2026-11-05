@@ -26,8 +26,7 @@ Click a preview to open it full size.
 
 ## Install a plugin
 
-These packages are not on a public registry yet, so install a checkout by path — from the
-**Plugins** page's add dialog, or with the CLI:
+Install a checkout by path — from the **Plugins** page's add dialog, or with the CLI:
 
 ```bash
 dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-usage-bill"
@@ -37,12 +36,6 @@ dsh plugin --profile <profile> remove dsh-usage-bill
 
 `link:` keeps the profile pointed at your checkout, so a rebuild plus a DSH restart picks up your
 changes.
-
-Once a package is published, the same command takes its name:
-
-```bash
-dsh plugin --profile <profile> add dsh-usage-bill
-```
 
 A profile applies its bundle list at startup, so **restart the app** after installing or rebuilding.
 Rebuilding alone changes files on disk, not the code already loaded in memory. A `lib/index.js`
@@ -80,25 +73,6 @@ npm run check          # build, then test
 The suites use `node --test` over the pure logic: folding, pricing, formatting, routing, and every
 visibility decision. Browser-only code stays out of the tests, which is why anything that decides a
 number or a state is a function in `src/shared/` rather than inline in a component.
-
-## Publish
-
-`npm run check` first: `lib/` is what ships, so unbuilt sources publish stale artifacts.
-
-A registry can require a scope, and a scope changes three things the loader resolves — the manifest
-name, the row `name` in `cordis.patch.yml`, and the factory id in `lib/client.js`. Renaming only the
-manifest installs a bundle whose browser half registers an id the boot graph never asks for.
-`scripts/publish-scoped.mjs` derives that scoped copy in a temporary directory, so the checkout keeps
-its public-facing names:
-
-```bash
-npm run publish:scoped -- dsh-usage-bill @your-scope --dry-run
-npm run publish:scoped -- dsh-usage-bill @your-scope
-```
-
-The row `id` deliberately keeps its unscoped spelling: it is a profile-local handle the loader never
-resolves, and a `@`-leading YAML scalar is not a valid plain scalar. Bump `version` before
-republishing — a registry refuses to overwrite a published version.
 
 ## Plugin conventions
 

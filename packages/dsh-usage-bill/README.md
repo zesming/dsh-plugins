@@ -143,7 +143,7 @@ the peak windows — that split is the actionable part of the number.
 
 ## Install
 
-This package is not on a public registry yet. Install a checkout by path:
+Install a checkout by path:
 
 ```bash
 dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-usage-bill"
@@ -153,12 +153,6 @@ Or from DSH itself: open **Plugins → Add plugin** and choose that directory.
 
 Restart that profile. The balance row appears in the sidebar; the usage page is reachable from the
 row's menu, from the sidebar's panel list, and from **Settings → Usage**.
-
-Once it is published, the same command takes the package name instead:
-
-```bash
-dsh plugin --profile <profile> add dsh-usage-bill
-```
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/zesming/dsh-plugins/main/docs/images/settings-nav.png" alt="The settings navigation with a dedicated usage icon" width="260">

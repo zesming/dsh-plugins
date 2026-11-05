@@ -161,7 +161,7 @@ recap to show. Removing the package leaves these files in place.
 
 ## Install and develop
 
-This package is not on a public registry yet. Install a checkout by path:
+Install a checkout by path:
 
 ```bash
 dsh plugin --profile <profile> add "link:/absolute/path/to/packages/dsh-session-assist"
@@ -171,12 +171,6 @@ For the Electron-managed desktop profile, use **Plugins → Add plugin** and cho
 directory. Rebuild a checkout before loading it and restart the app to ensure the resident Host and
 browser have the new code. An existing dependency specification alone does not prove that its
 installed link points to a valid directory; check the plugin page for resolution errors.
-
-Once it is published, the same command takes the package name instead:
-
-```
-dsh plugin --profile <profile> add dsh-session-assist
-```
 
 ```bash
 node scripts/build.mjs dsh-session-assist
