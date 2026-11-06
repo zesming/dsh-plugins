@@ -175,11 +175,23 @@ function snapshot(entry) {
  * @param options - tracker bounds.
  * @returns live observer and identity-safe read operations.
  */
-export function createTracker({ maxEvidence = LIMITS.maxEvidence } = {}) {
+export function createTracker({ maxEvidence = LIMITS.maxEvidence, maxSessions = 100 } = {}) {
   const entries = new Map()
   const previous = new Map()
   const surfaces = new Map()
   let generation = 0
+
+  /**
+   * Bound the per-session maps: a long-lived Host that does not emit
+   * session/disposed for every closed Session would otherwise keep one capture
+   * (and up to two prior snapshots plus surface state) per Session forever.
+   * Maps iterate in insertion order, so the oldest Session is evicted first.
+   */
+  const capSessions = () => {
+    while (entries.size >= maxSessions) entries.delete(entries.keys().next().value)
+    while (previous.size >= maxSessions) previous.delete(previous.keys().next().value)
+    while (surfaces.size >= maxSessions) surfaces.delete(surfaces.keys().next().value)
+  }
 
   const trimEvidence = entry => {
     while (entry.evidence.length > maxEvidence) {
@@ -314,6 +326,7 @@ export function createTracker({ maxEvidence = LIMITS.maxEvidence } = {}) {
           hasAssistantToolCall: false,
           calls: new Map(),
         }
+        capSessions()
         entries.set(sessionId, entry)
         return
       }

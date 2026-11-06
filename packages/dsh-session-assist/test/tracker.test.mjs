@@ -197,3 +197,19 @@ test('tracker ignores events without a Session or a valid Turn match', () => {
   tracker.observe(session, event('turn/end', { turn: 1, reason: { kind: 'completed' } }, 4))
   assert.equal(tracker.get('s1').endSeq, undefined)
 })
+
+test('the per-session capture maps are bounded and evict the oldest session (F-07)', () => {
+  const tracker = createTracker({ maxSessions: 2 })
+  const start = id => tracker.observe(
+    { id, surface: { contentGeneration: 1 }, requestHeader: () => ({ config: { provider: 'p', model: 'm' } }) },
+    event('turn/start', { turn: 1 }, 1),
+    { provider: 'p', model: 'm' },
+  )
+  start('a')
+  start('b')
+  assert.equal(tracker.get('a') !== undefined, true)
+  start('c')
+  assert.equal(tracker.get('a'), undefined, 'oldest session capture is evicted')
+  assert.equal(tracker.get('b') !== undefined, true)
+  assert.equal(tracker.get('c') !== undefined, true)
+})

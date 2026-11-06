@@ -378,12 +378,21 @@ function json(value, status = 200) {
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
   });
 }
+var MAX_BODY_BYTES = 4096;
 async function readJson(request) {
-  const length = Number(request.headers.get("content-length") ?? "");
-  if (Number.isFinite(length) && length > 4096)
+  const declared = Number(request.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES)
+    return { ok: false, tooLarge: true };
+  let text;
+  try {
+    text = await request.text();
+  } catch {
+    return { ok: false };
+  }
+  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES)
     return { ok: false, tooLarge: true };
   try {
-    return { ok: true, value: await request.json() };
+    return { ok: true, value: JSON.parse(text) };
   } catch {
     return { ok: false };
   }
@@ -935,11 +944,19 @@ function snapshot(entry) {
     hasAssistantToolCall: entry.hasAssistantToolCall
   };
 }
-function createTracker({ maxEvidence = LIMITS.maxEvidence } = {}) {
+function createTracker({ maxEvidence = LIMITS.maxEvidence, maxSessions = 100 } = {}) {
   const entries = new Map;
   const previous = new Map;
   const surfaces = new Map;
   let generation = 0;
+  const capSessions = () => {
+    while (entries.size >= maxSessions)
+      entries.delete(entries.keys().next().value);
+    while (previous.size >= maxSessions)
+      previous.delete(previous.keys().next().value);
+    while (surfaces.size >= maxSessions)
+      surfaces.delete(surfaces.keys().next().value);
+  };
   const trimEvidence = (entry) => {
     while (entry.evidence.length > maxEvidence) {
       const removed = entry.evidence.shift();
@@ -1072,6 +1089,7 @@ function createTracker({ maxEvidence = LIMITS.maxEvidence } = {}) {
           hasAssistantToolCall: false,
           calls: new Map
         };
+        capSessions();
         entries.set(sessionId, entry2);
         return;
       }
@@ -1403,6 +1421,19 @@ function apply(ctx) {
     getLlm: () => ctx.get("llm"),
     audit: (record) => state.appendAudit(record)
   });
+  function auditPreflight(session, turn, feature, reason) {
+    try {
+      state.appendAudit(createAuditRecord({
+        at: Date.now(),
+        sessionId: session?.id,
+        turn: turn?.turn,
+        endSeq: turn?.endSeq,
+        sourceSelection: turn?.sourceSelection,
+        feature,
+        error: `preflight:${reason}`
+      }));
+    } catch {}
+  }
   const identityKey = (sessionId, turn) => candidateKey(sessionId, turn.turn, turn.endSeq, PROMPT_VERSION, JSON.stringify([turn.generation, turn.sourceSelection ?? null]));
   function isLive(session, turn) {
     try {
@@ -1461,8 +1492,10 @@ function apply(ctx) {
   function startAttempt(session, turn) {
     if (turn.reason?.kind !== "completed" || !Number.isSafeInteger(turn.endSeq))
       return;
-    if (session?.header?.origin === "subagent")
+    if (session?.header?.origin === "subagent") {
+      auditPreflight(session, turn, "none", "subagent");
       return;
+    }
     if (turn.sourceSelection === undefined) {
       const fallback = resolveRoute(session, turn);
       if (fallback !== undefined && tracker.setSourceSelection(session.id, fallback))
@@ -1492,22 +1525,34 @@ function apply(ctx) {
         };
         entry.features = features;
         if (!features.recap && !features.prediction) {
+          const reason = recapNotNeeded ? "not-needed" : "disabled";
+          auditPreflight(session, turn, "none", reason);
           return recapNotNeeded ? { state: "none", reason: "not-needed", recapReason: "not-needed" } : { state: "none", reason: "disabled" };
         }
+        const featureLabel = [features.recap ? "recap" : null, features.prediction ? "prediction" : null].filter(Boolean).join("+");
         const sourceSelection = turn.sourceSelection;
-        if (sourceSelection === undefined)
+        if (sourceSelection === undefined) {
+          auditPreflight(session, turn, featureLabel, "unavailable");
           return { state: "none", reason: "unavailable" };
+        }
         const context = buildAssistanceContext(turn, tracker.history(session.id), LIMITS.maxContextBytes, session.id);
-        if (context.state !== "ready" || !context.currentComplete)
+        if (context.state !== "ready" || !context.currentComplete) {
+          auditPreflight(session, turn, featureLabel, "no-context");
           return { state: "none", reason: "no-context" };
+        }
         if (controller.signal.aborted || lifetime.signal.aborted || !isLive(session, turn))
           return { state: "none", reason: "historical" };
-        if (!gate.take())
+        if (!gate.take()) {
+          auditPreflight(session, turn, featureLabel, "busy");
           return { state: "none", reason: "busy" };
+        }
         try {
           const reserved = await state.reserveAttempt(session.id, localDayKey());
-          if (reserved?.reserved !== true)
-            return { state: "none", reason: reserved?.reason === "budget" ? "budget" : "unavailable" };
+          if (reserved?.reserved !== true) {
+            const reason = reserved?.reason === "budget" ? "budget" : "unavailable";
+            auditPreflight(session, turn, featureLabel, reason);
+            return { state: "none", reason };
+          }
           if (controller.signal.aborted || lifetime.signal.aborted || !isLive(session, turn))
             return { state: "none", reason: "historical" };
           const signal = AbortSignal.any([lifetime.signal, controller.signal]);

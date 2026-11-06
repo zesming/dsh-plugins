@@ -45,7 +45,7 @@ cached recap or nothing; it never starts a batch of model calls to fill old turn
 
 ## Next-prompt suggestions
 
-Enable **Next suggestion** in Settings → **Conversation assist**. After a new turn completes,
+Enable **Next suggestion** in Settings → **Session assist**. After a new turn completes,
 one useful candidate may appear in the full-width suggestion card above the composer. No clear unfinished next step means no row.
 A suggestion should continue the user's existing intent, rather than restating the reply,
 redoing completed work, accepting an optional offer, or granting an undecided approval.
@@ -74,10 +74,11 @@ its text, reserve Tab globally, or occupy a shipped single-occupant slot.
 
 ## Prompt recall
 
-Pressing <kbd>↑</kbd> in an empty composer recalls the previous prompt of the current Session,
-the gesture terminal coding agents use. Repeated <kbd>↑</kbd> keeps walking back through the
-prompts you sent in this Session (including a mid-turn steer); <kbd>↓</kbd> walks forward and,
-past the newest prompt, puts the draft you had before the first recall back.
+Pressing <kbd>↑</kbd> in an empty composer recalls the most recent prompt of the current Session —
+the gesture terminal coding agents use. It restores that one prompt; pressing <kbd>↑</kbd> again
+moves the caret inside the recalled text rather than walking to an older prompt, because the host
+hands the key back to its own editor as soon as the composer holds a draft. <kbd>↓</kbd> or
+<kbd>Esc</kbd> leaves the recalled prompt and restores the draft you had before recalling.
 
 The gesture is taken only when it is unambiguous: the composer must be empty with no attachments
 and in its plain state, the arrow must be bare (no Shift, Alt, Ctrl, or Cmd), no input-method
@@ -87,16 +88,12 @@ exclusions — approval keys, frames, terminals, inert subtrees — keep their k
 writing keeps its caret behaviour, and a running turn does not block recall.
 
 Recalled text is the model-facing text verbatim: a reference chip comes back as the text it was
-sent as, and images are not restored. Consecutive identical prompts collapse to one entry. At the
-oldest prompt the key is handed back, so <kbd>↑</kbd> moves the caret inside the recalled text
-instead of stopping dead. Editing the recalled text leaves history, so the next <kbd>↑</kbd>
-starts again at the newest prompt.
+sent as, and images are not restored. Consecutive identical prompts collapse to one entry.
 
-The hand-back has a second effect worth knowing: once a prompt is recalled, the composer holds a
-draft, and the host gives <kbd>↑</kbd> to the editor's own caret movement. Walking back through
-several prompts therefore needs the composer to be empty again between presses — the plugin cannot
-take those keys without also breaking multi-line editing. <kbd>↓</kbd> and <kbd>Esc</kbd> leave
-history from the recalled text itself.
+Known limitation: recall state is per composer seat. When the same Session is open in two panels
+at once, the two seats do not share a cursor, so recalling in one can overwrite the other's
+in-progress browse. Multi-step walk-back through older prompts is also not available today; it
+needs a host edge the public editor contract does not yet expose.
 
 <kbd>Esc</kbd> also leaves history, but only while the Session is idle: the host already owns
 <kbd>Esc</kbd> <kbd>Esc</kbd> for stopping a running turn, and recalling must not arm it.

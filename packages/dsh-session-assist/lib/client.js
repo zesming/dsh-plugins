@@ -101,7 +101,8 @@ var zh = {
   "settings.prediction.desc": "有明确后续意图时，在输入框上方显示一条建议，可填入聊天或点击发送。默认关闭",
   "settings.note.title": "用量说明",
   "settings.note.body": "显示回顾和下一条建议共用每轮最多一次辅助请求，会增加微量用量。",
-  "settings.error": "设置未保存，请重试。"
+  "settings.error": "设置未保存，请重试。",
+  "settings.loadError": "设置读取失败，当前可能显示的是默认开关。稍后会自动重试。"
 };
 var en = {
   "recap.ariaLabel": "Smart recap",
@@ -120,7 +121,8 @@ var en = {
   "settings.prediction.desc": "When there is clear follow-up intent, show one suggestion above the composer. Fill it into chat or click Send. Off by default.",
   "settings.note.title": "Usage",
   "settings.note.body": "Recaps and next suggestions share at most one auxiliary request per turn, with a small amount of added usage.",
-  "settings.error": "Settings were not saved. Try again."
+  "settings.error": "Settings were not saved. Try again.",
+  "settings.loadError": "Settings could not be loaded, so the switches below may show defaults. They refresh automatically."
 };
 function dictionaryFor(language) {
   return typeof language === "string" && language.toLowerCase().startsWith("zh") ? zh : en;
@@ -382,6 +384,41 @@ function canShowSuggestion({ prediction, sessionId, input, session, identity, ro
   if (submissionStarted(session, input))
     return false;
   return canRequest({ prediction, sessionId, input, session });
+}
+function decideAsk({
+  settings,
+  session,
+  input,
+  sessionId,
+  identity,
+  route,
+  composing = false,
+  consumed = false,
+  candidate = null,
+  predictionOffEpoch
+}) {
+  if (settings?.loaded !== true)
+    return { ask: false, reason: "settings-unloaded" };
+  if (settings.prediction !== true)
+    return { ask: false, reason: "disabled" };
+  if (identity === null || identity === undefined)
+    return { ask: false, reason: "not-completed" };
+  if (routeValue(route) === null)
+    return { ask: false, reason: "no-route" };
+  if (consumed)
+    return { ask: false, reason: "consumed" };
+  if (candidateMatches(candidate, identity, route, predictionOffEpoch)) {
+    return { ask: false, reason: "has-candidate" };
+  }
+  if (!canShowSuggestion({ prediction: settings.prediction, sessionId, input, session, identity, route, composing })) {
+    return { ask: false, reason: submissionStarted(session, input) ? "busy" : "ineligible" };
+  }
+  return { ask: true, reason: "ask" };
+}
+function askStillCurrent({ latest, requestKey, route, predictionOffEpoch, hidden = false }) {
+  if (latest === null || latest === undefined)
+    return false;
+  return identityKey(latest.identity) === requestKey && latest.predictionOffEpoch === predictionOffEpoch && sameRoute(latest.modelRoute, route) && hidden !== true;
 }
 function editableComposerFor(row, sessionId, target) {
   if (typeof sessionId !== "string" || sessionId === "")
@@ -670,7 +707,7 @@ function SettingsSection({ t, useSettings, store }) {
   const change = (setting, next) => {
     store.update({ [setting]: next });
   };
-  return h3("div", { className: "dca-settings" }, h3("h2", { className: "dca-settings-title" }, h3(HintIcon, { className: "dca-settings-icon", size: 18 }), t("settings.title")), h3("p", { className: "dca-settings-intro" }, t("settings.intro")), h3(Row, {
+  return h3("div", { className: "dca-settings" }, h3("h2", { className: "dca-settings-title" }, h3(HintIcon, { className: "dca-settings-icon", size: 18 }), t("settings.title")), h3("p", { className: "dca-settings-intro" }, t("settings.intro")), state.error === true && state.failed === null ? h3("div", { className: "dca-seterror dca-settings-loaderror", role: "alert" }, t("settings.loadError")) : null, h3(Row, {
     setting: "recap",
     name: t("settings.recap.name"),
     description: t("settings.recap.desc"),
@@ -691,7 +728,7 @@ function SettingsSection({ t, useSettings, store }) {
   }), h3("div", { className: "dca-note" }, h3("div", { className: "dca-note-title" }, t("settings.note.title")), h3("div", null, t("settings.note.body"))));
 }
 
-// packages/dsh-session-assist/src/ui/nav-label.js
+// packages/dsh-session-assist/src/ui/nav-icon.js
 var import_react4 = __toESM(require("react"));
 var h4 = import_react4.default.createElement;
 function NavIcon({ size = 16 }) {
@@ -813,8 +850,19 @@ function SuggestionRow({ sessionId, useSession, useInput, useChat, useProjection
     runtime.hidden.hide(sessionId, identity.turn, identity.endSeq);
     setCandidate(null);
   }, [busySubmission, currentKey, sessionId, runtime]);
-  const hasCurrentCandidate = candidateCurrent && !consumed;
-  const canAsk = eligible && !hasCurrentCandidate;
+  const askDecision = decideAsk({
+    settings,
+    session,
+    input,
+    sessionId,
+    identity,
+    route: modelRoute,
+    composing: composingNow,
+    consumed,
+    candidate,
+    predictionOffEpoch
+  });
+  const canAsk = askDecision.ask;
   import_react5.default.useEffect(() => {
     if (!canAsk || identity === null || modelRoute === null)
       return;
@@ -825,7 +873,13 @@ function SuggestionRow({ sessionId, useSession, useInput, useChat, useProjection
     const requestPredictionOffEpoch = predictionOffEpoch;
     const timer = window.setTimeout(() => {
       const beforeRequest = latest.current;
-      if (beforeRequest === null || identityKey(beforeRequest.identity) !== requestKey || beforeRequest.predictionOffEpoch !== requestPredictionOffEpoch || !sameRoute(beforeRequest.modelRoute, requestRoute) || beforeRequest.runtime.hidden.isHidden(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq))
+      if (!askStillCurrent({
+        latest: beforeRequest,
+        requestKey,
+        route: requestRoute,
+        predictionOffEpoch: requestPredictionOffEpoch,
+        hidden: beforeRequest?.runtime.hidden.isHidden(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq)
+      }))
         return;
       runtime.requestSuggestion(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq, controller.signal).then((result) => {
         if (controller.signal.aborted)
@@ -970,6 +1024,7 @@ function SuggestionRow({ sessionId, useSession, useInput, useChat, useProjection
   }, t("suggestion.send")), h5("button", {
     type: "button",
     className: "dca-dismiss",
+    title: t("suggestion.dismiss"),
     "aria-label": t("suggestion.dismiss"),
     onMouseDown: (event) => {
       event.preventDefault();
@@ -1184,7 +1239,8 @@ function createRecallController({ latest, observeFixedInput, historyFor: history
     event.consume();
   });
   return { dispose() {
-    off();
+    if (typeof off === "function")
+      off();
     recall.reset();
   } };
 }
@@ -1268,9 +1324,17 @@ var CSS = `
   overflow-wrap: anywhere;
 }
 .dca-insert, .dca-dismiss {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+/* Keep the 28px visual but grow the click target to ~32px, the smallest size a
+   pointer can reliably hit, without disturbing the compact strip layout. */
+.dca-insert::before, .dca-dismiss::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
 }
 .dca-insert {
   flex: none;
@@ -1332,6 +1396,7 @@ var CSS = `
 .dca-setname { font-size: 14px; line-height: 20px; }
 .dca-setdesc { margin-top: 4px; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; }
 .dca-seterror { margin-top: 4px; color: var(--dsw-alias-state-error-primary, var(--dsw-alias-state-warn-label)); font-size: 12px; line-height: 18px; }
+.dca-settings-loaderror { margin: 4px 0 8px; }
 .dca-switch { width: 36px; height: 20px; border-radius: 10px; border: 0; background: var(--dsw-alias-border-l3); position: relative; cursor: pointer; flex: none; }
 .dca-switch[aria-checked="true"] { background: var(--dsw-alias-brand-primary, var(--dsw-alias-label-primary)); }
 .dca-switch:disabled { opacity: .5; cursor: default; }
@@ -1470,6 +1535,7 @@ function createSettingsStore({ language }) {
           reverted[key] = previous[key];
         set({
           ...reverted,
+          predictionOffEpoch: previous.predictionOffEpoch,
           error: previous.error,
           failed: keys[0] ?? null,
           pending: pendingFor(keys, false)
@@ -1485,13 +1551,15 @@ function createSettingsStore({ language }) {
     namespace: NS
   };
 }
-function createHiddenTurns() {
+function createHiddenTurns({ maxSessions = 100 } = {}) {
   const hidden = new Map;
   const keyOf = (turn, endSeq) => `${turn}:${endSeq ?? ""}`;
   return {
     hide(sessionId, turn, endSeq) {
       let turns = hidden.get(sessionId);
       if (turns === undefined) {
+        while (hidden.size >= maxSessions)
+          hidden.delete(hidden.keys().next().value);
         turns = new Set;
         hidden.set(sessionId, turns);
       }

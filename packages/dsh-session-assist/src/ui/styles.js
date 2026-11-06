@@ -60,9 +60,17 @@ const CSS = `
   overflow-wrap: anywhere;
 }
 .dca-insert, .dca-dismiss {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+/* Keep the 28px visual but grow the click target to ~32px, the smallest size a
+   pointer can reliably hit, without disturbing the compact strip layout. */
+.dca-insert::before, .dca-dismiss::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
 }
 .dca-insert {
   flex: none;
@@ -124,6 +132,7 @@ const CSS = `
 .dca-setname { font-size: 14px; line-height: 20px; }
 .dca-setdesc { margin-top: 4px; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; }
 .dca-seterror { margin-top: 4px; color: var(--dsw-alias-state-error-primary, var(--dsw-alias-state-warn-label)); font-size: 12px; line-height: 18px; }
+.dca-settings-loaderror { margin: 4px 0 8px; }
 .dca-switch { width: 36px; height: 20px; border-radius: 10px; border: 0; background: var(--dsw-alias-border-l3); position: relative; cursor: pointer; flex: none; }
 .dca-switch[aria-checked="true"] { background: var(--dsw-alias-brand-primary, var(--dsw-alias-label-primary)); }
 .dca-switch:disabled { opacity: .5; cursor: default; }

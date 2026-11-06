@@ -22,6 +22,15 @@ function message(options = {}) {
   }
 }
 
+/**
+ * Beijing wall-clock instant. Tier is decided on the Beijing clock, so the
+ * peak/off-peak tests build their instants explicitly instead of in machine
+ * local time (which is what made them red outside UTC+8).
+ */
+function beijing(year, month, day, hour, minute = 0) {
+  return Date.UTC(year, month - 1, day, hour - 8, minute, 0)
+}
+
 test('channels classify providers and never invent an account', () => {
   assert.equal(channelOf('deepseek-account'), 'official')
   assert.equal(channelOf('deepseek'), 'apikey')
@@ -63,6 +72,30 @@ test('events without usage are skipped instead of estimated', () => {
     { type: 'assistant/message', seq: 1, time: Date.now(), data: { message: { source: { provider: 'deepseek', model: 'x' } } } },
   ], new Map())
   assert.equal(records.size, 0)
+})
+
+test('events without a timestamp are skipped, never dated to fold time (F-16)', () => {
+  // A missing instant must not be invented: placing it at "now" would lie about
+  // both the calendar day and the peak/off-peak tier. The helper fills a
+  // default time with ??, so strip/override the field to build real untimed
+  // events.
+  const untimed = () => message()
+  for (const time of [undefined, null, NaN, '2026-10-21']) {
+    const event = untimed()
+    if (time === undefined) delete event.time
+    else event.time = time
+    const records = foldSession([event], new Map())
+    assert.equal(records.size, 0, `time ${String(time)} must be dropped, not folded`)
+  }
+  // A finite-time event still folds alongside the dropped ones.
+  const timed = message({ time: Date.UTC(2026, 9, 21, 4, 0, 0) })
+  const records = foldSession([untimed(), timed].map((event, index) => {
+    if (index === 0) delete event.time
+    return event
+  }), new Map())
+  const record = records.get('deepseek-account::deepseek-v4')
+  assert.equal(record.totals.calls, 1)
+  assert.equal([...record.days.keys()].length, 1)
 })
 
 test('negative and non-finite counts never reach the totals', () => {
@@ -176,24 +209,35 @@ test('the window upper bound includes its own day', () => {
 
 test('a call is billed at the tier of its own instant', () => {
   // 2026-10-21 is a Wednesday. 10:00 Beijing falls in the morning peak block;
-  // 22:00 Beijing is off-peak.
-  const events = [
-    message({ time: new Date(2026, 9, 21, 10, 0, 0).getTime() }),
-    message({ time: new Date(2026, 9, 21, 22, 0, 0).getTime() }),
-  ]
-  const record = foldSession(events, new Map()).get('deepseek-account::deepseek-v4')
-  assert.equal(record.totals.total, 200)
+  // 22:00 Beijing is off-peak. Instants are expressed on the Beijing clock so
+  // the tier assertion holds in any machine timezone.
+  const peakInstant = beijing(2026, 10, 21, 10)
+  const offPeakInstant = beijing(2026, 10, 21, 22)
+  const id = 'deepseek-account::deepseek-v4'
+
+  const peakRecord = foldSession([message({ time: peakInstant })], new Map()).get(id)
+  const offPeakRecord = foldSession([message({ time: offPeakInstant })], new Map()).get(id)
+  assert.equal(peakRecord.totals.peak.input, 10)
+  assert.equal(offPeakRecord.totals.peak.input, 0, 'the 22:00 call contributes nothing to peak')
+
+  const together = foldSession(
+    [message({ time: peakInstant }), message({ time: offPeakInstant })],
+    new Map(),
+  ).get(id)
+  assert.equal(together.totals.total, 200)
   // Only the morning call contributes to the peak subset.
-  assert.equal(record.totals.peak.input, 10)
-  assert.equal(record.totals.peak.output, 5)
-  assert.equal(record.totals.peak.cacheRead, 85)
-  assert.equal(record.days.get('2026-10-21').peak.input, 10)
+  assert.equal(together.totals.peak.input, 10)
+  assert.equal(together.totals.peak.output, 5)
+  assert.equal(together.totals.peak.cacheRead, 85)
+  // Attribute through the viewer-local day key derived from the instant, not a
+  // hardcoded date that shifts when the machine timezone changes.
+  assert.equal(together.days.get(dayKey(peakInstant)).peak.input, 10)
 })
 
 test('a weekend call is never billed at the peak rate', () => {
-  // 2026-10-24 is a Saturday.
+  // 2026-10-24 10:00 Beijing is a Saturday.
   const record = foldSession(
-    [message({ time: new Date(2026, 9, 24, 10, 0, 0).getTime() })],
+    [message({ time: beijing(2026, 10, 24, 10) })],
     new Map(),
   ).get('deepseek-account::deepseek-v4')
   assert.equal(record.totals.peak.input, 0)
@@ -201,8 +245,9 @@ test('a weekend call is never billed at the peak rate', () => {
 })
 
 test('merging sessions keeps the peak subset consistent with the total', () => {
-  const peakOnly = foldSession([message({ time: new Date(2026, 9, 21, 10, 0, 0).getTime() })], new Map())
-  const offPeakOnly = foldSession([message({ time: new Date(2026, 9, 21, 22, 0, 0).getTime() })], new Map())
+  const peakOnly = foldSession([message({ time: beijing(2026, 10, 21, 10) })], new Map())
+  const offPeakOnly = foldSession([message({ time: beijing(2026, 10, 21, 22) })], new Map())
+  assert.equal(offPeakOnly.get('deepseek-account::deepseek-v4').totals.peak.input, 0)
   const merged = mergeInto(peakOnly, offPeakOnly)
   const record = merged.get('deepseek-account::deepseek-v4')
   assert.equal(record.totals.calls, 2)
@@ -219,7 +264,7 @@ test('excluding subagents removes their peak usage too', () => {
 })
 
 test('serialization deep-copies the peak sub-tally', () => {
-  const records = foldSession([message({ time: new Date(2026, 9, 21, 10, 0, 0).getTime() })], new Map())
+  const records = foldSession([message({ time: beijing(2026, 10, 21, 10) })], new Map())
   const { models } = serialize(records, { includeSubagents: false })
   const row = models[0]
   const live = records.get(row.id)

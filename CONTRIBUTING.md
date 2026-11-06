@@ -15,11 +15,10 @@
   `package.json`, the bundle list, and the lockfile.
 - Do not replace a shipped component or claim a slot another package already occupies. Contribute a
   new seat instead.
-- Reaching into another package's rendering needs a reason and a narrow rule. Two cases exist today:
-  a settings section's nav glyph, which the shell chooses by section id with no option for third-party
-  sections. The plugin marks its own label and hides the shell's fallback glyph **in that row only**,
-  keyed on structure and its own marker — never on a class token the shell hashes per build. Any such
-  rule must be conditional on something only this plugin emits.
+- A settings section contributes its nav glyph through the `settings.section.icon` slot, registered
+  with the same `id` as its `settings.section` entry. The component only owns the glyph (it receives
+  `size`/`active`); the shell owns the button, label, and fallback gear. Do not hide or override the
+  shell's glyph with structural CSS: the slot is the supported seam and survives shell DOM changes.
 - Take host UI primitives (`Menu`, `SegmentedControl`, `Switch`, icons) from the shared module table
   and declare them under `dsh.client.external`. A bundled second copy loses theme tokens and focus
   rings.

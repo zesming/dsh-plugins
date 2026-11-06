@@ -138,6 +138,7 @@ export function stylesheet() {
 .dsu-panel-head{display:flex;align-items:center;gap:10px;flex:none;width:100%;max-width:960px;margin:0 auto;padding:calc(28px + var(--dsh-frame-top-clearance,0px)) clamp(24px,4vw,48px) 0;box-sizing:border-box}
 .dsu-panel-title{margin:0;min-width:0;max-width:100%;font-size:20px;font-weight:500;line-height:28px;letter-spacing:0}
 .dsu-panel-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
+.dsu-settings-actions{display:flex;justify-content:flex-end;margin-bottom:8px}
 .dsu-icon-btn{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:background-color .12s ease,color .12s ease}
 .dsu-icon-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
 .dsu-icon-btn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));outline-offset:-2px}
