@@ -48,7 +48,26 @@ export function apply(ctx) {
     id: 'dsh-session-assist.recap',
     order: 20,
     locale: NS,
-    inject: () => ({ hooks: { settings }, runtime: { requestRecap } }),
+    // The turnTail slot hands occupants the Turn number, not the Turn object:
+    // the shell owns the location index. Expose this plugin's folded recap
+    // facts as a keyed hook over chat's per-turn data source.
+    inject: (sessionId) => {
+      const injected = { hooks: { settings }, runtime: { requestRecap } }
+      const binding = ctx.sessions?.binding?.(sessionId)
+      if (binding === undefined || binding === null) return injected
+      let chat
+      try {
+        chat = ctx.uiConversation.binding(binding).target('chat')
+      } catch {
+        return injected
+      }
+      return {
+        ...injected,
+        keyedHooks: {
+          recapFacts: turn => chat.getSnapshot()?.nodes.turnDataSource(Number(turn), 'session-assist.recap'),
+        },
+      }
+    },
   }, RecapTail))
 
   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({

@@ -524,6 +524,24 @@ function recapPresentation({ enabled, subagent, closed, requestView }) {
   return { kind: "recap" };
 }
 
+// packages/dsh-session-assist/src/ui/recap-turn.mjs
+function resolveRecapTurn({ turnNumber, sessionId, turnRecord, definedFacts }) {
+  const end = turnRecord?.end;
+  const endSeq = Number.isSafeInteger(end?.seq) ? end.seq : null;
+  const identity = turnIdentity(sessionId, turnNumber, endSeq);
+  const facts = definedFacts ?? {
+    turn: turnNumber,
+    hasReply: false,
+    finalReply: false,
+    reasonKind: end?.data?.reason?.kind ?? "unknown",
+    lastText: undefined
+  };
+  return { end, identity, facts };
+}
+function recapCacheKey(identity, replyHash) {
+  return identity === null ? "" : `${identityKey(identity)}:${replyHash ?? ""}`;
+}
+
 // packages/dsh-session-assist/src/ui/recap.js
 var h = import_react.default.createElement;
 var RECAP_KIND = "session-assist.recap";
@@ -557,23 +575,19 @@ function createRecapDefinition() {
     }
   };
 }
-function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime }) {
+function RecapTail({ turn: turnNumber, useChat, useRecapFacts, sessionId, t, useSession, useSettings, runtime }) {
   const subagent = useSession((state) => state.subagent);
   const enabled = useSettings((state) => state.recap === true);
   const settingsLoaded = useSettings((state) => state.loaded === true);
+  const turnRecord = useChat((snapshot) => {
+    if (!Number.isSafeInteger(turnNumber))
+      return null;
+    return snapshot.timeline.turns.get(turnNumber) ?? null;
+  });
+  const definedFacts = typeof useRecapFacts === "function" ? useRecapFacts(String(turnNumber)) : undefined;
   const [request, setRequest] = import_react.default.useState(null);
-  const end = turn?.end;
-  const endSeq = Number.isSafeInteger(end?.seq) ? end.seq : null;
-  const identity = turnIdentity(sessionId, turn?.turn, endSeq);
-  const value = turn?.data?.get(RECAP_KIND);
-  const facts = value ?? {
-    turn: turn?.turn,
-    hasReply: false,
-    finalReply: false,
-    reasonKind: end?.data?.reason?.kind ?? "unknown",
-    lastText: undefined
-  };
-  const recapKey = identity === null ? "" : `${identityKey(identity)}:${facts.replyHash ?? ""}`;
+  const { end, identity, facts } = resolveRecapTurn({ turnNumber, sessionId, turnRecord, definedFacts });
+  const recapKey = recapCacheKey(identity, facts.replyHash);
   const shouldRequest = shouldRequestRecap({
     settingsLoaded,
     enabled,
@@ -1575,7 +1589,24 @@ function apply(ctx) {
     id: "dsh-session-assist.recap",
     order: 20,
     locale: NS,
-    inject: () => ({ hooks: { settings }, runtime: { requestRecap } })
+    inject: (sessionId) => {
+      const injected = { hooks: { settings }, runtime: { requestRecap } };
+      const binding = ctx.sessions?.binding?.(sessionId);
+      if (binding === undefined || binding === null)
+        return injected;
+      let chat;
+      try {
+        chat = ctx.uiConversation.binding(binding).target("chat");
+      } catch {
+        return injected;
+      }
+      return {
+        ...injected,
+        keyedHooks: {
+          recapFacts: (turn) => chat.getSnapshot()?.nodes.turnDataSource(Number(turn), "session-assist.recap")
+        }
+      };
+    }
   }, RecapTail));
   ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
     name: "conversation.input.dock",
