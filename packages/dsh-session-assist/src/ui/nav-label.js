@@ -1,4 +1,4 @@
-/** The settings nav label with the same lightbulb the row uses. */
+/** The settings nav icon for the session-assist section. */
 
 import React from 'react'
 
@@ -7,14 +7,16 @@ import { HintIcon } from './icons.js'
 const h = React.createElement
 
 /**
- * Render the nav label as marker + text. The marker is the hook the plugin's
- * stylesheet uses to hide the shell's gear fallback in this row only; every
- * other settings row keeps the shipped glyph.
- * @param text - localized section name.
- * @returns a React fragment for the shell to render as the label children.
+ * Render the lightbulb the shell shows in the settings nav for this section.
+ *
+ * The shell renders the occupant of the `settings.section.icon` slot (matched
+ * by the section's id) inside its own leading-glyph seat and falls back to the
+ * gear when no icon is registered. The component only owns the glyph; the
+ * shell owns the button, label, size, and active state.
+ *
+ * @param props.size - edge length in pixels supplied by the shell.
+ * @returns an inline lightbulb glyph.
  */
-export function navLabel(text) {
-  return h(React.Fragment, null,
-    h('span', { 'data-dca-navmark': '', 'aria-hidden': 'true' }, h(HintIcon, { size: 16 })),
-    h('span', { 'data-dca-navtext': '' }, text))
+export function NavIcon({ size = 16 }) {
+  return h(HintIcon, { size })
 }

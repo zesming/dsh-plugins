@@ -818,18 +818,8 @@ var HEAT = {
   light: ["var(--dsw-static-deepseek-100)", "var(--dsw-static-deepseek-200)", "var(--dsw-static-deepseek-300)", "var(--dsw-static-deepseek-450)", "var(--dsw-static-deepseek-600)"],
   dark: ["var(--dsw-static-deepseek-800)", "var(--dsw-static-deepseek-500)", "var(--dsw-static-deepseek-450)", "var(--dsw-static-deepseek-400)", "var(--dsw-static-deepseek-200)"]
 };
-var NAV_SEAT_CSS = [
-  "button:has(> [data-dsu-navmark]) > svg { display: none; }",
-  "button:has(> span > [data-dsu-navmark]) > svg { display: none; }",
-  "button:has(> span > [data-dsu-navmark]) > span { display: flex; align-items: center; gap: 8px; min-width: 0; }",
-  "[data-dsu-navmark] { display: inline-flex; flex: none; width: 16px; height: 16px; color: currentColor; }",
-  "[data-dsu-navtext] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
-].join(`
-`);
 function stylesheet() {
-  return `${NAV_SEAT_CSS}
-[data-dsu-navtext] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
+  return `
 .dsu{--dsu-heat-1:${HEAT.light[0]};--dsu-heat-2:${HEAT.light[1]};--dsu-heat-3:${HEAT.light[2]};--dsu-heat-4:${HEAT.light[3]};--dsu-heat-5:${HEAT.light[4]};--dsu-empty:var(--dsw-alias-bg-module-platform);font-family:var(--dsw-font-family);color:var(--dsw-alias-label-primary);-webkit-font-smoothing:antialiased}
 [data-ds-dark-theme] .dsu{--dsu-heat-1:${HEAT.dark[0]};--dsu-heat-2:${HEAT.dark[1]};--dsu-heat-3:${HEAT.dark[2]};--dsu-heat-4:${HEAT.dark[3]};--dsu-heat-5:${HEAT.dark[4]};--dsu-empty:rgba(255,255,255,.07)}
 
@@ -1640,25 +1630,22 @@ function apply(ctx) {
     locale: NS,
     label: () => t()("usage")
   }, () => h3(Glyph, { description: USAGE })));
+  ctx.slots.inject("settings.section.icon", () => ctx.slots.register({
+    name: "settings.section.icon",
+    id: SECTION_ID,
+    locale: NS
+  }, UsageNavIcon));
   ctx.slots.inject("settings.section", () => ctx.slots.register({
     name: "settings.section",
     id: SECTION_ID,
     order: 5,
-    label: () => h3(UsageNavLabel, { text: t()("nav") }),
+    label: () => t()("nav"),
     locale: NS,
     inject: () => ({ t: t(), language: languageOf(ctx), primitives })
   }, UsageSettingsSection));
 }
-function UsageNavLabel({ text }) {
-  return h3(import_react.default.Fragment, null, h3("span", { "data-dsu-navmark": "", "aria-hidden": "true" }, h3("svg", {
-    viewBox: USAGE.viewBox,
-    width: 16,
-    height: 16,
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: USAGE.strokeWidth,
-    strokeLinejoin: "round"
-  }, USAGE.children.map((child, index) => h3("path", { key: index, ...child })))), h3("span", { "data-dsu-navtext": "" }, text));
+function UsageNavIcon({ size = 16 }) {
+  return h3(Glyph, { description: { ...USAGE, width: size, height: size } });
 }
 function UsagePanel({ t, language, primitives: primitives2 }) {
   const [refreshToken, setRefreshToken] = import_react.default.useState(0);

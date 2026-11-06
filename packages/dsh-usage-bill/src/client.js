@@ -106,47 +106,39 @@ export function apply(ctx) {
     label: () => t()('usage'),
   }, () => h(Glyph, { description: USAGE })))
 
-  // The settings shell picks a nav glyph by section id and falls back to the
-  // gear for any id it does not know, and `settings.section` has no icon
-  // option. Rather than occupy another section's id, the label itself carries
-  // the mark: the shell renders `label` as React children, and a stylesheet
-  // hides the gear only in the row whose label contains our marker.
+  // The settings shell renders the occupant of `settings.section.icon`
+  // (matched by section id) in its nav-glyph seat and falls back to the gear
+  // for ids without one. Register the usage glyph there; the section label
+  // stays plain text because the shell owns the whole nav button.
+  ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
+    name: 'settings.section.icon',
+    id: SECTION_ID,
+    locale: NS,
+  }, UsageNavIcon))
+
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: SECTION_ID,
     order: 5,
-    label: () => h(UsageNavLabel, { text: t()('nav') }),
+    label: () => t()('nav'),
     locale: NS,
     inject: () => ({ t: t(), language: languageOf(ctx), primitives }),
   }, UsageSettingsSection))
 }
 
 /**
- * The settings nav label, with the usage mark in the seat the shell's gear
- * occupies.
+ * The settings nav icon for the usage section.
  *
- * `data-dsu-navmark` is the hook the plugin's own stylesheet keys on: while a
- * row's label contains it, that row's built-in glyph is hidden and this one is
- * laid out in its place. Every other row keeps the shipped rendering.
+ * The shell renders the occupant of the `settings.section.icon` slot (matched
+ * by the section's id) in its own leading-glyph seat, falling back to the
+ * gear when no icon is registered. The component only owns the glyph; the
+ * shell owns the button, label, size, and active state.
  *
- * @param props.text - localized section name.
- * @returns the marker plus the label text.
+ * @param props.size - edge length in pixels supplied by the shell.
+ * @returns the usage mark sized for the nav rail.
  */
-function UsageNavLabel({ text }) {
-  return h(React.Fragment, null,
-    h('span', { 'data-dsu-navmark': '', 'aria-hidden': 'true' },
-      h('svg', {
-        viewBox: USAGE.viewBox,
-        width: 16,
-        height: 16,
-        fill: 'none',
-        stroke: 'currentColor',
-        strokeWidth: USAGE.strokeWidth,
-        strokeLinejoin: 'round',
-      }, USAGE.children.map((child, index) => h('path', { key: index, ...child }))),
-    ),
-    h('span', { 'data-dsu-navtext': '' }, text),
-  )
+function UsageNavIcon({ size = 16 }) {
+  return h(Glyph, { description: { ...USAGE, width: size, height: size } })
 }
 
 /**

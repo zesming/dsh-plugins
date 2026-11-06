@@ -1,14 +1,6 @@
 /** Plugin stylesheet, installed for the plugin's lifetime. */
 
 const CSS = `
-/* The shell draws one nav glyph per settings row and falls back to the gear for
-   unknown section ids. The label is React children, so this marker hides that
-   glyph only in our row and lays the lightbulb out in its seat. */
-button:has(> [data-dca-navmark]) > svg { display: none; }
-button:has(> span > [data-dca-navmark]) > svg { display: none; }
-button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
-[data-dca-navmark] { display: inline-flex; flex: none; width: 16px; height: 16px; color: currentColor; }
-[data-dca-navtext] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dca-recap {
   margin: 12px 0 0;
   padding-left: 12px;

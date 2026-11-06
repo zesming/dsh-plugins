@@ -3,7 +3,7 @@
 import { NS, dictionaryFor } from './shared/locales.mjs'
 import { createRecapDefinition, RecapTail } from './ui/recap.js'
 import { SettingsSection } from './ui/settings.js'
-import { navLabel } from './ui/nav-label.js'
+import { NavIcon } from './ui/nav-label.js'
 import { SuggestionRow } from './ui/suggestion.js'
 import { PromptRecallSeat } from './ui/recall-seat.js'
 import { installStyles } from './ui/styles.js'
@@ -67,11 +67,21 @@ export function apply(ctx) {
     inject: () => ({ runtime }),
   }, PromptRecallSeat))
 
+  // The settings shell renders the occupant of `settings.section.icon`
+  // (matched by section id) in its nav-glyph seat and falls back to the gear
+  // for ids without one. Register the lightbulb there; the section label
+  // stays plain text because the shell owns the whole nav button.
+  ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
+    name: 'settings.section.icon',
+    id: 'session-assist',
+    locale: NS,
+  }, NavIcon))
+
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: 'session-assist',
     order: 6,
-    label: () => navLabel(dictionaryFor(language())['settings.nav']),
+    label: () => dictionaryFor(language())['settings.nav'],
     locale: NS,
     inject: () => ({ hooks: { settings }, store: settings }),
   }, SettingsSection))

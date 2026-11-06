@@ -694,8 +694,8 @@ function SettingsSection({ t, useSettings, store }) {
 // packages/dsh-session-assist/src/ui/nav-label.js
 var import_react4 = __toESM(require("react"));
 var h4 = import_react4.default.createElement;
-function navLabel(text) {
-  return h4(import_react4.default.Fragment, null, h4("span", { "data-dca-navmark": "", "aria-hidden": "true" }, h4(HintIcon, { size: 16 })), h4("span", { "data-dca-navtext": "" }, text));
+function NavIcon({ size = 16 }) {
+  return h4(HintIcon, { size });
 }
 
 // packages/dsh-session-assist/src/ui/suggestion.js
@@ -1209,14 +1209,6 @@ function PromptRecallSeat({ sessionId, useSession, useInput, inputActions, runti
 
 // packages/dsh-session-assist/src/ui/styles.js
 var CSS = `
-/* The shell draws one nav glyph per settings row and falls back to the gear for
-   unknown section ids. The label is React children, so this marker hides that
-   glyph only in our row and lays the lightbulb out in its seat. */
-button:has(> [data-dca-navmark]) > svg { display: none; }
-button:has(> span > [data-dca-navmark]) > svg { display: none; }
-button:has(> span > [data-dca-navmark]) > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
-[data-dca-navmark] { display: inline-flex; flex: none; width: 16px; height: 16px; color: currentColor; }
-[data-dca-navtext] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dca-recap {
   margin: 12px 0 0;
   padding-left: 12px;
@@ -1599,11 +1591,16 @@ function apply(ctx) {
     locale: NS,
     inject: () => ({ runtime })
   }, PromptRecallSeat));
+  ctx.slots.inject("settings.section.icon", () => ctx.slots.register({
+    name: "settings.section.icon",
+    id: "session-assist",
+    locale: NS
+  }, NavIcon));
   ctx.slots.inject("settings.section", () => ctx.slots.register({
     name: "settings.section",
     id: "session-assist",
     order: 6,
-    label: () => navLabel(dictionaryFor(language())["settings.nav"]),
+    label: () => dictionaryFor(language())["settings.nav"],
     locale: NS,
     inject: () => ({ hooks: { settings }, store: settings })
   }, SettingsSection));
