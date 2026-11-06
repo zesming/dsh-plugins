@@ -260,7 +260,7 @@ function Glyph({ description }) {
 function menuOf(primitives) {
   return typeof primitives?.Menu === "function" ? primitives.Menu : undefined;
 }
-function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
+function BalanceRow({ wide, openUsage, t, language, primitives }) {
   const [state, setState] = React.useState({ status: "loading" });
   const [open, setOpen] = React.useState(false);
   const anchor = React.useRef(null);
@@ -268,6 +268,7 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
   const inflight = React.useRef(undefined);
   const mounted = React.useRef(true);
   const signedIn = React.useRef(false);
+  const topUpUrl = React.useRef(null);
   const load = React.useCallback(async (force) => {
     inflight.current?.abort();
     const controller = new AbortController;
@@ -275,12 +276,33 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
     try {
       const payload2 = await fetchBalance({ force, signal: controller.signal });
       if (mounted.current && inflight.current === controller) {
-        setState({ status: "ready", payload: payload2 });
-        signedIn.current = payload2?.signedIn === true;
+        const proved = payload2?.signedIn === true;
+        const wasProved = signedIn.current;
+        if (proved) {
+          signedIn.current = true;
+          if (typeof payload2.topUpUrl === "string" && payload2.topUpUrl !== "") {
+            topUpUrl.current = payload2.topUpUrl;
+          }
+        }
+        const shown = !proved && wasProved ? {
+          signedIn: true,
+          available: false,
+          error: typeof payload2?.error === "string" ? payload2.error : "network",
+          ...topUpUrl.current === null ? {} : { topUpUrl: topUpUrl.current }
+        } : payload2;
+        setState({ status: "ready", payload: shown });
       }
     } catch (error) {
       if (error?.name !== "AbortError" && mounted.current && inflight.current === controller) {
-        setState({ status: "ready", payload: { signedIn: false, available: false, error: "network" } });
+        setState({
+          status: "ready",
+          payload: signedIn.current ? {
+            signedIn: true,
+            available: false,
+            error: "network",
+            ...topUpUrl.current === null ? {} : { topUpUrl: topUpUrl.current }
+          } : { signedIn: false, available: false, error: "network" }
+        });
       }
     } finally {
       if (inflight.current === controller)
@@ -346,6 +368,11 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
     when: relativeDays(expiring.daysLeft, language)
   }) : ready ? null : t("balanceUnavailable");
   const Menu = menuOf(primitives);
+  const topUpHref = typeof payload.topUpUrl === "string" && payload.topUpUrl !== "" ? payload.topUpUrl : null;
+  const openTopUp = () => {
+    if (topUpHref !== null)
+      window.open(topUpHref, "_blank", "noopener");
+  };
   const label = h("button", {
     ref: trigger,
     type: "button",
@@ -372,11 +399,11 @@ function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
         label: t("usage"),
         icon: h(Glyph, { description: USAGE })
       },
-      {
+      ...topUpHref === null ? [] : [{
         id: "topup",
         label: t("topUp"),
         icon: h(Glyph, { description: PLUS })
-      }
+      }]
     ],
     onClose: () => {
       setOpen(false);
@@ -1215,7 +1242,7 @@ function DayHeatmap({ series, today, t, onHover }) {
   const level = React.useMemo(() => quantileLevels([...byDay.values()].map((entry) => entry.total)), [byDay]);
   const width = DAY_COLUMNS * (CELL + GAP);
   const height = 7 * (CELL + GAP);
-  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("dayHint"))), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-dow" }, ["mon", "wed", "fri", "sun"].map((_, index) => h2("span", { key: index }, WEEKDAY_GLYPHS[index]))), h2("div", { className: "dsu-hm-canvas" }, h2("svg", {
+  return h2("div", null, h2("div", { className: "dsu-hm-head" }, h2("span", { className: "dsu-hm-title" }, t("dayHint"))), h2("div", { className: "dsu-hm-body" }, h2("div", { className: "dsu-dow" }, ["dowMon", "dowWed", "dowFri", "dowSun"].map((key) => h2("span", { key }, t(key)))), h2("div", { className: "dsu-hm-canvas" }, h2("svg", {
     className: "dsu-svg",
     viewBox: `0 0 ${String(width)} ${String(height)}`,
     preserveAspectRatio: "xMidYMid meet",
@@ -1258,7 +1285,6 @@ function DayHeatmap({ series, today, t, onHover }) {
   }, String(label.month)))))), h2(Legend, { t }));
 }
 var BLOCK_GAP = 7;
-var WEEKDAY_GLYPHS = ["一", "三", "五", "日"];
 function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) {
   const width = columns.length * (WEEK_CELL + WEEK_GAP);
   const height = Math.round(width * GRID_ASPECT);
@@ -1378,7 +1404,7 @@ function ModelTable({ series, totals, t, pricing }) {
     const cost = plan === undefined ? null : estimateCost(sum, plan);
     return { row, sum, cost };
   }).filter((entry) => entry.sum.calls > 0).sort((a, b) => b.sum.total - a.sum.total);
-  return h2("div", { className: "dsu-table-wrap" }, h2("div", { className: "dsu-table-title" }, h2("span", null, t("byModel")), h2("span", null, "tokens")), h2("table", { className: "dsu-table" }, h2("thead", null, h2("tr", null, h2("th", null, t("model")), h2("th", null, t("modelCalls")), h2("th", null, t("modelInput")), h2("th", null, t("modelOutput")), h2("th", null, t("modelCache")), h2("th", null, t("modelTotal")), priced !== null ? h2("th", null, t("costColumn")) : null, h2("th", null, t("modelShare")))), h2("tbody", null, rows.length === 0 ? h2("tr", null, h2("td", { colSpan: priced !== null ? 8 : 7, style: { textAlign: "center", padding: "20px 0" } }, t("noData"))) : rows.map(({ row, sum, cost }) => {
+  return h2("div", { className: "dsu-table-wrap" }, h2("div", { className: "dsu-table-title" }, h2("span", null, t("byModel")), h2("span", null, t("unitTokens"))), h2("table", { className: "dsu-table" }, h2("thead", null, h2("tr", null, h2("th", null, t("model")), h2("th", null, t("modelCalls")), h2("th", null, t("modelInput")), h2("th", null, t("modelOutput")), h2("th", null, t("modelCache")), h2("th", null, t("modelTotal")), priced !== null ? h2("th", null, t("costColumn")) : null, h2("th", null, t("modelShare")))), h2("tbody", null, rows.length === 0 ? h2("tr", null, h2("td", { colSpan: priced !== null ? 8 : 7, style: { textAlign: "center", padding: "20px 0" } }, t("noData"))) : rows.map(({ row, sum, cost }) => {
     const share = totals.total === 0 ? 0 : sum.total / totals.total;
     return h2("tr", { key: row.id }, h2("td", { className: "model" }, row.model.split("/").pop(), h2("span", { className: "sub" }, row.provider)), h2("td", null, groupCount(sum.calls)), h2("td", null, h26(sum.input)), h2("td", null, h26(sum.output)), h2("td", null, h26(sum.cacheRead)), h2("td", { className: "total" }, h26(sum.total)), priced !== null ? h2("td", { className: "dsu-cost-cell" }, cost === null ? "—" : formatMoney(cost.total, currency)) : null, h2("td", null, h2("span", { className: "dsu-share" }, h2("span", { className: "dsu-share-bar" }, h2("i", { style: { width: `${(share * 100).toFixed(0)}%` } })), `${(share * 100).toFixed(0)}%`)));
   }))));
@@ -1420,7 +1446,7 @@ function Tooltip({ hover, language, t }) {
       fontVariantNumeric: "tabular-nums",
       boxShadow: "0 6px 18px -6px rgba(0,0,0,.3)"
     }
-  }, hover.label, h2("br"), `${compact.value}${compact.unit} tokens`, hover.detail === undefined ? null : hover.detail.map((line, index) => h2("div", { key: index, className: "dsu-tip-detail" }, line)));
+  }, hover.label, h2("br"), `${compact.value}${compact.unit} ${t("unitTokens")}`, hover.detail === undefined ? null : hover.detail.map((line, index) => h2("div", { key: index, className: "dsu-tip-detail" }, line)));
 }
 
 // packages/dsh-usage-bill/src/ui/locale.js
@@ -1451,6 +1477,11 @@ var zh = {
   totalHint: "近 26 周",
   colorHint: "颜色越浓 tokens 越多",
   byModel: "按模型",
+  dowMon: "一",
+  dowWed: "三",
+  dowFri: "五",
+  dowSun: "日",
+  unitTokens: "tokens",
   model: "模型",
   modelCalls: "调用",
   modelInput: "输入",
@@ -1520,6 +1551,11 @@ var en = {
   totalHint: "Last 26 weeks",
   colorHint: "Stronger color means more tokens",
   byModel: "By model",
+  dowMon: "M",
+  dowWed: "W",
+  dowFri: "F",
+  dowSun: "S",
+  unitTokens: "tokens",
   model: "Model",
   modelCalls: "Calls",
   modelInput: "Input",
@@ -1607,11 +1643,6 @@ function apply(ctx) {
     locale: NS,
     inject: () => ({
       openUsage,
-      openTopUp: () => {
-        const target = globalThis.__DSH_USAGE_TOP_UP_URL__;
-        if (typeof target === "string" && target !== "")
-          window.open(target, "_blank", "noopener");
-      },
       t: t(),
       language: languageOf(ctx),
       primitives

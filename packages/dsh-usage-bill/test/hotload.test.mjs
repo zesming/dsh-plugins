@@ -31,8 +31,22 @@ test('the row re-checks sooner while no account is known', () => {
 test('the interval follows the last answer, not a fixed timer', () => {
   // A fixed interval cannot do both jobs: fast enough to catch a login, and
   // cheap enough not to hammer Platform for an answer that barely changes.
-  assert.match(source, /signedIn\.current = payload\?\.signedIn === true/)
+  assert.match(source, /if \(proved\) \{\s*signedIn\.current = true/)
   assert.match(source, /signedIn\.current \? POLL_MS : SIGNED_OUT_POLL_MS/)
+})
+
+test('a proven account stays mounted when one later refresh fails', () => {
+  // Only a row that never proved a credential may hide; a transient failed
+  // read after a successful one degrades to the "--" sub-state instead.
+  assert.match(source, /!\s*proved && wasProved/)
+  assert.match(source, /payload: signedIn\.current[\s\S]*?signedIn: true,[\s\S]*?available: false,[\s\S]*?error: 'network'/)
+})
+
+test('top up opens the host-provided official URL and the item hides without one', () => {
+  assert.match(source, /payload\.topUpUrl/)
+  assert.match(source, /window\.open\(topUpHref, '_blank', 'noopener'\)/)
+  assert.match(source, /topUpHref === null \? \[\] : \[/)
+  assert.ok(!source.includes('__DSH_USAGE_TOP_UP_URL__'), 'the dead global switch is gone')
 })
 
 test('a window focus re-reads the balance', () => {

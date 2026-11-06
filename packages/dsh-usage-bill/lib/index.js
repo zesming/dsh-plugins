@@ -70,15 +70,15 @@ function expiringBonuses(bonuses, now) {
   return notices.sort((a, b) => a.expiresAtMs - b.expiresAtMs);
 }
 function balanceView(input) {
-  const { signedIn, balance, bonuses, now, error } = input;
+  const { signedIn, balance, bonuses, now, error, topUpUrl = null } = input;
   if (signedIn !== true)
     return { signedIn: false, available: false, error: null };
   if (balance?.status !== "ready") {
-    return { signedIn: true, available: false, error: error ?? "balance-failed", readAt: now };
+    return { signedIn: true, available: false, topUpUrl, error: error ?? "balance-failed", readAt: now };
   }
   const primary = primaryWallet(balance.value);
   if (primary === undefined) {
-    return { signedIn: true, available: false, error: "balance-empty", readAt: now };
+    return { signedIn: true, available: false, topUpUrl, error: "balance-empty", readAt: now };
   }
   const currency = primary.currency;
   const balanceText = decimalOf(primary.balance)?.text;
@@ -86,6 +86,7 @@ function balanceView(input) {
   return {
     signedIn: true,
     available: true,
+    topUpUrl,
     currency,
     balance: balanceText,
     bonus: bonusText ?? null,
@@ -800,6 +801,7 @@ async function readBalance(deps) {
   }
   if (state?.status !== "credential-stored")
     return { signedIn: false, available: false, error: null };
+  const topUpUrl = typeof state.links?.topUpUrl === "string" && state.links.topUpUrl !== "" ? state.links.topUpUrl : null;
   const diagnostics = bonusDiagnosticsEnabled();
   const [balance, bonuses] = await Promise.all([
     Promise.resolve().then(() => deepseekAccount.getBalance(client)).catch(() => {
@@ -809,7 +811,7 @@ async function readBalance(deps) {
       return;
     })
   ]);
-  const view = balanceView({ signedIn: true, balance, bonuses, now });
+  const view = balanceView({ signedIn: true, balance, bonuses, now, topUpUrl });
   if (diagnostics) {
     logBonusSources(logger, { balance, bonuses, now, shown: view.expiring ?? null });
   }

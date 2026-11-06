@@ -192,6 +192,9 @@ async function readBalance(deps) {
     return { signedIn: false, available: false, error: 'account-unavailable' }
   }
   if (state?.status !== 'credential-stored') return { signedIn: false, available: false, error: null }
+  const topUpUrl = typeof state.links?.topUpUrl === 'string' && state.links.topUpUrl !== ''
+    ? state.links.topUpUrl
+    : null
   const diagnostics = bonusDiagnosticsEnabled()
   const [balance, bonuses] = await Promise.all([
     Promise.resolve()
@@ -201,7 +204,7 @@ async function readBalance(deps) {
       .then(() => deepseekAccount.getUnnotifiedBonuses(client))
       .catch(() => undefined),
   ])
-  const view = balanceView({ signedIn: true, balance, bonuses, now })
+  const view = balanceView({ signedIn: true, balance, bonuses, now, topUpUrl })
   if (diagnostics) {
     logBonusSources(logger, { balance, bonuses, now, shown: view.expiring ?? null })
   }

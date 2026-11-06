@@ -81,10 +81,6 @@ export function apply(ctx) {
     locale: NS,
     inject: () => ({
       openUsage,
-      openTopUp: () => {
-        const target = globalThis.__DSH_USAGE_TOP_UP_URL__
-        if (typeof target === 'string' && target !== '') window.open(target, '_blank', 'noopener')
-      },
       t: t(),
       language: languageOf(ctx),
       primitives,

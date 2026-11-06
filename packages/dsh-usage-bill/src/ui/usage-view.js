@@ -542,7 +542,7 @@ export function DayHeatmap({ series, today, t, onHover }) {
       // The weekday gutter sizes itself to the same rows, so it stays aligned
       // with the grid at any scale.
       h('div', { className: 'dsu-dow' },
-        ['mon', 'wed', 'fri', 'sun'].map((_, index) => h('span', { key: index }, WEEKDAY_GLYPHS[index])),
+        ['dowMon', 'dowWed', 'dowFri', 'dowSun'].map(key => h('span', { key }, t(key))),
       ),
       h('div', { className: 'dsu-hm-canvas' },
         h('svg', {
@@ -606,9 +606,6 @@ export function DayHeatmap({ series, today, t, onHover }) {
  * exactly what the block form was meant to improve on.
  */
 const BLOCK_GAP = 7
-
-/** Monday-first weekday glyphs for the heatmap's row labels. */
-const WEEKDAY_GLYPHS = ['一', '三', '五', '日']
 
 /**
  * The block-column chart shared by the weekly and cumulative views.
@@ -848,7 +845,7 @@ export function ModelTable({ series, totals, t, pricing }) {
     .sort((a, b) => b.sum.total - a.sum.total)
 
   return h('div', { className: 'dsu-table-wrap' },
-    h('div', { className: 'dsu-table-title' }, h('span', null, t('byModel')), h('span', null, 'tokens')),
+    h('div', { className: 'dsu-table-title' }, h('span', null, t('byModel')), h('span', null, t('unitTokens'))),
     h('table', { className: 'dsu-table' },
       h('thead', null, h('tr', null,
         h('th', null, t('model')),
@@ -939,7 +936,7 @@ export function Tooltip({ hover, language, t }) {
   },
     hover.label,
     h('br'),
-    `${compact.value}${compact.unit}\u00a0tokens`,
+    `${compact.value}${compact.unit}\u00a0${t('unitTokens')}`,
     // A summed cell still has to answer "which model" — the split travels with
     // the readout rather than forcing a trip to the table below.
     hover.detail === undefined
