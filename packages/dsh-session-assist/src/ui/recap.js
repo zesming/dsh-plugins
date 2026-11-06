@@ -3,9 +3,8 @@
 import React from 'react'
 
 import { emptyFacts, factsValue, foldFacts } from '../shared/facts.mjs'
-import { recapRequestView, recapResultMatches } from './behavior.mjs'
+import { identityKey, recapRequestView, recapResultMatches, turnIdentity } from './behavior.mjs'
 import { recapPresentation, shouldRequestRecap } from './recap-policy.mjs'
-import { recapCacheKey, resolveRecapTurn } from './recap-turn.mjs'
 
 const h = React.createElement
 
@@ -56,37 +55,31 @@ export function createRecapDefinition() {
  * Only real content is drawn. A turn with no model recap — still generating,
  * unavailable, historical, out of budget, or ended abnormally — renders nothing,
  * so the tail never reserves space it cannot fill.
- *
- * Slot contract (DSH 0.2.1-rc.3+): the shell passes the Turn **number** in
- * `turn` and a closing-node `seq`, not the Turn object. The rich Turn and the
- * Definition value are read through session hooks: `useChat` for the Turn
- * location and the registered `useRecapFacts` keyed hook for this plugin's
- * folded facts (`nodes.turnDataSource(turn, RECAP_KIND)`).
- * @param props.turn - Turn number supplied by the shell.
- * @param props.useChat - Chat snapshot hook (timeline locations).
- * @param props.useRecapFacts - keyed hook: turn number -> recap facts source.
- * @param props.sessionId - Session id, translator, settings hook, and runtime.
+ * @param props - Turn owner, translator, settings hook, and session hooks.
  * @returns a model recap, or null.
  */
-export function RecapTail({ turn: turnNumber, useChat, useRecapFacts, sessionId, t, useSession, useSettings, runtime }) {
+export function RecapTail({ turn, sessionId, t, useSession, useSettings, runtime }) {
   // Keep every hook above the return conditions: turn-tail entries can switch
   // between closed and unavailable states as history is reconciled.
   const subagent = useSession(state => state.subagent)
   const enabled = useSettings(state => state.recap === true)
   const settingsLoaded = useSettings(state => state.loaded === true)
-  const turnRecord = useChat(snapshot => {
-    if (!Number.isSafeInteger(turnNumber)) return null
-    return snapshot.timeline.turns.get(turnNumber) ?? null
-  })
-  // The slot cell keys on the Session; the folded facts live on the Turn, so
-  // the Turn number is passed explicitly as the keyed-hook key.
-  const definedFacts = typeof useRecapFacts === 'function'
-    ? useRecapFacts(String(turnNumber))
-    : undefined
   const [request, setRequest] = React.useState(null)
 
-  const { end, identity, facts } = resolveRecapTurn({ turnNumber, sessionId, turnRecord, definedFacts })
-  const recapKey = recapCacheKey(identity, facts.replyHash)
+  const end = turn?.end
+  const endSeq = Number.isSafeInteger(end?.seq) ? end.seq : null
+  const identity = turnIdentity(sessionId, turn?.turn, endSeq)
+  const value = turn?.data?.get(RECAP_KIND)
+  const facts = value ?? {
+    turn: turn?.turn,
+    hasReply: false,
+    finalReply: false,
+    reasonKind: end?.data?.reason?.kind ?? 'unknown',
+    lastText: undefined,
+  }
+  const recapKey = identity === null
+    ? ''
+    : `${identityKey(identity)}:${facts.replyHash ?? ''}`
   const shouldRequest = shouldRequestRecap({
     settingsLoaded, enabled, subagent, identity, facts,
   })

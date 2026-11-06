@@ -23,7 +23,7 @@
       "kind": "list",
       "scope": "session",
       "ownerProps": ["turn", "seq", "openFile"],
-      "ownerContract": "turn is the Turn NUMBER; seq is the final node seq (not turn/end seq); rich turn via useChat timeline and per-turn data via keyedHooks -> nodes.turnDataSource(turn, key)",
+      "ownerContract": "turn is the RICH Timeline Turn object {turn:<number>, start, end, status, steps, data} from node.location.turn (Location resolve returns {kind:'turn', turn: timeline.turns.get(n)}); read the number as turn.turn, end event seq as turn.end.seq, and per-turn facts via turn.data.get(key). The separate `seq` prop is the final assistant node seq, NOT the turn/end event seq. Per-turn facts for a scope:'turn' buildLocationData live on turn.data; chat nodes.turnDataSource only indexes definitions that also emit a target:'chat' view node.",
       "usedBy": ["dsh-session-assist"]
     },
     {
