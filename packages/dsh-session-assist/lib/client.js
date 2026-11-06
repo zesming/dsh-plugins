@@ -1198,7 +1198,8 @@ function createRecallController({ latest, observeFixedInput, historyFor: history
     event.consume();
   });
   return { dispose() {
-    off();
+    if (typeof off === "function")
+      off();
     recall.reset();
   } };
 }
@@ -1484,6 +1485,7 @@ function createSettingsStore({ language }) {
           reverted[key] = previous[key];
         set({
           ...reverted,
+          predictionOffEpoch: previous.predictionOffEpoch,
           error: previous.error,
           failed: keys[0] ?? null,
           pending: pendingFor(keys, false)
@@ -1499,13 +1501,15 @@ function createSettingsStore({ language }) {
     namespace: NS
   };
 }
-function createHiddenTurns() {
+function createHiddenTurns({ maxSessions = 100 } = {}) {
   const hidden = new Map;
   const keyOf = (turn, endSeq) => `${turn}:${endSeq ?? ""}`;
   return {
     hide(sessionId, turn, endSeq) {
       let turns = hidden.get(sessionId);
       if (turns === undefined) {
+        while (hidden.size >= maxSessions)
+          hidden.delete(hidden.keys().next().value);
         turns = new Set;
         hidden.set(sessionId, turns);
       }

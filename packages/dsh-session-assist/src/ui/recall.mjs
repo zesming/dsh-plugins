@@ -364,5 +364,6 @@ export function createRecallController({ latest, observeFixedInput, historyFor }
     event.consume()
   })
 
-  return { dispose() { off(); recall.reset() } }
+  // The observer is allowed to return void, so only call a real disposer.
+  return { dispose() { if (typeof off === 'function') off(); recall.reset() } }
 }

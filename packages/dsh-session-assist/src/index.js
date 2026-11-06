@@ -6,6 +6,7 @@ import { createRecapHandler, createSettingsHandler, createSuggestHandler } from 
 import { createStateStore, resolveHome } from './host/state.mjs'
 import { createTracker } from './host/tracker.mjs'
 import { buildAssistanceContext } from './shared/context.mjs'
+import { createAuditRecord } from './shared/audit.mjs'
 import { LIMITS } from './shared/limits.mjs'
 import { candidateKey } from './shared/prediction.mjs'
 import { replyFingerprint } from './shared/identity.mjs'
@@ -65,6 +66,34 @@ export function apply(ctx) {
     getLlm: () => ctx.get('llm'),
     audit: record => state.appendAudit(record),
   })
+
+  /**
+   * Record a preflight outcome that never reached the model.
+   *
+   * The predictor only audits its own calls, so disabled / no-context / busy /
+   * budget / stale-surface exits were invisible in audit.jsonl — a feature that
+   * never showed a suggestion left no evidence either way. The row carries only
+   * a reason code, never message content.
+   * @param session - the Session the turn belongs to.
+   * @param turn - the captured completed turn.
+   * @param feature - "recap", "prediction", or "recap+prediction" shape intent.
+   * @param reason - short machine-readable preflight reason.
+   */
+  function auditPreflight(session, turn, feature, reason) {
+    try {
+      state.appendAudit(createAuditRecord({
+        at: Date.now(),
+        sessionId: session?.id,
+        turn: turn?.turn,
+        endSeq: turn?.endSeq,
+        sourceSelection: turn?.sourceSelection,
+        feature,
+        error: `preflight:${reason}`,
+      }))
+    } catch {
+      // Auditing must never affect the assistance path.
+    }
+  }
 
   const identityKey = (sessionId, turn) => candidateKey(
     sessionId,
@@ -156,21 +185,38 @@ export function apply(ctx) {
         }
         entry.features = features
         if (!features.recap && !features.prediction) {
+          const reason = recapNotNeeded ? 'not-needed' : 'disabled'
+          auditPreflight(session, turn, 'none', reason)
           return recapNotNeeded
             ? { state: 'none', reason: 'not-needed', recapReason: 'not-needed' }
             : { state: 'none', reason: 'disabled' }
         }
+        const featureLabel = [features.recap ? 'recap' : null, features.prediction ? 'prediction' : null]
+          .filter(Boolean).join('+')
 
         const sourceSelection = turn.sourceSelection
-        if (sourceSelection === undefined) return { state: 'none', reason: 'unavailable' }
+        if (sourceSelection === undefined) {
+          auditPreflight(session, turn, featureLabel, 'unavailable')
+          return { state: 'none', reason: 'unavailable' }
+        }
         const context = buildAssistanceContext(turn, tracker.history(session.id), LIMITS.maxContextBytes, session.id)
-        if (context.state !== 'ready' || !context.currentComplete) return { state: 'none', reason: 'no-context' }
+        if (context.state !== 'ready' || !context.currentComplete) {
+          auditPreflight(session, turn, featureLabel, 'no-context')
+          return { state: 'none', reason: 'no-context' }
+        }
         if (controller.signal.aborted || lifetime.signal.aborted || !isLive(session, turn)) return { state: 'none', reason: 'historical' }
 
-        if (!gate.take()) return { state: 'none', reason: 'busy' }
+        if (!gate.take()) {
+          auditPreflight(session, turn, featureLabel, 'busy')
+          return { state: 'none', reason: 'busy' }
+        }
         try {
           const reserved = await state.reserveAttempt(session.id, localDayKey())
-          if (reserved?.reserved !== true) return { state: 'none', reason: reserved?.reason === 'budget' ? 'budget' : 'unavailable' }
+          if (reserved?.reserved !== true) {
+            const reason = reserved?.reason === 'budget' ? 'budget' : 'unavailable'
+            auditPreflight(session, turn, featureLabel, reason)
+            return { state: 'none', reason }
+          }
           if (controller.signal.aborted || lifetime.signal.aborted || !isLive(session, turn)) return { state: 'none', reason: 'historical' }
           const signal = AbortSignal.any([lifetime.signal, controller.signal])
           const generated = await predictor.generate({ session, turn, context, sourceSelection, features, signal })
