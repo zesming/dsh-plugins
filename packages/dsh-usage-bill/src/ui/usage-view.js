@@ -139,11 +139,11 @@ function Tokens({ value }) {
 /**
  * Install the plugin stylesheet for the plugin's whole lifetime.
  *
- * It cannot ride on the component tree: the settings nav row that carries the
- * plugin's mark renders whether or not the usage section is the selected one,
- * so a stylesheet mounted only with the section would leave that row with two
- * glyphs until the section is opened once. The element is owned here and
- * removed by the returned disposer, so unload leaves no trace.
+ * It cannot ride on the component tree: shell-owned seats (the sidebar row and
+ * the settings nav icon) render whether or not the usage section is selected,
+ * so a stylesheet mounted only with the section would leave them unstyled
+ * until the section is opened once. The element is owned here and removed by
+ * the returned disposer, so unload leaves no trace.
  *
  * @returns a disposer removing the style element.
  */
@@ -538,6 +538,15 @@ export function DayHeatmap({ series, today, t, onHover }) {
             const key = keyOf(date)
             if (key > todayKey) return null
             const entry = byDay.get(key)
+            // Give the cell an accessible name (and a native hover label) with
+            // the date, total, and the per-model split the color alone cannot
+            // communicate.
+            const titleText = entry === undefined || entry.models.length === 0
+              ? key
+              : `${key}  ${h26(entry.total)} ${t('unitTokens')}`
+                + (entry.models.length > 1
+                  ? ` · ${entry.models.map(model => `${model.name} ${h26(model.total)}`).join(', ')}`
+                  : '')
             return h('rect', {
               key,
               x: weekIndex * (CELL + GAP),
@@ -561,7 +570,7 @@ export function DayHeatmap({ series, today, t, onHover }) {
                     : entry.models.slice(0, 3).map(model => `${model.name} ${h26(model.total)}`),
                 })
               },
-            })
+            }, h('title', null, titleText))
           })),
         ),
         // The month axis sits below the grid, where the block charts put their
@@ -651,6 +660,10 @@ export function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHo
             })
           },
         },
+          // One accessible name per stacked column: week, total, block count.
+          h('title', null,
+            `${column.label} · ${h26(column.total)} ${t('unitTokens')}`
+            + ` · ${t('blocksCount', { count: String(column.blocks) })}`),
           // One rect per block, drawn bottom-up, so the stack reads as a bar
           // built from countable units rather than as a single height.
           Array.from({ length: column.blocks }, (_, level) => h('rect', {

@@ -98,9 +98,9 @@ Six rules matter more than the rest, each learned from a defect this repository 
   tokens and the focus ring.
 - **Keep display logic pure and tested.** Host code folds data; the browser formats and draws it.
   Everything that decides a number lives in a function a test can call without a browser.
-- **Install styles for the plugin's lifetime, not a component's.** A seat the plugin only marks —
-  such as a settings nav row — is on screen even when the plugin's own page is not, so a stylesheet
-  that mounts with the page leaves that seat unstyled until the page is opened once.
+- **Install styles for the plugin's lifetime, not a component's.** A shell-owned seat — such as a
+  sidebar row or a settings nav icon — is on screen even when the plugin's own page is not, so a
+  stylesheet that mounts with the page leaves that seat unstyled until the page is opened once.
 - **Show a figure only from a recorded fact.** A balance that failed to read is not `¥0.00`, and a
   turn with no recap is not a reason to print the reply twice. A blank is honest; a substitute is
   not.

@@ -341,6 +341,7 @@ export function SuggestionRow({ sessionId, useSession, useInput, useChat, usePro
   h('button', {
     type: 'button',
     className: 'dca-dismiss',
+    title: t('suggestion.dismiss'),
     'aria-label': t('suggestion.dismiss'),
     onMouseDown: event => { event.preventDefault() },
     onClick: dismiss,

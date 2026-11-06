@@ -49,6 +49,12 @@ export function SettingsSection({ t, useSettings, store }) {
   return h('div', { className: 'dca-settings' },
     h('h2', { className: 'dca-settings-title' }, h(HintIcon, { className: 'dca-settings-icon', size: 18 }), t('settings.title')),
     h('p', { className: 'dca-settings-intro' }, t('settings.intro')),
+    // An initial read failure previously left the toggles silently showing
+    // defaults with no signal. `failed` is set only for a write, so a read
+    // error is error === true with no per-row write failure.
+    state.error === true && state.failed === null
+      ? h('div', { className: 'dca-seterror dca-settings-loaderror', role: 'alert' }, t('settings.loadError'))
+      : null,
     h(Row, {
       setting: 'recap',
       name: t('settings.recap.name'),

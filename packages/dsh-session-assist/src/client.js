@@ -3,7 +3,7 @@
 import { NS, dictionaryFor } from './shared/locales.mjs'
 import { createRecapDefinition, RecapTail } from './ui/recap.js'
 import { SettingsSection } from './ui/settings.js'
-import { NavIcon } from './ui/nav-label.js'
+import { NavIcon } from './ui/nav-icon.js'
 import { SuggestionRow } from './ui/suggestion.js'
 import { PromptRecallSeat } from './ui/recall-seat.js'
 import { installStyles } from './ui/styles.js'

@@ -166,9 +166,9 @@ row's menu, from the sidebar's panel list, and from **Settings → Usage**.
 - The row's **Usage** entry opens a **main-area panel**, not the Settings dialog. A third-party
   bundle cannot address a Settings section directly, and a year of heatmap lanes needs the wider
   column anyway. The same view is also registered as a Settings section for people who look there.
-- The Settings nav glyph is chosen by the shell per section id, with no icon option for third-party
-  sections. The section's label therefore carries this plugin's own mark, and a narrow rule hides
-  the shell's fallback gear in that row only.
+- The Settings nav glyph is contributed through the `settings.section.icon` slot, registered with
+  the same section id; the shell renders it in its own seat and falls back to a gear when none is
+  registered.
 - The plugin adds no agent tool and changes no model-visible prompt.
 
 ## Build and test

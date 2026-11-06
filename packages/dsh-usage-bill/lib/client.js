@@ -988,6 +988,7 @@ function stylesheet() {
 .dsu-panel-head{display:flex;align-items:center;gap:10px;flex:none;width:100%;max-width:960px;margin:0 auto;padding:calc(28px + var(--dsh-frame-top-clearance,0px)) clamp(24px,4vw,48px) 0;box-sizing:border-box}
 .dsu-panel-title{margin:0;min-width:0;max-width:100%;font-size:20px;font-weight:500;line-height:28px;letter-spacing:0}
 .dsu-panel-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
+.dsu-settings-actions{display:flex;justify-content:flex-end;margin-bottom:8px}
 .dsu-icon-btn{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:background-color .12s ease,color .12s ease}
 .dsu-icon-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
 .dsu-icon-btn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));outline-offset:-2px}
@@ -1269,6 +1270,7 @@ function DayHeatmap({ series, today, t, onHover }) {
     if (key > todayKey)
       return null;
     const entry = byDay.get(key);
+    const titleText = entry === undefined || entry.models.length === 0 ? key : `${key}  ${h26(entry.total)} ${t("unitTokens")}` + (entry.models.length > 1 ? ` · ${entry.models.map((model) => `${model.name} ${h26(model.total)}`).join(", ")}` : "");
     return h2("rect", {
       key,
       x: weekIndex * (CELL + GAP),
@@ -1288,7 +1290,7 @@ function DayHeatmap({ series, today, t, onHover }) {
           detail: entry === undefined || entry.models.length <= 1 ? undefined : entry.models.slice(0, 3).map((model) => `${model.name} ${h26(model.total)}`)
         });
       }
-    });
+    }, h2("title", null, titleText));
   }))), h2("div", { className: "dsu-months" }, labels.map((label) => h2("span", {
     key: label.column,
     style: { left: `${String(label.column / DAY_COLUMNS * 100)}%` }
@@ -1326,7 +1328,7 @@ function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) 
         value: column.total
       });
     }
-  }, Array.from({ length: column.blocks }, (_, level) => h2("rect", {
+  }, h2("title", null, `${column.label} · ${h26(column.total)} ${t("unitTokens")}` + ` · ${t("blocksCount", { count: String(column.blocks) })}`), Array.from({ length: column.blocks }, (_, level) => h2("rect", {
     key: level,
     x: index * (WEEK_CELL + WEEK_GAP),
     y: height - (level + 1) * step + BLOCK_GAP,
@@ -1688,21 +1690,26 @@ function apply(ctx) {
 function UsageNavIcon({ size = 16 }) {
   return h3(Glyph, { description: { ...USAGE, width: size, height: size } });
 }
-function UsagePanel({ t, language, primitives: primitives2 }) {
-  const [refreshToken, setRefreshToken] = import_react.default.useState(0);
-  return h3("div", { className: "dsu dsu-panel" }, h3("div", { className: "dsu-panel-head" }, h3("h1", { className: "dsu-panel-title" }, t("title")), h3("div", { className: "dsu-panel-actions" }, h3("button", {
+function RefreshButton({ t, onRefresh }) {
+  return h3("button", {
     type: "button",
     className: "dsu-icon-btn",
     "aria-label": t("refresh"),
     title: t("refresh"),
-    onClick: () => {
-      setRefreshToken((value) => value + 1);
-    }
-  }, h3("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 1.7, "aria-hidden": true }, h3("path", { d: "M20 12a8 8 0 1 1-2.3-5.6" }), h3("path", { d: "M20 4v4h-4" }))))), h3(UsageView, { t, language, container: "panel", initialRefreshToken: refreshToken, primitives: primitives2 }));
+    onClick: onRefresh
+  }, h3("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 1.7, "aria-hidden": true }, h3("path", { d: "M20 12a8 8 0 1 1-2.3-5.6" }), h3("path", { d: "M20 4v4h-4" })));
+}
+function UsagePanel({ t, language, primitives: primitives2 }) {
+  const [refreshToken, setRefreshToken] = import_react.default.useState(0);
+  return h3("div", { className: "dsu dsu-panel" }, h3("div", { className: "dsu-panel-head" }, h3("h1", { className: "dsu-panel-title" }, t("title")), h3("div", { className: "dsu-panel-actions" }, h3(RefreshButton, { t, onRefresh: () => {
+    setRefreshToken((value) => value + 1);
+  } }))), h3(UsageView, { t, language, container: "panel", initialRefreshToken: refreshToken, primitives: primitives2 }));
 }
 function UsageSettingsSection({ t, language, primitives: primitives2 }) {
   const [refreshToken, setRefreshToken] = import_react.default.useState(0);
-  return h3("div", { className: "dsu" }, h3(UsageView, { t, language, container: "settings", initialRefreshToken: refreshToken, primitives: primitives2 }));
+  return h3("div", { className: "dsu" }, h3("div", { className: "dsu-settings-actions" }, h3(RefreshButton, { t, onRefresh: () => {
+    setRefreshToken((value) => value + 1);
+  } })), h3(UsageView, { t, language, container: "settings", initialRefreshToken: refreshToken, primitives: primitives2 }));
 }
 
     })(module, exports, reactRequire);
