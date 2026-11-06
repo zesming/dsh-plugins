@@ -765,6 +765,33 @@ function runningTotal(values) {
   return values.map((value) => sum += Number.isFinite(value) && value > 0 ? value : 0);
 }
 
+// packages/dsh-usage-bill/src/ui/usage-period.js
+function periodKeys(view, series, today) {
+  if (view === "total") {
+    const days = new Set;
+    for (const entry of series ?? []) {
+      for (const key of Object.keys(entry.days ?? {}))
+        days.add(key);
+    }
+    return days;
+  }
+  if (view === "week") {
+    const monday = shiftDays(today, -((today.getDay() + 6) % 7));
+    const days = new Set;
+    for (let offset = 0;offset < 7; offset += 1)
+      days.add(keyOf(shiftDays(monday, offset)));
+    return days;
+  }
+  return new Set([keyOf(today)]);
+}
+function costCardState({ pricingPhase, cost }) {
+  const loading = pricingPhase === "loading";
+  const failed = pricingPhase === "failed" || cost === null;
+  const resolved = !loading && pricingPhase !== "failed" && cost !== null && cost.calls > 0 && cost.priced > 0;
+  const gap = failed ? "costUnavailable" : cost.calls === 0 ? "costNoData" : "costUnpricedAll";
+  return { loading, resolved, gap };
+}
+
 // packages/dsh-usage-bill/src/ui/heatmap.js
 function quantileLevels(values) {
   const present = values.filter((value) => value > 0).sort((a, b) => a - b);
@@ -1052,9 +1079,8 @@ function installStyles() {
   };
 }
 function CostCard({ cost, pricing, currency, scope, holidaysCovered, t }) {
-  const loading = pricing.phase === "loading";
-  const gap = pricing.phase === "failed" || cost === null ? t("costUnavailable") : cost.calls === 0 ? t("costNoData") : t("costUnpricedAll");
-  const resolved = !loading && pricing.phase !== "failed" && cost !== null && cost.calls > 0 && cost.priced > 0;
+  const { loading, resolved, gap: gapKey } = costCardState({ pricingPhase: pricing.phase, cost });
+  const gap = t(gapKey);
   const money = (micro) => formatMoney(decimalOfMicro(micro), currency);
   const origin = pricing.payload?.origin === "bundled" ? t("costBundled", { date: pricing.payload?.readAt ?? "—" }) : t("costLive", { date: pricing.payload?.readAt ?? "—" });
   return h2("div", { className: "dsu-cost" }, h2("div", { className: "dsu-cost-head" }, h2("span", { className: "dsu-kpi-label" }, t("cost")), h2("span", { className: "dsu-cost-scope" }, scope)), h2("div", { className: "dsu-cost-value" }, resolved ? money(cost.total) : "—"), h2("div", { className: "dsu-cost-split" }, resolved ? h2("span", null, t("costPeak"), " ", h2("b", null, money(cost.peak))) : null, resolved ? h2("span", null, t("costOffPeak"), " ", h2("b", null, money(cost.offPeak))) : null, resolved ? null : h2("span", { className: "dsu-cost-gap" }, loading ? "" : gap)), h2("div", { className: "dsu-cost-note" }, t("costPeakNote")), h2("div", { className: "dsu-cost-note dsu-cost-warn" }, resolved && cost.unpriced > 0 ? t("costUnpriced", { count: groupCount(cost.unpriced) }) : resolved && holidaysCovered === false ? t("costHolidayGap") : ""), h2("div", { className: "dsu-cost-note dsu-cost-origin" }, resolved ? origin : ""));
@@ -1118,23 +1144,7 @@ function UsageView({ t, container, language, initialRefreshToken, primitives }) 
   })), [models, excludeSubagents]);
   const totals = React.useMemo(() => sumSeries(series), [series]);
   const today = React.useMemo(() => new Date, [status]);
-  const period = React.useMemo(() => {
-    if (view === "total") {
-      const days = new Set;
-      for (const entry of series)
-        for (const key of Object.keys(entry.days ?? {}))
-          days.add(key);
-      return days;
-    }
-    if (view === "week") {
-      const monday = shiftDays(today, -((today.getDay() + 6) % 7));
-      const days = new Set;
-      for (let offset = 0;offset < 7; offset += 1)
-        days.add(keyOf(shiftDays(monday, offset)));
-      return days;
-    }
-    return new Set([keyOf(today)]);
-  }, [view, series, today]);
+  const period = React.useMemo(() => periodKeys(view, series, today), [view, series, today]);
   const inPeriod = React.useMemo(() => restrictSeries(series, period), [series, period]);
   const periodTotals = React.useMemo(() => sumSeries(inPeriod), [inPeriod]);
   const cost = React.useMemo(() => {

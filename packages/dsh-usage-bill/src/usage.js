@@ -123,6 +123,11 @@ export function foldSession(events, into, options = {}) {
     if (event?.type !== 'assistant/message') continue
     const usage = event.data?.usage
     if (usage === undefined || usage === null) continue
+    // The billed instant must be a recorded fact. Skip before parsing provider
+    // or allocating a record: an event without a timestamp cannot be dated, and
+    // placing it at "now" would lie about both the calendar day and the
+    // peak/off-peak tier.
+    if (!Number.isFinite(event.time)) continue
     const source = event.data?.message?.source ?? {}
     const provider = typeof source.provider === 'string' && source.provider !== '' ? source.provider : 'unknown'
     const model = typeof source.model === 'string' && source.model !== '' ? source.model : 'unknown'
@@ -141,7 +146,7 @@ export function foldSession(events, into, options = {}) {
       }
       into.set(id, record)
     }
-    const time = Number.isFinite(event.time) ? event.time : Date.now()
+    const time = event.time
     const day = dayKey(time)
     // `totals` describes the requested window, so an out-of-window event is
     // dropped before it is allocated into any bucket.

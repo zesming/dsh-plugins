@@ -1,0 +1,80 @@
+{
+  "hostVersion": "0.2.1-rc.3 / 0.2.2-rc.1",
+  "verifiedAt": "2026-11-06",
+  "note": "The exact host surface these plugins depend on. scripts/check-contracts.mjs keeps the plugin source aligned with these names and, when given an extracted app.asar directory, confirms the host still exposes them. This is a smoke check for renames/removals, not a behavioral guarantee.",
+  "slots": [
+    {
+      "name": "settings.section",
+      "kind": "list",
+      "scope": "root",
+      "usedBy": ["dsh-usage-bill", "dsh-session-assist"]
+    },
+    {
+      "name": "settings.section.icon",
+      "kind": "list",
+      "scope": "root",
+      "inline": true,
+      "ownerProps": ["size", "active"],
+      "matchBy": "same id as the settings.section entry",
+      "usedBy": ["dsh-usage-bill", "dsh-session-assist"]
+    },
+    {
+      "name": "conversation.chat.turnTail",
+      "kind": "list",
+      "scope": "session",
+      "ownerProps": ["turn", "seq", "openFile"],
+      "ownerContract": "turn is the Turn NUMBER; seq is the final node seq (not turn/end seq); rich turn via useChat timeline and per-turn data via keyedHooks -> nodes.turnDataSource(turn, key)",
+      "usedBy": ["dsh-session-assist"]
+    },
+    {
+      "name": "conversation.input.dock",
+      "kind": "list",
+      "scope": "session",
+      "ownerProps": ["session", "input"],
+      "usedBy": ["dsh-session-assist"]
+    },
+    {
+      "name": "sidebar.footer.action",
+      "kind": "list",
+      "scope": "root",
+      "usedBy": ["dsh-usage-bill"]
+    },
+    {
+      "name": "sidebar.panellist",
+      "kind": "list",
+      "scope": "root",
+      "usedBy": ["dsh-usage-bill"]
+    },
+    {
+      "name": "main",
+      "keyedBy": "panel key",
+      "usedBy": ["dsh-usage-bill"]
+    }
+  ],
+  "sessionHooks": [
+    "useChat",
+    "useInput",
+    "useSession",
+    "useProjection",
+    "useSettings"
+  ],
+  "chatTimeline": {
+    "turnOrder": "timeline.turnOrder: number[]",
+    "turnById": "timeline.turns.get(n): { turn, start, end, status, data:Map, steps }",
+    "completedReason": "turn.end?.data?.reason?.kind === 'completed'",
+    "turnEndSeq": "turn.end.seq is the turn/end event seq",
+    "perTurnData": "snapshot.nodes.turnDataSource(Number(turn), key)"
+  },
+  "inputActions": ["insertText", "submit", "captureInsertion", "observeFixedInput"],
+  "composerAttributes": [
+    "data-composer-seat",
+    "data-composer-input",
+    "data-conversation-session"
+  ],
+  "hostEvents": ["session/event", "session/disposed"],
+  "hostServices": ["llm.prepareCall", "sessionProjections.snapshot", "uiConversation.events.register", "uiConversation.binding", "sessions.binding"],
+  "accountState": {
+    "credentialStatus": "credential-stored",
+    "topUpUrl": "getState().links.topUpUrl"
+  }
+}

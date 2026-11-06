@@ -12,6 +12,7 @@ import { withoutSubagents } from '../usage.js'
 import { decimalOfMicro, restrictSeries, sumCost, sumSeries } from './aggregate.js'
 import { MAX_BLOCKS, blockColumns, runningTotal } from './blocks.js'
 import { estimateCost, holidayCoverageCovers, pricingFamilyOf } from '../cost.js'
+import { costCardState, periodKeys } from './usage-period.js'
 import { COVERED_YEARS } from '../holidays.js'
 import {
   CELL, DAY_COLUMNS, GAP, GRID_ASPECT, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid,
@@ -173,16 +174,8 @@ export function installStyles() {
  * @returns the cost block.
  */
 export function CostCard({ cost, pricing, currency, scope, holidaysCovered, t }) {
-  const loading = pricing.phase === 'loading'
-  // Three different gaps, worded apart because only two of them are worth
-  // acting on. "Nothing was spent" and "spent, but none of it has a published
-  // price" both have to avoid ¥0.00: one number cannot mean both "you owe
-  // nothing" and "I cannot tell you what you owe".
-  const gap = pricing.phase === 'failed' || cost === null
-    ? t('costUnavailable')
-    : cost.calls === 0 ? t('costNoData') : t('costUnpricedAll')
-  const resolved = !loading && pricing.phase !== 'failed' && cost !== null
-    && cost.calls > 0 && cost.priced > 0
+  const { loading, resolved, gap: gapKey } = costCardState({ pricingPhase: pricing.phase, cost })
+  const gap = t(gapKey)
   const money = micro => formatMoney(decimalOfMicro(micro), currency)
   const origin = pricing.payload?.origin === 'bundled'
     ? t('costBundled', { date: pricing.payload?.readAt ?? '—' })
@@ -302,22 +295,9 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
    * number alone. Daily is today, weekly is this Monday to Sunday, and
    * cumulative is every day on record.
    */
-  const period = React.useMemo(() => {
-    if (view === 'total') {
-      const days = new Set()
-      for (const entry of series) for (const key of Object.keys(entry.days ?? {})) days.add(key)
-      return days
-    }
-    if (view === 'week') {
-      // The whole week, including the days after today, so the figure answers
-      // "this week" as a calendar week rather than "the last seven days".
-      const monday = shiftDays(today, -((today.getDay() + 6) % 7))
-      const days = new Set()
-      for (let offset = 0; offset < 7; offset += 1) days.add(keyOf(shiftDays(monday, offset)))
-      return days
-    }
-    return new Set([keyOf(today)])
-  }, [view, series, today])
+  const period = React.useMemo(
+    () => periodKeys(view, series, today),
+    [view, series, today])
 
   const inPeriod = React.useMemo(() => restrictSeries(series, period), [series, period])
   const periodTotals = React.useMemo(() => sumSeries(inPeriod), [inPeriod])

@@ -16,7 +16,10 @@ const ready = (value, bonusWallets = []) => ({ status: 'ready', value, bonusWall
 
 test('decimal strings are accepted only in the Platform grammar', () => {
   assert.deepEqual(decimalOf('128.42'), { text: '128.42', number: 128.42 })
-  assert.deepEqual(decimalOf('0E-16'), { text: '0E-16', number: 0 })
+  // Scientific notation is fixed-point-incompatible with addDecimal's string
+  // math, so it is rejected rather than silently summed wrong (F-17).
+  assert.equal(decimalOf('0E-16'), undefined)
+  assert.equal(decimalOf('1e-7'), undefined)
   assert.equal(decimalOf('1e'), undefined)
   assert.equal(decimalOf('NaN'), undefined)
   assert.equal(decimalOf('Infinity'), undefined)

@@ -17,8 +17,10 @@
  */
 export const EXPIRY_WINDOW_DAYS = 365
 
-/** Decimal string grammar Platform's own Web client accepts. */
-const DECIMAL = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i
+/** Decimal string grammar Platform's own Web client accepts. Fixed-point
+ * only: an exponent like 1e-7 passes the grammar but is not handled by the
+ * exact string math in addDecimal, so it must be rejected here. */
+const DECIMAL = /^-?(?:\d+(?:\.\d*)?|\.\d+)$/
 
 /**
  * Read one wallet balance without losing the exact decimal string.
