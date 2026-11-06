@@ -385,6 +385,41 @@ function canShowSuggestion({ prediction, sessionId, input, session, identity, ro
     return false;
   return canRequest({ prediction, sessionId, input, session });
 }
+function decideAsk({
+  settings,
+  session,
+  input,
+  sessionId,
+  identity,
+  route,
+  composing = false,
+  consumed = false,
+  candidate = null,
+  predictionOffEpoch
+}) {
+  if (settings?.loaded !== true)
+    return { ask: false, reason: "settings-unloaded" };
+  if (settings.prediction !== true)
+    return { ask: false, reason: "disabled" };
+  if (identity === null || identity === undefined)
+    return { ask: false, reason: "not-completed" };
+  if (routeValue(route) === null)
+    return { ask: false, reason: "no-route" };
+  if (consumed)
+    return { ask: false, reason: "consumed" };
+  if (candidateMatches(candidate, identity, route, predictionOffEpoch)) {
+    return { ask: false, reason: "has-candidate" };
+  }
+  if (!canShowSuggestion({ prediction: settings.prediction, sessionId, input, session, identity, route, composing })) {
+    return { ask: false, reason: submissionStarted(session, input) ? "busy" : "ineligible" };
+  }
+  return { ask: true, reason: "ask" };
+}
+function askStillCurrent({ latest, requestKey, route, predictionOffEpoch, hidden = false }) {
+  if (latest === null || latest === undefined)
+    return false;
+  return identityKey(latest.identity) === requestKey && latest.predictionOffEpoch === predictionOffEpoch && sameRoute(latest.modelRoute, route) && hidden !== true;
+}
 function editableComposerFor(row, sessionId, target) {
   if (typeof sessionId !== "string" || sessionId === "")
     return null;
@@ -815,8 +850,19 @@ function SuggestionRow({ sessionId, useSession, useInput, useChat, useProjection
     runtime.hidden.hide(sessionId, identity.turn, identity.endSeq);
     setCandidate(null);
   }, [busySubmission, currentKey, sessionId, runtime]);
-  const hasCurrentCandidate = candidateCurrent && !consumed;
-  const canAsk = eligible && !hasCurrentCandidate;
+  const askDecision = decideAsk({
+    settings,
+    session,
+    input,
+    sessionId,
+    identity,
+    route: modelRoute,
+    composing: composingNow,
+    consumed,
+    candidate,
+    predictionOffEpoch
+  });
+  const canAsk = askDecision.ask;
   import_react5.default.useEffect(() => {
     if (!canAsk || identity === null || modelRoute === null)
       return;
@@ -827,7 +873,13 @@ function SuggestionRow({ sessionId, useSession, useInput, useChat, useProjection
     const requestPredictionOffEpoch = predictionOffEpoch;
     const timer = window.setTimeout(() => {
       const beforeRequest = latest.current;
-      if (beforeRequest === null || identityKey(beforeRequest.identity) !== requestKey || beforeRequest.predictionOffEpoch !== requestPredictionOffEpoch || !sameRoute(beforeRequest.modelRoute, requestRoute) || beforeRequest.runtime.hidden.isHidden(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq))
+      if (!askStillCurrent({
+        latest: beforeRequest,
+        requestKey,
+        route: requestRoute,
+        predictionOffEpoch: requestPredictionOffEpoch,
+        hidden: beforeRequest?.runtime.hidden.isHidden(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq)
+      }))
         return;
       runtime.requestSuggestion(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq, controller.signal).then((result) => {
         if (controller.signal.aborted)

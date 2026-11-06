@@ -7,7 +7,7 @@
  *      rename in one place desyncs loudly here instead of at runtime.
  *   2. Optional host check with `--asar <extracted app.asar dir>`: confirm the
  *      host bundles still expose each slot string and the turnTail owner shape
- *      (numeric turn + seq). Run after extracting the app, e.g.
+ *      (rich Turn + seq). Run after extracting the app, e.g.
  *      npx @electron/asar extract "/Applications/DeepSeek Harness.app/Contents/Resources/app.asar" /tmp/dsh
  *      node scripts/check-contracts.mjs --asar /tmp/dsh/dsh
  *
@@ -89,8 +89,9 @@ if (asarArgIndex !== -1) {
     for (const event of contracts.hostEvents) {
       check(hostText.includes(`"${event}"`), `host: event "${event}" not found`)
     }
-    // The regression class behind F-01: turnTail must hand over a numeric turn
-    // and a closing seq, not a Turn object.
+    // turnTail hands occupants the rich Timeline Turn (node.location.turn) plus
+    // a closing seq; facts live on that turn's data store. This is a presence
+    // smoke check - the exact shape is pinned in dsh-contracts.json.
     check(
       hostText.includes('renderSlot("conversation.chat.turnTail"') && hostText.includes('seq:'),
       'host: turnTail renderSlot no longer carries { turn, seq }',

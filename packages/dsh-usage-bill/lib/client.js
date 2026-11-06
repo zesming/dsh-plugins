@@ -277,20 +277,30 @@ function BalanceRow({ wide, openUsage, t, language, primitives }) {
       const payload2 = await fetchBalance({ force, signal: controller.signal });
       if (mounted.current && inflight.current === controller) {
         const proved = payload2?.signedIn === true;
-        const wasProved = signedIn.current;
-        if (proved) {
+        const signedOut = payload2?.signedIn === false && (payload2.error === null || payload2.error === "account-unavailable");
+        if (signedOut) {
+          signedIn.current = false;
+          topUpUrl.current = null;
+          setState({ status: "ready", payload: payload2 });
+        } else if (proved) {
           signedIn.current = true;
           if (typeof payload2.topUpUrl === "string" && payload2.topUpUrl !== "") {
             topUpUrl.current = payload2.topUpUrl;
           }
+          setState({ status: "ready", payload: payload2 });
+        } else if (signedIn.current) {
+          setState({
+            status: "ready",
+            payload: {
+              signedIn: true,
+              available: false,
+              error: typeof payload2?.error === "string" ? payload2.error : "network",
+              ...topUpUrl.current === null ? {} : { topUpUrl: topUpUrl.current }
+            }
+          });
+        } else {
+          setState({ status: "ready", payload: payload2 });
         }
-        const shown = !proved && wasProved ? {
-          signedIn: true,
-          available: false,
-          error: typeof payload2?.error === "string" ? payload2.error : "network",
-          ...topUpUrl.current === null ? {} : { topUpUrl: topUpUrl.current }
-        } : payload2;
-        setState({ status: "ready", payload: shown });
       }
     } catch (error) {
       if (error?.name !== "AbortError" && mounted.current && inflight.current === controller) {

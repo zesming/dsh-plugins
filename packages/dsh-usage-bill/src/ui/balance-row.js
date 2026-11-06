@@ -85,26 +85,38 @@ export function BalanceRow({ wide, openUsage, t, language, primitives }) {
       const payload = await fetchBalance({ force, signal: controller.signal })
       if (mounted.current && inflight.current === controller) {
         const proved = payload?.signedIn === true
-        const wasProved = signedIn.current
-        if (proved) {
+        // An explicit "no credential" (error null) or a missing account service
+        // is a real signed-out state, not a transport blip. Forget any prior
+        // proof/URL and hide; otherwise a real sign-out would leave the row
+        // pinned on "temporarily unavailable" forever.
+        const signedOut = payload?.signedIn === false
+          && (payload.error === null || payload.error === 'account-unavailable')
+        if (signedOut) {
+          signedIn.current = false
+          topUpUrl.current = null
+          setState({ status: 'ready', payload })
+        } else if (proved) {
           signedIn.current = true
           if (typeof payload.topUpUrl === 'string' && payload.topUpUrl !== '') {
             topUpUrl.current = payload.topUpUrl
           }
-        }
-        // A credential this row has already proved must not vanish because one
-        // refresh failed: keep the row mounted on the "temporarily unavailable"
-        // sub-state, reusing the last known top-up URL. Only a row that never
-        // proved an account hides (the never-signed-in case).
-        const shown = (!proved && wasProved)
-          ? {
+          setState({ status: 'ready', payload })
+        } else if (signedIn.current) {
+          // A credential this row already proved exists, but this refresh failed
+          // transiently (network/HTTP/malformed): keep the row mounted on the
+          // unavailable sub-state, reusing the last known top-up URL.
+          setState({
+            status: 'ready',
+            payload: {
               signedIn: true,
               available: false,
               error: typeof payload?.error === 'string' ? payload.error : 'network',
               ...(topUpUrl.current === null ? {} : { topUpUrl: topUpUrl.current }),
-            }
-          : payload
-        setState({ status: 'ready', payload: shown })
+            },
+          })
+        } else {
+          setState({ status: 'ready', payload })
+        }
       }
     } catch (error) {
       if (error?.name !== 'AbortError' && mounted.current && inflight.current === controller) {

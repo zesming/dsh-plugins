@@ -35,11 +35,14 @@ test('the interval follows the last answer, not a fixed timer', () => {
   assert.match(source, /signedIn\.current \? POLL_MS : SIGNED_OUT_POLL_MS/)
 })
 
-test('a proven account stays mounted when one later refresh fails', () => {
-  // Only a row that never proved a credential may hide; a transient failed
-  // read after a successful one degrades to the "--" sub-state instead.
-  assert.match(source, /!\s*proved && wasProved/)
-  assert.match(source, /payload: signedIn\.current[\s\S]*?signedIn: true,[\s\S]*?available: false,[\s\S]*?error: 'network'/)
+test('a proven account stays mounted for a transient failure but signs out cleanly', () => {
+  // Explicit no-credential / absent account service is a real sign-out: forget
+  // prior proof and URL and show the raw payload (row hides).
+  assert.match(source, /const signedOut = payload\?\.signedIn === false\s*\n?\s*&& \(payload\.error === null \|\| payload\.error === 'account-unavailable'\)/)
+  assert.match(source, /if \(signedOut\) \{[\s\S]*?signedIn\.current = false[\s\S]*?topUpUrl\.current = null/)
+  // Only a transient (network/http/malformed) failure after a prior proof keeps
+  // the row mounted on the unavailable sub-state.
+  assert.match(source, /else if \(signedIn\.current\) \{[\s\S]*?signedIn: true,[\s\S]*?available: false,[\s\S]*?error: typeof payload\?\.error === 'string' \? payload\.error : 'network'/)
 })
 
 test('top up opens the host-provided official URL and the item hides without one', () => {

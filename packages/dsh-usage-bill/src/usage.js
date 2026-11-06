@@ -126,7 +126,8 @@ export function foldSession(events, into, options = {}) {
     // The billed instant must be a recorded fact. Skip before parsing provider
     // or allocating a record: an event without a timestamp cannot be dated, and
     // placing it at "now" would lie about both the calendar day and the
-    // peak/off-peak tier.
+    // peak/off-peak tier. This fold returns only the accumulator map (no
+    // diagnostics channel), so the drop is silent like the no-usage skip above.
     if (!Number.isFinite(event.time)) continue
     const source = event.data?.message?.source ?? {}
     const provider = typeof source.provider === 'string' && source.provider !== '' ? source.provider : 'unknown'

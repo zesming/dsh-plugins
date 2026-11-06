@@ -157,8 +157,16 @@ export function apply(ctx) {
   }
 
   function startAttempt(session, turn) {
+    // Not-completed and stale-surface ("historical") exits are deliberately not
+    // audited: they fire during normal history replay and reconciliation and
+    // would flood the log with rows that explain nothing actionable. The
+    // deterministic subagent gate is worth one row, since a user wondering why
+    // suggestions never appear in a delegated session otherwise has no signal.
     if (turn.reason?.kind !== 'completed' || !Number.isSafeInteger(turn.endSeq)) return
-    if (session?.header?.origin === 'subagent') return
+    if (session?.header?.origin === 'subagent') {
+      auditPreflight(session, turn, 'none', 'subagent')
+      return
+    }
     if (turn.sourceSelection === undefined) {
       const fallback = resolveRoute(session, turn)
       if (fallback !== undefined && tracker.setSourceSelection(session.id, fallback)) turn = tracker.get(session.id)

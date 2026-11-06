@@ -2,7 +2,7 @@
 
 import React from 'react'
 
-import { candidateMatches, canShowSuggestion, identityKey, insertCandidate, routeValue,
+import { askStillCurrent, candidateMatches, canShowSuggestion, decideAsk, identityKey, insertCandidate, routeValue,
   editableComposerFor, sameRoute, sendCandidate, shortcutAction, submissionStarted, turnIdentity } from './behavior.mjs'
 import { HintIcon } from './icons.js'
 
@@ -152,8 +152,19 @@ export function SuggestionRow({ sessionId, useSession, useInput, useChat, usePro
     setCandidate(null)
   }, [busySubmission, currentKey, sessionId, runtime])
 
-  const hasCurrentCandidate = candidateCurrent && !consumed
-  const canAsk = eligible && !hasCurrentCandidate
+  const askDecision = decideAsk({
+    settings,
+    session,
+    input,
+    sessionId,
+    identity,
+    route: modelRoute,
+    composing: composingNow,
+    consumed,
+    candidate,
+    predictionOffEpoch,
+  })
+  const canAsk = askDecision.ask
   React.useEffect(() => {
     if (!canAsk || identity === null || modelRoute === null) return undefined
     const controller = new AbortController()
@@ -163,10 +174,13 @@ export function SuggestionRow({ sessionId, useSession, useInput, useChat, usePro
     const requestPredictionOffEpoch = predictionOffEpoch
     const timer = window.setTimeout(() => {
       const beforeRequest = latest.current
-      if (beforeRequest === null || identityKey(beforeRequest.identity) !== requestKey
-        || beforeRequest.predictionOffEpoch !== requestPredictionOffEpoch
-        || !sameRoute(beforeRequest.modelRoute, requestRoute)
-        || beforeRequest.runtime.hidden.isHidden(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq)) return
+      if (!askStillCurrent({
+        latest: beforeRequest,
+        requestKey,
+        route: requestRoute,
+        predictionOffEpoch: requestPredictionOffEpoch,
+        hidden: beforeRequest?.runtime.hidden.isHidden(requestIdentity.sessionId, requestIdentity.turn, requestIdentity.endSeq),
+      })) return
       void runtime.requestSuggestion(
         requestIdentity.sessionId,
         requestIdentity.turn,

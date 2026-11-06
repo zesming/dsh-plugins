@@ -1492,8 +1492,10 @@ function apply(ctx) {
   function startAttempt(session, turn) {
     if (turn.reason?.kind !== "completed" || !Number.isSafeInteger(turn.endSeq))
       return;
-    if (session?.header?.origin === "subagent")
+    if (session?.header?.origin === "subagent") {
+      auditPreflight(session, turn, "none", "subagent");
       return;
+    }
     if (turn.sourceSelection === undefined) {
       const fallback = resolveRoute(session, turn);
       if (fallback !== undefined && tracker.setSourceSelection(session.id, fallback))
