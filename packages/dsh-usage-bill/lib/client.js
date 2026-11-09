@@ -1280,7 +1280,7 @@ function DayHeatmap({ series, today, t, onHover }) {
     if (key > todayKey)
       return null;
     const entry = byDay.get(key);
-    const titleText = entry === undefined || entry.models.length === 0 ? key : `${key}  ${h26(entry.total)} ${t("unitTokens")}` + (entry.models.length > 1 ? ` · ${entry.models.map((model) => `${model.name} ${h26(model.total)}`).join(", ")}` : "");
+    const ariaLabel = entry === undefined || entry.models.length === 0 ? key : `${key}  ${h26(entry.total)} ${t("unitTokens")}` + ` · ${entry.models.map((model) => `${model.name} ${h26(model.total)}`).join(", ")}`;
     return h2("rect", {
       key,
       x: weekIndex * (CELL + GAP),
@@ -1291,16 +1291,17 @@ function DayHeatmap({ series, today, t, onHover }) {
       fill: fillOf(level(entry?.total ?? 0)),
       stroke: key === todayKey ? "var(--dsw-alias-state-business-primary)" : "none",
       strokeWidth: key === todayKey ? 1.6 : 0,
+      "aria-label": ariaLabel,
       onMouseEnter: (event) => {
         onHover({
           x: event.clientX,
           y: event.clientY,
           label: key,
           value: entry?.total ?? 0,
-          detail: entry === undefined || entry.models.length <= 1 ? undefined : entry.models.slice(0, 3).map((model) => `${model.name} ${h26(model.total)}`)
+          detail: entry === undefined || entry.models.length === 0 ? undefined : entry.models.slice(0, 3).map((model) => `${model.name} ${h26(model.total)}`)
         });
       }
-    }, h2("title", null, titleText));
+    });
   }))), h2("div", { className: "dsu-months" }, labels.map((label) => h2("span", {
     key: label.column,
     style: { left: `${String(label.column / DAY_COLUMNS * 100)}%` }
@@ -1330,6 +1331,7 @@ function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) 
     }
   }, columns.map((column, index) => h2("g", {
     key: column.key,
+    "aria-label": `${column.label} · ${h26(column.total)} ${t("unitTokens")}` + ` · ${t("blocksCount", { count: String(column.blocks) })}`,
     onMouseEnter: (event) => {
       onHover({
         x: event.clientX,
@@ -1338,7 +1340,7 @@ function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHover }) 
         value: column.total
       });
     }
-  }, h2("title", null, `${column.label} · ${h26(column.total)} ${t("unitTokens")}` + ` · ${t("blocksCount", { count: String(column.blocks) })}`), Array.from({ length: column.blocks }, (_, level) => h2("rect", {
+  }, Array.from({ length: column.blocks }, (_, level) => h2("rect", {
     key: level,
     x: index * (WEEK_CELL + WEEK_GAP),
     y: height - (level + 1) * step + BLOCK_GAP,
