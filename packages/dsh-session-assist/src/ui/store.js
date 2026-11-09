@@ -141,6 +141,9 @@ export function createSettingsStore({ language }) {
         for (const key of keys) reverted[key] = previous[key]
         set({
           ...reverted,
+          // Restore the optimistic epoch too: a rejected turn-off never
+          // happened, so it must not permanently suppress suggestions.
+          predictionOffEpoch: previous.predictionOffEpoch,
           error: previous.error,
           failed: keys[0] ?? null,
           pending: pendingFor(keys, false),
@@ -165,7 +168,7 @@ export function createSettingsStore({ language }) {
  * or replayed Turns while keeping a consumed candidate from returning.
  * @returns hide/check/clear operations.
  */
-export function createHiddenTurns() {
+export function createHiddenTurns({ maxSessions = 100 } = {}) {
   const hidden = new Map()
   const keyOf = (turn, endSeq) => `${turn}:${endSeq ?? ''}`
   return {
@@ -173,6 +176,10 @@ export function createHiddenTurns() {
     hide(sessionId, turn, endSeq) {
       let turns = hidden.get(sessionId)
       if (turns === undefined) {
+        // Bound the outer map too: a long-lived renderer that visits many
+        // Sessions without an explicit clear would otherwise keep one Set per
+        // Session. Map order drops the least recently touched Session first.
+        while (hidden.size >= maxSessions) hidden.delete(hidden.keys().next().value)
         turns = new Set()
         hidden.set(sessionId, turns)
       }

@@ -31,8 +31,25 @@ test('the row re-checks sooner while no account is known', () => {
 test('the interval follows the last answer, not a fixed timer', () => {
   // A fixed interval cannot do both jobs: fast enough to catch a login, and
   // cheap enough not to hammer Platform for an answer that barely changes.
-  assert.match(source, /signedIn\.current = payload\?\.signedIn === true/)
+  assert.match(source, /if \(proved\) \{\s*signedIn\.current = true/)
   assert.match(source, /signedIn\.current \? POLL_MS : SIGNED_OUT_POLL_MS/)
+})
+
+test('a proven account stays mounted for a transient failure but signs out cleanly', () => {
+  // Explicit no-credential / absent account service is a real sign-out: forget
+  // prior proof and URL and show the raw payload (row hides).
+  assert.match(source, /const signedOut = payload\?\.signedIn === false\s*\n?\s*&& \(payload\.error === null \|\| payload\.error === 'account-unavailable'\)/)
+  assert.match(source, /if \(signedOut\) \{[\s\S]*?signedIn\.current = false[\s\S]*?topUpUrl\.current = null/)
+  // Only a transient (network/http/malformed) failure after a prior proof keeps
+  // the row mounted on the unavailable sub-state.
+  assert.match(source, /else if \(signedIn\.current\) \{[\s\S]*?signedIn: true,[\s\S]*?available: false,[\s\S]*?error: typeof payload\?\.error === 'string' \? payload\.error : 'network'/)
+})
+
+test('top up opens the host-provided official URL and the item hides without one', () => {
+  assert.match(source, /payload\.topUpUrl/)
+  assert.match(source, /window\.open\(topUpHref, '_blank', 'noopener'\)/)
+  assert.match(source, /topUpHref === null \? \[\] : \[/)
+  assert.ok(!source.includes('__DSH_USAGE_TOP_UP_URL__'), 'the dead global switch is gone')
 })
 
 test('a window focus re-reads the balance', () => {

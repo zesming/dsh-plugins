@@ -17,8 +17,10 @@
  */
 export const EXPIRY_WINDOW_DAYS = 365
 
-/** Decimal string grammar Platform's own Web client accepts. */
-const DECIMAL = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i
+/** Decimal string grammar Platform's own Web client accepts. Fixed-point
+ * only: an exponent like 1e-7 passes the grammar but is not handled by the
+ * exact string math in addDecimal, so it must be rejected here. */
+const DECIMAL = /^-?(?:\d+(?:\.\d*)?|\.\d+)$/
 
 /**
  * Read one wallet balance without losing the exact decimal string.
@@ -143,14 +145,14 @@ export function expiringBonuses(bonuses, now) {
  * @returns the JSON the Client renders.
  */
 export function balanceView(input) {
-  const { signedIn, balance, bonuses, now, error } = input
+  const { signedIn, balance, bonuses, now, error, topUpUrl = null } = input
   if (signedIn !== true) return { signedIn: false, available: false, error: null }
   if (balance?.status !== 'ready') {
-    return { signedIn: true, available: false, error: error ?? 'balance-failed', readAt: now }
+    return { signedIn: true, available: false, topUpUrl, error: error ?? 'balance-failed', readAt: now }
   }
   const primary = primaryWallet(balance.value)
   if (primary === undefined) {
-    return { signedIn: true, available: false, error: 'balance-empty', readAt: now }
+    return { signedIn: true, available: false, topUpUrl, error: 'balance-empty', readAt: now }
   }
   const currency = primary.currency
   const balanceText = decimalOf(primary.balance)?.text
@@ -158,6 +160,7 @@ export function balanceView(input) {
   return {
     signedIn: true,
     available: true,
+    topUpUrl,
     currency,
     balance: balanceText,
     bonus: bonusText ?? null,

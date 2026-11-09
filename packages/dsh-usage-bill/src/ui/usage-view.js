@@ -12,6 +12,7 @@ import { withoutSubagents } from '../usage.js'
 import { decimalOfMicro, restrictSeries, sumCost, sumSeries } from './aggregate.js'
 import { MAX_BLOCKS, blockColumns, runningTotal } from './blocks.js'
 import { estimateCost, holidayCoverageCovers, pricingFamilyOf } from '../cost.js'
+import { costCardState, periodKeys } from './usage-period.js'
 import { COVERED_YEARS } from '../holidays.js'
 import {
   CELL, DAY_COLUMNS, GAP, GRID_ASPECT, dayGrid, monthLabels, quantileLevels, sumDays, weekGrid,
@@ -138,11 +139,11 @@ function Tokens({ value }) {
 /**
  * Install the plugin stylesheet for the plugin's whole lifetime.
  *
- * It cannot ride on the component tree: the settings nav row that carries the
- * plugin's mark renders whether or not the usage section is the selected one,
- * so a stylesheet mounted only with the section would leave that row with two
- * glyphs until the section is opened once. The element is owned here and
- * removed by the returned disposer, so unload leaves no trace.
+ * It cannot ride on the component tree: shell-owned seats (the sidebar row and
+ * the settings nav icon) render whether or not the usage section is selected,
+ * so a stylesheet mounted only with the section would leave them unstyled
+ * until the section is opened once. The element is owned here and removed by
+ * the returned disposer, so unload leaves no trace.
  *
  * @returns a disposer removing the style element.
  */
@@ -173,16 +174,8 @@ export function installStyles() {
  * @returns the cost block.
  */
 export function CostCard({ cost, pricing, currency, scope, holidaysCovered, t }) {
-  const loading = pricing.phase === 'loading'
-  // Three different gaps, worded apart because only two of them are worth
-  // acting on. "Nothing was spent" and "spent, but none of it has a published
-  // price" both have to avoid ¥0.00: one number cannot mean both "you owe
-  // nothing" and "I cannot tell you what you owe".
-  const gap = pricing.phase === 'failed' || cost === null
-    ? t('costUnavailable')
-    : cost.calls === 0 ? t('costNoData') : t('costUnpricedAll')
-  const resolved = !loading && pricing.phase !== 'failed' && cost !== null
-    && cost.calls > 0 && cost.priced > 0
+  const { loading, resolved, gap: gapKey } = costCardState({ pricingPhase: pricing.phase, cost })
+  const gap = t(gapKey)
   const money = micro => formatMoney(decimalOfMicro(micro), currency)
   const origin = pricing.payload?.origin === 'bundled'
     ? t('costBundled', { date: pricing.payload?.readAt ?? '—' })
@@ -302,22 +295,9 @@ export function UsageView({ t, container, language, initialRefreshToken, primiti
    * number alone. Daily is today, weekly is this Monday to Sunday, and
    * cumulative is every day on record.
    */
-  const period = React.useMemo(() => {
-    if (view === 'total') {
-      const days = new Set()
-      for (const entry of series) for (const key of Object.keys(entry.days ?? {})) days.add(key)
-      return days
-    }
-    if (view === 'week') {
-      // The whole week, including the days after today, so the figure answers
-      // "this week" as a calendar week rather than "the last seven days".
-      const monday = shiftDays(today, -((today.getDay() + 6) % 7))
-      const days = new Set()
-      for (let offset = 0; offset < 7; offset += 1) days.add(keyOf(shiftDays(monday, offset)))
-      return days
-    }
-    return new Set([keyOf(today)])
-  }, [view, series, today])
+  const period = React.useMemo(
+    () => periodKeys(view, series, today),
+    [view, series, today])
 
   const inPeriod = React.useMemo(() => restrictSeries(series, period), [series, period])
   const periodTotals = React.useMemo(() => sumSeries(inPeriod), [inPeriod])
@@ -542,7 +522,7 @@ export function DayHeatmap({ series, today, t, onHover }) {
       // The weekday gutter sizes itself to the same rows, so it stays aligned
       // with the grid at any scale.
       h('div', { className: 'dsu-dow' },
-        ['mon', 'wed', 'fri', 'sun'].map((_, index) => h('span', { key: index }, WEEKDAY_GLYPHS[index])),
+        ['dowMon', 'dowWed', 'dowFri', 'dowSun'].map(key => h('span', { key }, t(key))),
       ),
       h('div', { className: 'dsu-hm-canvas' },
         h('svg', {
@@ -558,6 +538,15 @@ export function DayHeatmap({ series, today, t, onHover }) {
             const key = keyOf(date)
             if (key > todayKey) return null
             const entry = byDay.get(key)
+            // Give the cell an accessible name (and a native hover label) with
+            // the date, total, and the per-model split the color alone cannot
+            // communicate.
+            const titleText = entry === undefined || entry.models.length === 0
+              ? key
+              : `${key}  ${h26(entry.total)} ${t('unitTokens')}`
+                + (entry.models.length > 1
+                  ? ` · ${entry.models.map(model => `${model.name} ${h26(model.total)}`).join(', ')}`
+                  : '')
             return h('rect', {
               key,
               x: weekIndex * (CELL + GAP),
@@ -581,7 +570,7 @@ export function DayHeatmap({ series, today, t, onHover }) {
                     : entry.models.slice(0, 3).map(model => `${model.name} ${h26(model.total)}`),
                 })
               },
-            })
+            }, h('title', null, titleText))
           })),
         ),
         // The month axis sits below the grid, where the block charts put their
@@ -606,9 +595,6 @@ export function DayHeatmap({ series, today, t, onHover }) {
  * exactly what the block form was meant to improve on.
  */
 const BLOCK_GAP = 7
-
-/** Monday-first weekday glyphs for the heatmap's row labels. */
-const WEEKDAY_GLYPHS = ['一', '三', '五', '日']
 
 /**
  * The block-column chart shared by the weekly and cumulative views.
@@ -674,6 +660,10 @@ export function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHo
             })
           },
         },
+          // One accessible name per stacked column: week, total, block count.
+          h('title', null,
+            `${column.label} · ${h26(column.total)} ${t('unitTokens')}`
+            + ` · ${t('blocksCount', { count: String(column.blocks) })}`),
           // One rect per block, drawn bottom-up, so the stack reads as a bar
           // built from countable units rather than as a single height.
           Array.from({ length: column.blocks }, (_, level) => h('rect', {
@@ -848,7 +838,7 @@ export function ModelTable({ series, totals, t, pricing }) {
     .sort((a, b) => b.sum.total - a.sum.total)
 
   return h('div', { className: 'dsu-table-wrap' },
-    h('div', { className: 'dsu-table-title' }, h('span', null, t('byModel')), h('span', null, 'tokens')),
+    h('div', { className: 'dsu-table-title' }, h('span', null, t('byModel')), h('span', null, t('unitTokens'))),
     h('table', { className: 'dsu-table' },
       h('thead', null, h('tr', null,
         h('th', null, t('model')),
@@ -939,7 +929,7 @@ export function Tooltip({ hover, language, t }) {
   },
     hover.label,
     h('br'),
-    `${compact.value}${compact.unit}\u00a0tokens`,
+    `${compact.value}${compact.unit}\u00a0${t('unitTokens')}`,
     // A summed cell still has to answer "which model" — the split travels with
     // the readout rather than forcing a trip to the table below.
     hover.detail === undefined

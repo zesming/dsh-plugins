@@ -128,6 +128,71 @@ export function canShowSuggestion({ prediction, sessionId, input, session, ident
 }
 
 /**
+ * Decide whether the suggestion row should (re)start its delayed request.
+ *
+ * This is the React-free core of the row's ask effect: the same chain that used
+ * to live across several inline booleans and a setTimeout guard. Returning a
+ * reason keeps the many "no row" causes distinguishable in table tests.
+ * @param options.settings - settings snapshot (`loaded`, `prediction`).
+ * @param options.session - Session snapshot.
+ * @param options.input - composer input snapshot.
+ * @param options.sessionId - owning Conversation Session id.
+ * @param options.identity - closed-turn identity, or null when not completed.
+ * @param options.route - model route object, or null before a model is ready.
+ * @param options.composing - whether an IME composition is active.
+ * @param options.consumed - whether this exact identity was dismissed/used.
+ * @param options.candidate - the currently held candidate, if any.
+ * @param options.predictionOffEpoch - current prediction-off epoch.
+ * @returns `{ ask, reason }`; reason is 'ask' when a request should start.
+ */
+export function decideAsk({
+  settings,
+  session,
+  input,
+  sessionId,
+  identity,
+  route,
+  composing = false,
+  consumed = false,
+  candidate = null,
+  predictionOffEpoch,
+}) {
+  if (settings?.loaded !== true) return { ask: false, reason: 'settings-unloaded' }
+  if (settings.prediction !== true) return { ask: false, reason: 'disabled' }
+  if (identity === null || identity === undefined) return { ask: false, reason: 'not-completed' }
+  if (routeValue(route) === null) return { ask: false, reason: 'no-route' }
+  if (consumed) return { ask: false, reason: 'consumed' }
+  if (candidateMatches(candidate, identity, route, predictionOffEpoch)) {
+    return { ask: false, reason: 'has-candidate' }
+  }
+  if (!canShowSuggestion({ prediction: settings.prediction, sessionId, input, session, identity, route, composing })) {
+    return { ask: false, reason: submissionStarted(session, input) ? 'busy' : 'ineligible' }
+  }
+  return { ask: true, reason: 'ask' }
+}
+
+/**
+ * Whether a delayed ask still describes live state when its timer fires.
+ *
+ * The 400 ms window lets the Host commit and index turn/end; if the turn, route,
+ * or off-epoch moved in that window (or the candidate was consumed), the
+ * request must not fire.
+ * @param options.latest - the row's latest captured state, or null.
+ * @param options.requestKey - identity key captured when the timer started.
+ * @param options.route - model route captured when the timer started.
+ * @param options.predictionOffEpoch - epoch captured when the timer started.
+ * @param options.hidden - whether the identity was consumed in the window.
+ * @returns true only when the request is still current and may fire.
+ */
+export function askStillCurrent({ latest, requestKey, route, predictionOffEpoch, hidden = false }) {
+  if (latest === null || latest === undefined) return false
+  return identityKey(latest.identity) === requestKey
+    && latest.predictionOffEpoch === predictionOffEpoch
+    && sameRoute(latest.modelRoute, route)
+    && hidden !== true
+}
+
+/**
  * Find the visible, editable composer input for the exact owning Session seat.
  * This is shared by click acceptance and fixed-input keyboard shortcuts.
  * @param row - the mounted suggestion row, if any.

@@ -157,3 +157,37 @@ test('recap reads stay document-relative under a nested mount and bind the final
     globalThis.fetch = originalFetch
   }
 })
+
+test('a rejected turn-off rolls predictionOffEpoch back (F-18)', async () => {
+  const originalDocument = globalThis.document
+  const originalFetch = globalThis.fetch
+  globalThis.document = { baseURI: 'http://host/' }
+  globalThis.fetch = async (_url, init) => {
+    if (init?.method !== 'POST') return response({ recap: true, prediction: true })
+    return new Response('boom', { status: 500 })
+  }
+  try {
+    const settings = createSettingsStore({ language: () => 'en' })
+    await settings.start()
+    const initialEpoch = settings.getSnapshot().predictionOffEpoch
+    const ok = await settings.update({ prediction: false })
+    assert.equal(ok, false)
+    assert.equal(settings.getSnapshot().prediction, true, 'value reverted')
+    assert.equal(settings.getSnapshot().predictionOffEpoch, initialEpoch, 'epoch reverted')
+  } finally {
+    if (originalDocument === undefined) delete globalThis.document
+    else globalThis.document = originalDocument
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('consumed markers are bounded across sessions (F-14)', () => {
+  const hidden = createHiddenTurns({ maxSessions: 2 })
+  hidden.hide('a', 1, 1)
+  hidden.hide('b', 1, 1)
+  assert.equal(hidden.isHidden('a', 1, 1), true)
+  hidden.hide('c', 1, 1)
+  assert.equal(hidden.isHidden('a', 1, 1), false, 'oldest session markers evicted')
+  assert.equal(hidden.isHidden('b', 1, 1), true)
+  assert.equal(hidden.isHidden('c', 1, 1), true)
+})

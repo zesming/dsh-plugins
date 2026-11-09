@@ -22,6 +22,7 @@ export const zh = {
   'settings.note.title': '用量说明',
   'settings.note.body': '显示回顾和下一条建议共用每轮最多一次辅助请求，会增加微量用量。',
   'settings.error': '设置未保存，请重试。',
+  'settings.loadError': '设置读取失败，当前可能显示的是默认开关。稍后会自动重试。',
 }
 
 /** English copy. */
@@ -43,6 +44,7 @@ export const en = {
   'settings.note.title': 'Usage',
   'settings.note.body': 'Recaps and next suggestions share at most one auxiliary request per turn, with a small amount of added usage.',
   'settings.error': 'Settings were not saved. Try again.',
+  'settings.loadError': 'Settings could not be loaded, so the switches below may show defaults. They refresh automatically.',
 }
 
 /**

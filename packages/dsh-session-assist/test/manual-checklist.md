@@ -6,7 +6,7 @@ installed and restarted. The synthetic semantic cases are in
 examples. A mocked request or structural assertion does not establish summary
 or suggestion quality.
 
-1. Open Conversation assist settings. Confirm **Show recaps** is on and
+1. Open Session assist settings. Confirm **Show recaps** is on and
    **Next suggestion** is off. The intro says settings take effect immediately
    and persist after restart. The usage note says both share at most one
    auxiliary request per turn and disclose the small added usage.
@@ -39,7 +39,7 @@ or suggestion quality.
    chat** control, a visible **Send** button, and a named close control. The
    controls stay reachable at narrow widths. A completed task with no explicit
    follow-up has no row or placeholder.
-7. Click **Fill into chat**, edit the inserted prompt, then send it using the
+7. Click **Insert into chat**, edit the inserted prompt, then send it using the
    host's normal send control. Confirm insertion does not send, the caret is at
    the end, typing appends, and one undo removes the insertion. On a fresh
    candidate, click its **Send** button and confirm it uses the standard DSH

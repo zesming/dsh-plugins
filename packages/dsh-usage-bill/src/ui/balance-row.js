@@ -57,14 +57,13 @@ function menuOf(primitives) {
  * The balance row and its menu.
  *
  * @param props.wide - whether the sidebar shows labels.
- * @param props.openUsage - opens the usage panel.
- * @param props.openTopUp - opens the Platform billing page.
+ * @param props.openUsage - opens the plugin's usage panel.
  * @param props.t - the plugin's locale lookup.
  * @param props.language - active UI language, so relative text matches `t`.
  * @param props.primitives - the host's primitives module, for `Menu`.
  * @returns the row, or null when there is nothing to show.
  */
-export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives }) {
+export function BalanceRow({ wide, openUsage, t, language, primitives }) {
   const [state, setState] = React.useState({ status: 'loading' })
   const [open, setOpen] = React.useState(false)
   const anchor = React.useRef(null)
@@ -73,6 +72,8 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives
   const mounted = React.useRef(true)
   /** Whether the last answer proved a stored credential, i.e. the row has data. */
   const signedIn = React.useRef(false)
+  /** Last known official top-up URL, kept across a transient failed refresh. */
+  const topUpUrl = React.useRef(null)
 
   // One in-flight read at a time: an opening menu that fires while a poll is
   // still running must not leave an un-aborted request behind.
@@ -83,15 +84,53 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives
     try {
       const payload = await fetchBalance({ force, signal: controller.signal })
       if (mounted.current && inflight.current === controller) {
-        setState({ status: 'ready', payload })
-        // A successful signed-in read is the only proof the row can act on, so
-        // the interval is chosen from the last answer rather than from a
-        // separate login subscription the plugin has no access to.
-        signedIn.current = payload?.signedIn === true
+        const proved = payload?.signedIn === true
+        // An explicit "no credential" (error null) or a missing account service
+        // is a real signed-out state, not a transport blip. Forget any prior
+        // proof/URL and hide; otherwise a real sign-out would leave the row
+        // pinned on "temporarily unavailable" forever.
+        const signedOut = payload?.signedIn === false
+          && (payload.error === null || payload.error === 'account-unavailable')
+        if (signedOut) {
+          signedIn.current = false
+          topUpUrl.current = null
+          setState({ status: 'ready', payload })
+        } else if (proved) {
+          signedIn.current = true
+          if (typeof payload.topUpUrl === 'string' && payload.topUpUrl !== '') {
+            topUpUrl.current = payload.topUpUrl
+          }
+          setState({ status: 'ready', payload })
+        } else if (signedIn.current) {
+          // A credential this row already proved exists, but this refresh failed
+          // transiently (network/HTTP/malformed): keep the row mounted on the
+          // unavailable sub-state, reusing the last known top-up URL.
+          setState({
+            status: 'ready',
+            payload: {
+              signedIn: true,
+              available: false,
+              error: typeof payload?.error === 'string' ? payload.error : 'network',
+              ...(topUpUrl.current === null ? {} : { topUpUrl: topUpUrl.current }),
+            },
+          })
+        } else {
+          setState({ status: 'ready', payload })
+        }
       }
     } catch (error) {
       if (error?.name !== 'AbortError' && mounted.current && inflight.current === controller) {
-        setState({ status: 'ready', payload: { signedIn: false, available: false, error: 'network' } })
+        setState({
+          status: 'ready',
+          payload: signedIn.current
+            ? {
+                signedIn: true,
+                available: false,
+                error: 'network',
+                ...(topUpUrl.current === null ? {} : { topUpUrl: topUpUrl.current }),
+              }
+            : { signedIn: false, available: false, error: 'network' },
+        })
       }
     } finally {
       if (inflight.current === controller) inflight.current = undefined
@@ -168,6 +207,10 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives
       : t('balanceUnavailable')
 
   const Menu = menuOf(primitives)
+  const topUpHref = typeof payload.topUpUrl === 'string' && payload.topUpUrl !== '' ? payload.topUpUrl : null
+  const openTopUp = () => {
+    if (topUpHref !== null) window.open(topUpHref, '_blank', 'noopener')
+  }
   const label = h('button', {
     ref: trigger,
     type: 'button',
@@ -206,11 +249,13 @@ export function BalanceRow({ wide, openUsage, openTopUp, t, language, primitives
           label: t('usage'),
           icon: h(Glyph, { description: USAGE }),
         },
-        {
+        // Only offer Top up when the Host hands us a real official URL; a dead
+        // menu item is worse than no item.
+        ...(topUpHref === null ? [] : [{
           id: 'topup',
           label: t('topUp'),
           icon: h(Glyph, { description: PLUS }),
-        },
+        }]),
       ],
       onClose: () => { setOpen(false) },
       onSelect: id => {

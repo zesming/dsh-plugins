@@ -12,11 +12,24 @@ export function json(value, status = 200) {
   })
 }
 
+/** Largest accepted settings/RPC body, regardless of Content-Length. */
+const MAX_BODY_BYTES = 4096
+
 async function readJson(request) {
-  const length = Number(request.headers.get('content-length') ?? '')
-  if (Number.isFinite(length) && length > 4096) return { ok: false, tooLarge: true }
+  // A lying or absent Content-Length (chunked) cannot be the only guard:
+  // reject a declared oversize body up front, then cap the bytes actually read
+  // off the socket so an undeclared large body is refused too.
+  const declared = Number(request.headers.get('content-length') ?? '')
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return { ok: false, tooLarge: true }
+  let text
   try {
-    return { ok: true, value: await request.json() }
+    text = await request.text()
+  } catch {
+    return { ok: false }
+  }
+  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return { ok: false, tooLarge: true }
+  try {
+    return { ok: true, value: JSON.parse(text) }
   } catch {
     return { ok: false }
   }

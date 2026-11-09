@@ -90,6 +90,26 @@ test('the session cap marks the result truncated', async () => {
   assert.equal(result.scannedSessions, SESSION_LIMIT)
 })
 
+test('the session cap keeps the newest sessions and drops the oldest (F-26)', async () => {
+  // Distinct createdAt (and a distinct model per age group) make the truncation
+  // direction observable: the two oldest sessions must be the ones cut.
+  const newest = Array.from({ length: SESSION_LIMIT }, (_, index) => ({
+    header: { id: `new-${String(index)}`, createdAt: dayOffset(-(index + 2)), origin: 'root', parentSession: null },
+    events: [message(1, 'deepseek-account', 'kept-model')],
+  }))
+  const oldest = [0, 1].map(index => ({
+    header: { id: `old-${String(index)}`, createdAt: dayOffset(-(SESSION_LIMIT + 10 + index)), origin: 'root', parentSession: null },
+    events: [message(777, 'deepseek-account', 'dropped-model')],
+  }))
+  const sessions = [...newest, ...oldest]
+  const result = await collectUsage({ sessionQuery: query(sessions), now: Date.now() }, { windowDays: 3650 })
+  const ids = result.models.map(row => row.id)
+  assert.ok(ids.some(id => id.endsWith('::kept-model')), 'newest sessions survive')
+  assert.ok(!ids.some(id => id.endsWith('::dropped-model')), 'oldest sessions are dropped, not arbitrary ones')
+  const kept = result.models.find(row => row.id.endsWith('::kept-model'))
+  assert.equal(kept.totals.total, SESSION_LIMIT)
+})
+
 test('a read failure is reported without failing the scan', async () => {
   const service = {
     listSessions: async () => [

@@ -81,10 +81,6 @@ export function apply(ctx) {
     locale: NS,
     inject: () => ({
       openUsage,
-      openTopUp: () => {
-        const target = globalThis.__DSH_USAGE_TOP_UP_URL__
-        if (typeof target === 'string' && target !== '') window.open(target, '_blank', 'noopener')
-      },
       t: t(),
       language: languageOf(ctx),
       primitives,
@@ -142,6 +138,26 @@ function UsageNavIcon({ size = 16 }) {
 }
 
 /**
+ * The refresh affordance shared by the main panel and the Settings section,
+ * so the two entry points expose the same force-refresh gesture.
+ *
+ * @param props.t - locale lookup.
+ * @param props.onRefresh - called when the button is activated.
+ * @returns the refresh icon button.
+ */
+function RefreshButton({ t, onRefresh }) {
+  return h('button', {
+    type: 'button',
+    className: 'dsu-icon-btn',
+    'aria-label': t('refresh'),
+    title: t('refresh'),
+    onClick: onRefresh,
+  }, h('svg', { viewBox: '0 0 24 24', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, 'aria-hidden': true },
+    h('path', { d: 'M20 12a8 8 0 1 1-2.3-5.6' }),
+    h('path', { d: 'M20 4v4h-4' })))
+}
+
+/**
  * The main-area panel wrapper: heading, refresh, and the shared usage view.
  *
  * @param props.t - locale lookup.
@@ -154,16 +170,7 @@ export function UsagePanel({ t, language, primitives }) {
     h('div', { className: 'dsu-panel-head' },
       h('h1', { className: 'dsu-panel-title' }, t('title')),
       h('div', { className: 'dsu-panel-actions' },
-        h('button', {
-          type: 'button',
-          className: 'dsu-icon-btn',
-          'aria-label': t('refresh'),
-          title: t('refresh'),
-          onClick: () => { setRefreshToken(value => value + 1) },
-        }, h('svg', { viewBox: '0 0 24 24', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, 'aria-hidden': true },
-          h('path', { d: 'M20 12a8 8 0 1 1-2.3-5.6' }),
-          h('path', { d: 'M20 4v4h-4' }))),
-      ),
+        h(RefreshButton, { t, onRefresh: () => { setRefreshToken(value => value + 1) } })),
     ),
     h(UsageView, { t, language, container: 'panel', initialRefreshToken: refreshToken, primitives }),
   )
@@ -179,6 +186,8 @@ export function UsagePanel({ t, language, primitives }) {
 export function UsageSettingsSection({ t, language, primitives }) {
   const [refreshToken, setRefreshToken] = React.useState(0)
   return h('div', { className: 'dsu' },
+    h('div', { className: 'dsu-settings-actions' },
+      h(RefreshButton, { t, onRefresh: () => { setRefreshToken(value => value + 1) } })),
     h(UsageView, { t, language, container: 'settings', initialRefreshToken: refreshToken, primitives }),
   )
 }

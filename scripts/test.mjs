@@ -24,5 +24,11 @@ if (files.length === 0) {
   console.error('no test files found under packages/*/test')
   process.exit(1)
 }
-const result = spawnSync(process.execPath, ['--test', ...files], { stdio: 'inherit' })
+// Billing tiers are decided on the Beijing clock (UTC+8, no DST). Run the
+// suites with that timezone fixed so the peak/off-peak and calendar-day tests
+// are deterministic on a contributor machine or CI in any timezone.
+const result = spawnSync(process.execPath, ['--test', ...files], {
+  stdio: 'inherit',
+  env: { ...process.env, TZ: 'Asia/Shanghai' },
+})
 process.exit(result.status ?? 1)

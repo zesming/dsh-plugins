@@ -12,8 +12,10 @@ actually spent.
 **Balance row.** When a DeepSeek account credential is stored, a row appears directly above the
 account launcher. It shows the spendable balance and — when granted credit is about to expire — a
 second line naming the amount and how long is left. Opening the row's menu refreshes the figure and
-offers **Usage** and **Top up**. With no stored credential the row is not rendered at all, and
-neither is it when the balance cannot be read: a failed read cannot prove an account exists.
+offers **Usage** and **Top up**. The row is hidden only while no stored credential has ever been
+proved. If a refresh fails after an account was read successfully, the row stays and degrades to a
+"temporarily unavailable" sub-line (and keeps the last **Top up** target) rather than vanishing; a
+real sign-out — no credential, or the account service gone — hides it again.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/zesming/dsh-plugins/main/docs/images/balance-menu.png" alt="The balance row with its menu open" width="300">
@@ -166,9 +168,9 @@ row's menu, from the sidebar's panel list, and from **Settings → Usage**.
 - The row's **Usage** entry opens a **main-area panel**, not the Settings dialog. A third-party
   bundle cannot address a Settings section directly, and a year of heatmap lanes needs the wider
   column anyway. The same view is also registered as a Settings section for people who look there.
-- The Settings nav glyph is chosen by the shell per section id, with no icon option for third-party
-  sections. The section's label therefore carries this plugin's own mark, and a narrow rule hides
-  the shell's fallback gear in that row only.
+- The Settings nav glyph is contributed through the `settings.section.icon` slot, registered with
+  the same section id; the shell renders it in its own seat and falls back to a gear when none is
+  registered.
 - The plugin adds no agent tool and changes no model-visible prompt.
 
 ## Build and test

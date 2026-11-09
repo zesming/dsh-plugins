@@ -16,7 +16,10 @@ const ready = (value, bonusWallets = []) => ({ status: 'ready', value, bonusWall
 
 test('decimal strings are accepted only in the Platform grammar', () => {
   assert.deepEqual(decimalOf('128.42'), { text: '128.42', number: 128.42 })
-  assert.deepEqual(decimalOf('0E-16'), { text: '0E-16', number: 0 })
+  // Scientific notation is fixed-point-incompatible with addDecimal's string
+  // math, so it is rejected rather than silently summed wrong (F-17).
+  assert.equal(decimalOf('0E-16'), undefined)
+  assert.equal(decimalOf('1e-7'), undefined)
   assert.equal(decimalOf('1e'), undefined)
   assert.equal(decimalOf('NaN'), undefined)
   assert.equal(decimalOf('Infinity'), undefined)
@@ -82,6 +85,21 @@ test('a failed balance read is unavailable, never zero', () => {
   assert.equal(view.available, false)
   assert.equal(view.error, 'balance-failed')
   assert.equal('balance' in view, false)
+})
+
+test('the host top-up URL is carried on every signed-in view, including failures', () => {
+  const url = 'https://platform.deepseek.com/top_up'
+  const failed = balanceView({ signedIn: true, balance: { status: 'failed' }, now: NOW, topUpUrl: url })
+  assert.equal(failed.topUpUrl, url, 'a failed read still surfaces the top-up entry')
+  const readyView = balanceView({
+    signedIn: true,
+    now: NOW,
+    topUpUrl: url,
+    balance: ready([{ currency: 'CNY', balance: '5' }]),
+  })
+  assert.equal(readyView.topUpUrl, url)
+  const absent = balanceView({ signedIn: true, balance: { status: 'failed' }, now: NOW })
+  assert.equal(absent.topUpUrl, null)
 })
 
 test('a ready read reports balance, bonus, and their total', () => {
