@@ -538,15 +538,15 @@ export function DayHeatmap({ series, today, t, onHover }) {
             const key = keyOf(date)
             if (key > todayKey) return null
             const entry = byDay.get(key)
-            // Give the cell an accessible name (and a native hover label) with
-            // the date, total, and the per-model split the color alone cannot
-            // communicate.
-            const titleText = entry === undefined || entry.models.length === 0
+            // Accessible name only (aria-label, not an SVG <title>): a <title>
+            // also raises the browser's own gray hover tooltip, which
+            // duplicates the custom dark tooltip after a longer hover. Always
+            // name the model(s), since even a single-model cell should answer
+            // "which model" without a trip to the table below.
+            const ariaLabel = entry === undefined || entry.models.length === 0
               ? key
               : `${key}  ${h26(entry.total)} ${t('unitTokens')}`
-                + (entry.models.length > 1
-                  ? ` · ${entry.models.map(model => `${model.name} ${h26(model.total)}`).join(', ')}`
-                  : '')
+                + ` · ${entry.models.map(model => `${model.name} ${h26(model.total)}`).join(', ')}`
             return h('rect', {
               key,
               x: weekIndex * (CELL + GAP),
@@ -557,20 +557,21 @@ export function DayHeatmap({ series, today, t, onHover }) {
               fill: fillOf(level(entry?.total ?? 0)),
               stroke: key === todayKey ? 'var(--dsw-alias-state-business-primary)' : 'none',
               strokeWidth: key === todayKey ? 1.6 : 0,
+              'aria-label': ariaLabel,
               onMouseEnter: event => {
                 onHover({
                   x: event.clientX,
                   y: event.clientY,
                   label: key,
                   value: entry?.total ?? 0,
-                  // The grid is summed, so the split has to be stated here: a
-                  // reader who wants "which model" gets it without leaving.
-                  detail: entry === undefined || entry.models.length <= 1
+                  // Name the model whether the cell holds one or several; the
+                  // grid is summed, so the split travels with the readout.
+                  detail: entry === undefined || entry.models.length === 0
                     ? undefined
                     : entry.models.slice(0, 3).map(model => `${model.name} ${h26(model.total)}`),
                 })
               },
-            }, h('title', null, titleText))
+            })
           })),
         ),
         // The month axis sits below the grid, where the block charts put their
@@ -651,6 +652,10 @@ export function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHo
       },
         columns.map((column, index) => h('g', {
           key: column.key,
+          // Accessible name without the browser-native hover tooltip that an
+          // SVG <title> would raise and duplicate over the custom dark tooltip.
+          'aria-label': `${column.label} · ${h26(column.total)} ${t('unitTokens')}`
+            + ` · ${t('blocksCount', { count: String(column.blocks) })}`,
           onMouseEnter: event => {
             onHover({
               x: event.clientX,
@@ -660,10 +665,6 @@ export function BlockChart({ columns, unit, clipped, caption, ariaLabel, t, onHo
             })
           },
         },
-          // One accessible name per stacked column: week, total, block count.
-          h('title', null,
-            `${column.label} · ${h26(column.total)} ${t('unitTokens')}`
-            + ` · ${t('blocksCount', { count: String(column.blocks) })}`),
           // One rect per block, drawn bottom-up, so the stack reads as a bar
           // built from countable units rather than as a single height.
           Array.from({ length: column.blocks }, (_, level) => h('rect', {
