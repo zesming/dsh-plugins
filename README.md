@@ -107,6 +107,10 @@ Six rules matter more than the rest, each learned from a defect this repository 
 - **Never make the reader pay for a decoration.** A row that is usually empty, or a placeholder that
   appears before the real content, costs a glance on every turn.
 
+## Research proposals
+
+- [对话输入与回顾：项目草稿、提示词预测、轮次 recap](docs/proposals/conversation-assistance/README.md) — research and design for review; no feature implementation.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
